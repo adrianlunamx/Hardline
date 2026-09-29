@@ -4,10 +4,10 @@
 
 .DESCRIPTION
     Uso en una linea (PowerShell como administrador):
-        irm https://raw.githubusercontent.com/jhernandezl2c-hash/CLVX-GMNG/main/install.ps1 | iex
+        irm https://raw.githubusercontent.com/jhernandezl2c-hash/Hardline/main/install.ps1 | iex
 
     Con opciones:
-        & ([scriptblock]::Create((irm https://raw.githubusercontent.com/jhernandezl2c-hash/CLVX-GMNG/main/install.ps1))) -DryRun
+        & ([scriptblock]::Create((irm https://raw.githubusercontent.com/jhernandezl2c-hash/Hardline/main/install.ps1))) -DryRun
 
     Desde un clon local:
         .\install.ps1 [-DryRun] [-Unattended] [-SkipAudio] [-Headset corsair-hs80] ...
@@ -61,7 +61,7 @@ if ($PSVersionTable.PSVersion.Major -lt 5 -or ($PSVersionTable.PSVersion.Major -
 
 $ErrorActionPreference = 'Stop'
 $HLRepoOwner = 'jhernandezl2c-hash'
-$HLRepoName = 'CLVX-GMNG'
+$HLRepoName = 'Hardline'
 $HLRawInstaller = "https://raw.githubusercontent.com/$HLRepoOwner/$HLRepoName/$Branch/install.ps1"
 
 # Variables de entorno como alternativa a los parametros (utiles con irm | iex).

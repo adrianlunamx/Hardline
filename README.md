@@ -24,7 +24,7 @@ Lo que Hardline **no** hace, y por qué, está en [docs/TWEAKS_EXPLAINED.md](doc
 PowerShell como administrador:
 
 ```powershell
-irm https://raw.githubusercontent.com/jhernandezl2c-hash/CLVX-GMNG/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/jhernandezl2c-hash/Hardline/main/install.ps1 | iex
 ```
 
 Necesitas permisos de admin (si no los tienes, el script pide elevación). Crea un restore point antes de tocar nada. Se instala en `%LOCALAPPDATA%\Hardline`.
@@ -32,13 +32,13 @@ Necesitas permisos de admin (si no los tienes, el script pide elevación). Crea 
 Ver qué haría sin aplicar nada:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/jhernandezl2c-hash/CLVX-GMNG/main/install.ps1))) -DryRun
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/jhernandezl2c-hash/Hardline/main/install.ps1))) -DryRun
 ```
 
 Desde un clon:
 
 ```powershell
-git clone https://github.com/jhernandezl2c-hash/CLVX-GMNG.git hardline
+git clone https://github.com/jhernandezl2c-hash/Hardline.git
 cd hardline
 .\install.ps1
 ```
