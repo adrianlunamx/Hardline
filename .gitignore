@@ -1,0 +1,10 @@
+# Generado en runtime
+backups/*
+!backups/.gitkeep
+reports/*
+!reports/.gitkeep
+logs/*
+!logs/.gitkeep
+dist/
+headsets/*
+!headsets/LEEME.txt

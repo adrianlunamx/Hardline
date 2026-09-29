@@ -1,0 +1,154 @@
+{
+  "schema": 1,
+  "notes": [
+    "Filtros en formato Equalizer APO: LSC/HSC = shelf bajo/alto con Q, PK = peaking.",
+    "El preamp NO se fija aquí: setup.ps1 calcula la respuesta real de la cadena (biquads RBJ a 48 kHz) y pone preamp = -(pico máximo) - 1 dB para que no haya clipping digital.",
+    "Criterio de ajuste por modelo: el preset base asume un headset cerrado de respuesta más o menos neutra. Cada modelo corrige su firma conocida: cuánto bajo trae de serie (más recorte en LSC/180 Hz), si sus agudos ya son brillantes (menos boost en 3.6k/5k), y si el driver tiene un valle en 2-4 kHz (más boost y Q más estrecho).",
+    "Impedancia: por encima de ~50 ohm el volumen disponible desde una tarjeta integrada es menor; a esos modelos se les sube el makeup del compresor en vez de reducir el recorte."
+  ],
+  "base": {
+    "id": "generic",
+    "name": "Genérico (preset base)",
+    "match": [],
+    "driver_mm": null,
+    "impedance_ohm": null,
+    "design": "closed",
+    "rationale": "Preset base de Hardline.",
+    "filters": [
+      { "type": "LSC", "fc": 100,   "gain": -8, "q": 0.7, "why": "Explosiones y rumble de vehículos" },
+      { "type": "PK",  "fc": 180,   "gain": -6, "q": 1.2, "why": "Cuerpo de disparos propios" },
+      { "type": "PK",  "fc": 320,   "gain": -4, "q": 1.0, "why": "Boominess / mid-bass" },
+      { "type": "PK",  "fc": 2200,  "gain": 8,  "q": 1.8, "why": "Impacto del paso (tacón)" },
+      { "type": "PK",  "fc": 2800,  "gain": 9,  "q": 1.6, "why": "Pasos: zona de máxima sensibilidad del oído" },
+      { "type": "PK",  "fc": 3600,  "gain": 7,  "q": 1.4, "why": "Textura de superficie (grava, metal, madera)" },
+      { "type": "PK",  "fc": 5000,  "gain": 3,  "q": 1.0, "why": "Claves de localización (HRTF)" },
+      { "type": "HSC", "fc": 10000, "gain": -3, "q": 0.8, "why": "Siseo y agudos fatigantes" }
+    ]
+  },
+  "voicemeeter_defaults": {
+    "gate_threshold_db": -45,
+    "comp_ratio": 4.0,
+    "comp_threshold_db": -25,
+    "comp_attack_ms": 5,
+    "comp_release_ms": 80,
+    "comp_makeup_db": 6
+  },
+  "headsets": [
+    {
+      "id": "hyperx-cloud-ii",
+      "name": "HyperX Cloud II",
+      "match": ["Cloud II", "HyperX Cloud", "HyperX 7\\.1", "HyperX Virtual Surround"],
+      "driver_mm": 53,
+      "impedance_ohm": 60,
+      "design": "closed",
+      "rationale": "Driver de 53 mm con realce de graves amplio y agudos algo adelantados arriba de 4 kHz. Se recorta un poco más el bajo, se deja el boost de pasos casi igual y se baja 3.6k/5k para no sumar al brillo propio. 60 ohm: +2 dB de makeup.",
+      "filters": [
+        { "type": "LSC", "fc": 100,   "gain": -9, "q": 0.7 },
+        { "type": "PK",  "fc": 180,   "gain": -6, "q": 1.2 },
+        { "type": "PK",  "fc": 320,   "gain": -4, "q": 1.0 },
+        { "type": "PK",  "fc": 2200,  "gain": 8,  "q": 1.8 },
+        { "type": "PK",  "fc": 2800,  "gain": 9,  "q": 1.6 },
+        { "type": "PK",  "fc": 3600,  "gain": 6,  "q": 1.4 },
+        { "type": "PK",  "fc": 5000,  "gain": 2,  "q": 1.0 },
+        { "type": "HSC", "fc": 10000, "gain": -4, "q": 0.8 }
+      ],
+      "voicemeeter": { "comp_makeup_db": 8 }
+    },
+    {
+      "id": "logitech-g-pro-x",
+      "name": "Logitech G Pro X",
+      "match": ["PRO X", "G PRO", "Logitech G Pro"],
+      "driver_mm": 50,
+      "impedance_ohm": 35,
+      "design": "closed",
+      "rationale": "Driver PRO-G de 50 mm con graves marcados y agudos algo apagados. Más recorte en 100/180 Hz y más energía en 3.6k/5k para recuperar la textura del paso.",
+      "filters": [
+        { "type": "LSC", "fc": 100,   "gain": -9, "q": 0.7 },
+        { "type": "PK",  "fc": 180,   "gain": -7, "q": 1.2 },
+        { "type": "PK",  "fc": 320,   "gain": -4, "q": 1.0 },
+        { "type": "PK",  "fc": 2200,  "gain": 7,  "q": 1.8 },
+        { "type": "PK",  "fc": 2800,  "gain": 9,  "q": 1.6 },
+        { "type": "PK",  "fc": 3600,  "gain": 8,  "q": 1.3 },
+        { "type": "PK",  "fc": 5000,  "gain": 4,  "q": 1.0 },
+        { "type": "HSC", "fc": 10000, "gain": -2, "q": 0.8 }
+      ]
+    },
+    {
+      "id": "steelseries-arctis-7",
+      "name": "SteelSeries Arctis 7",
+      "match": ["Arctis 7", "Arctis7", "Arctis Nova 7", "SteelSeries Arctis"],
+      "driver_mm": 40,
+      "impedance_ohm": 32,
+      "design": "closed",
+      "rationale": "Driver de 40 mm bastante equilibrado con un valle en 3-5 kHz. Menos recorte de graves (no trae exceso) y boost de presencia más ancho; Q algo más estrecho en 2.2k para no endurecer voces.",
+      "filters": [
+        { "type": "LSC", "fc": 100,   "gain": -7, "q": 0.7 },
+        { "type": "PK",  "fc": 180,   "gain": -5, "q": 1.2 },
+        { "type": "PK",  "fc": 320,   "gain": -3, "q": 1.0 },
+        { "type": "PK",  "fc": 2200,  "gain": 7,  "q": 2.0 },
+        { "type": "PK",  "fc": 2800,  "gain": 8,  "q": 1.6 },
+        { "type": "PK",  "fc": 3600,  "gain": 8,  "q": 1.4 },
+        { "type": "PK",  "fc": 5000,  "gain": 4,  "q": 1.2 },
+        { "type": "HSC", "fc": 10000, "gain": -3, "q": 0.8 }
+      ]
+    },
+    {
+      "id": "razer-blackshark-v2",
+      "name": "Razer BlackShark V2",
+      "match": ["BlackShark", "Razer BlackShark V2"],
+      "driver_mm": 50,
+      "impedance_ohm": 32,
+      "design": "closed",
+      "rationale": "TriForce Titanium de 50 mm, ya afinado para FPS: agudos brillantes y presencia adelantada. Boost de 3.6k/5k reducido para evitar sibilancia; más recorte en 10k.",
+      "filters": [
+        { "type": "LSC", "fc": 100,   "gain": -7, "q": 0.7 },
+        { "type": "PK",  "fc": 180,   "gain": -5, "q": 1.2 },
+        { "type": "PK",  "fc": 320,   "gain": -3, "q": 1.0 },
+        { "type": "PK",  "fc": 2200,  "gain": 8,  "q": 1.8 },
+        { "type": "PK",  "fc": 2800,  "gain": 8,  "q": 1.6 },
+        { "type": "PK",  "fc": 3600,  "gain": 5,  "q": 1.6 },
+        { "type": "PK",  "fc": 5000,  "gain": 1,  "q": 1.0 },
+        { "type": "HSC", "fc": 10000, "gain": -5, "q": 0.8 }
+      ]
+    },
+    {
+      "id": "corsair-hs80",
+      "name": "Corsair HS80",
+      "match": ["HS80", "CORSAIR HS80"],
+      "driver_mm": 50,
+      "impedance_ohm": 32,
+      "design": "closed",
+      "rationale": "Driver de 50 mm con firma cálida: graves y medios-bajos abundantes, agudos oscuros. El recorte de graves más fuerte de la lista y más boost arriba.",
+      "filters": [
+        { "type": "LSC", "fc": 100,   "gain": -10, "q": 0.7 },
+        { "type": "PK",  "fc": 180,   "gain": -7,  "q": 1.2 },
+        { "type": "PK",  "fc": 320,   "gain": -5,  "q": 1.0 },
+        { "type": "PK",  "fc": 2200,  "gain": 8,   "q": 1.8 },
+        { "type": "PK",  "fc": 2800,  "gain": 9,   "q": 1.6 },
+        { "type": "PK",  "fc": 3600,  "gain": 8,   "q": 1.4 },
+        { "type": "PK",  "fc": 5000,  "gain": 4,   "q": 1.0 },
+        { "type": "HSC", "fc": 10000, "gain": -2,  "q": 0.8 }
+      ]
+    },
+    {
+      "id": "astro-a40-tr",
+      "name": "Astro A40 TR",
+      "match": ["A40", "ASTRO A40", "Astro"],
+      "driver_mm": 40,
+      "impedance_ohm": 48,
+      "design": "open",
+      "rationale": "Abierto, driver de 40 mm: menos graves de serie y mejor escena. Se recorta menos abajo (no hay tanto que quitar) y se modera el boost para no perder la naturalidad que da el diseño abierto. 48 ohm: +1 dB de makeup.",
+      "filters": [
+        { "type": "LSC", "fc": 100,   "gain": -5, "q": 0.7 },
+        { "type": "PK",  "fc": 180,   "gain": -4, "q": 1.2 },
+        { "type": "PK",  "fc": 320,   "gain": -3, "q": 1.0 },
+        { "type": "PK",  "fc": 2200,  "gain": 7,  "q": 1.8 },
+        { "type": "PK",  "fc": 2800,  "gain": 8,  "q": 1.6 },
+        { "type": "PK",  "fc": 3600,  "gain": 6,  "q": 1.4 },
+        { "type": "PK",  "fc": 5000,  "gain": 3,  "q": 1.0 },
+        { "type": "HSC", "fc": 10000, "gain": -3, "q": 0.8 }
+      ],
+      "voicemeeter": { "comp_makeup_db": 7 }
+    }
+  ]
+}

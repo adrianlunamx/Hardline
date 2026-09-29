@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Hardline - configuración de Voicemeeter Potato.
+
+  Esto NO es un archivo de ajustes nativo de Voicemeeter: es la descripción que
+  src/audio/voicemeeter.ps1 traduce a llamadas de la Remote API oficial
+  (VoicemeeterRemote64.dll, VBVMR_SetParameters). Así el resultado no depende
+  del formato interno de Voicemeeter, que cambia entre versiones.
+
+  Enrutado:
+    cod.exe  -> CABLE Input  [Equalizer APO: preset de pasos]
+             -> CABLE Output -> Strip 1 (hardware)  [Gate + Compresor]  -> A1 (headset)
+    Sistema  -> Voicemeeter Input (VAIO) -> Strip 6 (virtual) -> A1 (headset)
+
+  Por qué el juego entra por una strip de hardware: en Voicemeeter solo las
+  strips de hardware tienen Gate y Compresor; las virtuales tienen EQ de 3 bandas.
+
+  Los valores de <Gate> y <Compressor> se sobrescriben con los del headset
+  elegido (headsets.json > voicemeeter) si existen. Parámetros según la Remote
+  API de Voicemeeter Potato 3.x.
+-->
+<HardlineVoicemeeter version="1" target="Potato">
+  <GameStrip index="0" label="HL GAME" driver="wdm" device="CABLE Output (VB-Audio Virtual Cable)">
+    <Send bus="A1" on="1" />
+    <Send bus="A2" on="0" />
+    <Send bus="A3" on="0" />
+    <Send bus="B1" on="0" />
+    <Send bus="B2" on="0" />
+    <Send bus="B3" on="0" />
+  </GameStrip>
+
+  <SystemStrip index="5" label="HL SISTEMA">
+    <Send bus="A1" on="1" />
+    <Send bus="B1" on="0" />
+  </SystemStrip>
+
+  <!-- A1: se rellena con el endpoint del headset detectado o elegido. -->
+  <OutputBus index="0" driver="wdm" device="" />
+
+  <!--
+    Gate: corta el ruido de fondo del mix cuando no pasa nada. -45 dB es bajo a
+    propósito: un gate más alto se come los pasos lejanos, que llegan flojos.
+    Damping -60 dB = atenuación total por debajo del umbral.
+  -->
+  <Gate knob="3" threshold_db="-45" damping_db="-60" attack_ms="1" hold_ms="50" release_ms="120" />
+
+  <!--
+    Compresor: 4:1 desde -25 dB. Explosiones y disparos propios (picos) bajan;
+    pasos y recargas (señal baja) quedan igual y el makeup los sube +6 dB.
+    Attack 5 ms deja pasar el transitorio del paso antes de comprimir.
+    Release 80 ms: recupera ganancia antes del siguiente paso (~350-500 ms).
+  -->
+  <Compressor knob="5" ratio="4.0" threshold_db="-25" attack_ms="5" release_ms="80" knee="0.5" makeup_db="6" auto_makeup="0" />
+</HardlineVoicemeeter>

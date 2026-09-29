@@ -1,0 +1,83 @@
+name: validate-and-release
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: validate (${{ matrix.shell }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tests
+        shell: ${{ matrix.shell }}
+        run: ./tests/validate.ps1
+
+      - name: PSScriptAnalyzer (errores)
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+          $issues = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error
+          $issues | Format-Table -AutoSize | Out-String -Width 200 | Write-Host
+          if ($issues) { exit 1 }
+
+      - name: DryRun de detección
+        shell: powershell
+        if: matrix.shell == 'powershell'
+        run: |
+          . .\src\core\common.ps1
+          . .\src\core\detector.ps1
+          Initialize-HLSession -Root $PWD -DryRun -Unattended
+          $hw = Get-HLHardware
+          Show-HLHardware -Hw $hw
+
+  release:
+    needs: validate
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Empaquetar
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          zip -r "dist/hardline-${VERSION}.zip" . \
+            -x '.git/*' '.github/*' 'dist/*' \
+               'backups/*' 'reports/*' 'logs/*'
+          # Directorios de runtime vacíos
+          zip "dist/hardline-${VERSION}.zip" backups/.gitkeep reports/.gitkeep logs/.gitkeep
+          (cd dist && sha256sum "hardline-${VERSION}.zip" > "hardline-${VERSION}.zip.sha256")
+
+      - name: Notas de la versión desde CHANGELOG
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { on=1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > dist/notes.md
+          test -s dist/notes.md || echo "Hardline ${GITHUB_REF_NAME}" > dist/notes.md
+
+      - name: Publicar release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: dist/notes.md
+          files: |
+            dist/hardline-*.zip
+            dist/hardline-*.zip.sha256

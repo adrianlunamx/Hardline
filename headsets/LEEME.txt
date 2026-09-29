@@ -1,0 +1,16 @@
+Hardline - correcciones de headset
+==================================
+
+Deja aqui archivos .txt de Equalizer APO con la correccion de tus auriculares.
+Hardline los detecta solos y te los ofrece al configurar el audio.
+
+Formatos validos (lineas "Filter: ON PK|LSC|HSC Fc ... Hz Gain ... dB Q ..."):
+  - El "ParametricEQ.txt" de AutoEq
+    https://github.com/jaakkopasanen/AutoEq/tree/master/results
+  - Lo que exporta https://autoeq.app eligiendo "Equalizer APO" como destino.
+
+Si eliges tu modelo desde el menu de Hardline, la descarga se guarda aqui
+automaticamente, asi que la siguiente vez funciona sin internet.
+
+El preamp del archivo se ignora: Hardline lo recalcula con la cadena
+completa (correccion + preset de pasos) para que no haya clipping.
