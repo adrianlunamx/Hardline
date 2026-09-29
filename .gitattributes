@@ -1,0 +1,7 @@
+* text=auto
+*.ps1 text
+*.json text
+*.xml text
+*.ini text
+*.txt text
+*.md text

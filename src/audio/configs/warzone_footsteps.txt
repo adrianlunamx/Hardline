@@ -1,0 +1,30 @@
+# Hardline - Warzone footsteps (preset base)
+# Perfil: Generico (preset base) | intensidad 100%
+# Pico de la cadena: +19.0 dB @ 2773 Hz -> preamp automatico -20.5 dB (1 dB de margen)
+# Generado por src/audio/eq.ps1. Edita headsets.json, no este archivo.
+
+Preamp: -20.5 dB
+
+# Explosiones y rumble de vehiculos
+Filter: ON LSC Fc 100 Hz Gain -8.0 dB Q 0.70
+
+# Cuerpo de disparos propios
+Filter: ON PK Fc 180 Hz Gain -6.0 dB Q 1.20
+
+# Boominess / mid-bass
+Filter: ON PK Fc 320 Hz Gain -4.0 dB Q 1.00
+
+# Impacto del paso (tacon)
+Filter: ON PK Fc 2200 Hz Gain 8.0 dB Q 1.80
+
+# Pasos: zona de maxima sensibilidad del oido
+Filter: ON PK Fc 2800 Hz Gain 9.0 dB Q 1.60
+
+# Textura de superficie (grava, metal, madera)
+Filter: ON PK Fc 3600 Hz Gain 7.0 dB Q 1.40
+
+# Claves de localizacion (HRTF)
+Filter: ON PK Fc 5000 Hz Gain 3.0 dB Q 1.00
+
+# Siseo y agudos fatigantes
+Filter: ON HSC Fc 10000 Hz Gain -3.0 dB Q 0.80

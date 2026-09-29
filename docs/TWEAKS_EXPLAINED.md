@@ -1,0 +1,281 @@
+# Tweaks explicados
+
+Cada cambio de Hardline, qué hace y por qué está (o no está). El orden sigue el de ejecución.
+
+Convención: **[auto]** lo aplica el script y lo revierte `rollback.ps1`. **[manual]** requiere BIOS, Adrenalin o una decisión tuya; queda en el reporte con instrucciones.
+
+---
+
+## Windows
+
+### Servicios [auto]
+
+Archivo: `src/modules/windows/services.ps1`. Se cambia el valor `Start` de la clave del servicio (2 automático, 3 manual, 4 deshabilitado), no `Set-Service`, para poder restaurar exactamente el valor anterior, incluido el inicio retrasado.
+
+| Servicio | Pasa a | Motivo |
+|---|---|---|
+| `SysMain` | Deshabilitado | Superfetch. Precarga apps en RAM con I/O de fondo. Con NVMe y 16 GB+ no compensa. |
+| `WSearch` | Deshabilitado | Indexador. Reindexa cuando quiere. Inicio sigue encontrando apps; la búsqueda por contenido de archivos se vuelve lenta. |
+| `DiagTrack` | Deshabilitado | Telemetría. Subidas periódicas con picos de CPU. |
+| `dmwappushservice` | Deshabilitado | Enrutador WAP de la telemetría. |
+| `MapsBroker` | Deshabilitado | Mapas offline. |
+| `RetailDemo`, `WpcMonSvc`, `Fax` | Deshabilitado | Modo tienda, control parental, fax. |
+| `WerSvc`, `PcaSvc` | Manual | Informe de errores y asistente de compatibilidad: solo arrancan si hacen falta. |
+
+**No se tocan** los servicios Xbox (`XblAuthManager`, `XblGameSave`, `XboxNetApiSvc`, `GamingServices`): la versión de Game Pass los necesita para arrancar el juego. Por defecto ya están en Manual y no consumen nada si no se usan.
+
+### Registro [auto]
+
+Archivo: `src/modules/windows/registry.ps1`.
+
+| Cambio | Clave | Por qué |
+|---|---|---|
+| Game DVR off | `HKCU\System\GameConfigStore\GameDVR_Enabled=0`, `AppCaptureEnabled=0`, política `AllowGameDVR=0` | La captura en segundo plano mantiene un encoder de vídeo activo. |
+| Overlay de Game Bar off | `HKCU\Software\Microsoft\GameBar\UseNexusForGameBarEnabled=0` | Win+G y el botón Xbox del mando dejan de abrirlo. |
+| Game Mode on | `AutoGameModeEnabled=1` | Desde Win10 2004, Game Mode frena Windows Update y prioriza el proceso en primer plano. Se nota en 1% lows cuando hay actividad de fondo; en reposo es neutro. |
+| HAGS off | `HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers\HwSchMode=1` | Con RDNA2 y los drivers Adrenalin actuales, HAGS off da frametimes más regulares en Warzone. Requiere reinicio. Si usas AFMF o Frame Generation en otros juegos, estos necesitan HAGS on. |
+| MMCSS `SystemResponsiveness=10` | `...\Multimedia\SystemProfile` | Reserva de CPU para tareas de baja prioridad cuando hay tareas multimedia: 20% por defecto. [Microsoft documenta](https://learn.microsoft.com/windows/win32/procthread/multimedia-class-scheduler-service) que 0 se trata como 10, así que 10 es el mínimo real. |
+| MMCSS tarea `Games` | `GPU Priority=8`, `Priority=6`, `Scheduling Category=High`, `SFIO Priority=High` | Prioridad de la clase "Games" de MMCSS. Efecto pequeño y dependiente de si el juego se registra en MMCSS; se incluye porque no tiene contrapartida. |
+| Power Throttling off | `...\Control\Power\PowerThrottling\PowerThrottlingOff=1` | EcoQoS puede aparcar Discord/overlays en núcleos lentos mientras juegas. |
+| Widgets, Noticias, Cortana, Bing en Inicio | Políticas en `HKLM\SOFTWARE\Policies\Microsoft\...` | Procesos WebView2 residentes que no aportan nada durante una partida. |
+| GPU por ejecutable | `HKCU\Software\Microsoft\DirectX\UserGpuPreferences\<ruta cod.exe>=GpuPreference=2;` | Solo si hay iGPU activa. El 7600X trae iGPU (Radeon Graphics); con varios monitores Windows puede elegir mal. |
+
+Opcionalmente (se pregunta) desinstala los paquetes AppX de Xbox Game Bar y Cortana para el usuario actual. Esto no se revierte desde el manifiesto: se reinstalan desde la Microsoft Store (enlaces en el reporte).
+
+### Plan de energía [auto]
+
+Archivo: `src/modules/windows/power.ps1`.
+
+Duplica la plantilla oculta Ultimate Performance (`e9a42b02-d5df-448d-aa00-03f14749eb61`), la renombra a `Hardline Ultimate Performance` y la activa. Dentro del plan: suspensión selectiva USB off, ASPM de PCIe off, estado mínimo de CPU 100%.
+
+Efecto: los núcleos no se aparcan y la CPU no baja a estados C/P profundos, así que no hay latencia de salida al llegar trabajo. Coste: 10-25 W más en reposo en un Ryzen 7000. El rollback reactiva tu plan anterior y borra el creado.
+
+Nota: AMD recomienda Balanced con el driver de chipset para Ryzen. En la práctica, con Ultimate Performance los 1% lows son iguales o mejores y el consumo en reposo sube; si te importa el consumo, vuelve a Balanced desde el Panel de control sin tocar nada más.
+
+### Timer resolution 0.5 ms [auto]
+
+Archivos: `src/modules/windows/timer.ps1`, `timer_resident.ps1`.
+
+El scheduler despierta hilos en múltiplos del periodo del timer global (15.6 ms por defecto; los juegos piden 1 ms). A 0.5 ms, `Sleep()` y las esperas cortas del render thread y los limitadores de FPS por software tienen menos jitter.
+
+- Desde **Windows 10 2004** la resolución es por proceso: lo que pide un proceso de fondo no afecta al juego.
+- **Windows 11** añadió `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\kernel\GlobalTimerResolutionRequests=1` para restaurar el comportamiento global. Hardline lo activa y registra una tarea al iniciar sesión (`Hardline-TimerResolution`) que pide 0.5 ms y se queda dormida (0% CPU, ~30 MB RAM).
+- En **Windows 10 2004+** esa clave no existe. Hardline no instala la tarea ahí porque no tendría efecto, y lo dice.
+
+El benchmark mide la resolución y el jitter real de `Sleep(1)` antes y después. Si en tu sistema 0.5 ms no mejora frente a 1 ms, edita la tarea y cambia `-Resolution 5000` por `-Resolution 10000`.
+
+Referencia: [timeBeginPeriod](https://learn.microsoft.com/windows/win32/api/timeapi/nf-timeapi-timebeginperiod).
+
+### Latencia DPC [manual]
+
+Ningún tweak de Windows arregla un driver con rutinas DPC lentas. [LatencyMon](https://www.resplendence.com/latencymon) 5 minutos en reposo: si "highest DPC routine execution time" pasa de ~500 µs, la pestaña Drivers dice cuál (típicos: red, audio USB, `amdkmdag.sys`). Se arregla actualizando o cambiando ese driver.
+
+---
+
+## CPU Ryzen [manual]
+
+Archivo: `src/modules/amd/ryzen.ps1`. PBO, Curve Optimizer, SMT y EXPO viven en la BIOS. Ningún script de Windows puede cambiarlos de forma persistente (Ryzen Master usa su propio driver y se pierde al reiniciar), así que Hardline detecta el fabricante de tu placa y te da la ruta exacta de menús.
+
+### PBO + Curve Optimizer -20
+
+PBO en Advanced con límites de placa, Curve Optimizer All Cores Negative 20. CO baja la curva voltaje/frecuencia: a igual voltaje el núcleo boostea más alto, o a igual frecuencia se calienta menos. Un 7600X típico aguanta entre -15 y -30.
+
+Validación, en este orden:
+
+1. Prime95 Small FFTs, 5 minutos como mínimo. Detecta inestabilidad bajo carga.
+2. [CoreCycler](https://github.com/sp00n/corecycler), 1 hora. Prueba núcleo a núcleo en boost de un solo hilo, que es donde falla un CO agresivo y donde Prime95 all-core no llega.
+
+Un CO inestable no siempre da pantallazo azul. Síntomas típicos: `DEV ERROR` en Warzone, reinicios en reposo, WHEA 18 en el visor de eventos. Si pasa, sube a -15.
+
+X3D: solo CO (-15 a -20). No subas límites de PBO.
+
+### SMT: se mantiene activo en 6 núcleos
+
+Postura de Hardline: con 6 núcleos **no** se desactiva SMT. Warzone reparte trabajo en más de 8 hilos (render, streaming de texturas, audio, red, anticheat) y con solo 6 hilos lógicos los 1% lows empeoran aunque la media pueda subir un poco. Desactivar SMT solo compensa en CPUs de 12 núcleos o más, y ahí se sugiere probarlo midiendo con CapFrameX.
+
+### Chipset driver
+
+Se comprueba que esté instalado AMD Chipset Software. Incluye el driver PPM/CPPC que decide a qué núcleo van los hilos del juego.
+
+---
+
+## Memoria [manual]
+
+- **EXPO/XMP**: se detecta comparando la velocidad configurada con JEDEC (DDR5 en AM5: 4800-5200 MT/s). Si está inactivo, es la mayor mejora de 1% lows disponible y va lo primero en el reporte.
+- **UCLK 1:1**: en AM5, por encima de 6400 MT/s el controlador suele pasar a UCLK = MEMCLK/2 y la latencia sube. 6000-6400 en 1:1 es el punto dulce.
+- **Timings**: Windows no los expone. [ZenTimings](https://zentimings.protonrom.com/) los lee del SMU.
+- **tRFC**: los perfiles EXPO lo traen holgado (800-1000 ciclos a 6000 MT/s). Conversión: `ns = ciclos × 2000 / MT/s`. En Hynix M/A-die, ~160 ns (480 ciclos a 6000) es un objetivo razonable; en Samsung/Micron empieza en ~220 ns. Valida con TestMem5 (config anta777 absolut) 1 hora.
+- **DRAM Calculator for Ryzen** solo cubre DDR4. No sirve para AM5.
+
+---
+
+## GPU Radeon
+
+Archivo: `src/modules/amd/gpu.ps1`.
+
+### Detección [auto, solo lectura]
+
+- **Driver**: versión de Adrenalin y antigüedad. Más de 120 días: aviso.
+- **SAM / Resizable BAR**: se lee el tamaño real de la ventana de memoria PCIe asignada a la GPU (`Win32_DeviceMemoryAddress`). Sin ReBAR la CPU ve 256 MB de VRAM; con SAM, la VRAM entera. No depende de lo que diga Adrenalin.
+- **TDR**: cuenta los eventos 4101 ("el controlador de pantalla dejó de responder") de los últimos 14 días. Útil para validar un undervolt.
+
+### Adrenalin [manual]
+
+AMD no publica una API para cambiar ajustes de Adrenalin. Escribir las claves internas del driver es frágil entre versiones y puede corromper el perfil, así que Hardline no lo hace.
+
+| Ajuste | Valor | Por qué |
+|---|---|---|
+| AMD Anti-Lag | On | Reduce la cola de frames entre CPU y GPU. Si Warzone muestra **AMD Anti-Lag 2** en su menú, actívalo allí: tiene prioridad sobre el del driver y reduce más porque se integra en el motor. |
+| Radeon Chill | Off | Limita FPS dinámicamente según movimiento: latencia variable. |
+| Radeon Boost | Off | Baja la resolución al moverte, justo al apuntar. |
+| Image Sharpening | 80% | Compensa el suavizado de texturas bajas. No lo combines con FidelityFX CAS del juego: elige uno. |
+| Fluid Motion Frames | Off | Interpola frames: más FPS en el contador, más latencia real. |
+| Enhanced Sync / Wait for VSync | Off | Añaden cola de frames. |
+| Radeon Super Resolution | Off | Upscaling a nivel de driver, peor que FSR in-game. |
+
+### Undervolt [manual, no se aplica nunca]
+
+RX 6650 XT: Adrenalin > Rendimiento > Sintonización > Manual > Sintonización de GPU Avanzada. Frecuencia máxima stock, voltaje **1100 mV** (stock ~1150-1200 mV), límite de potencia al máximo.
+
+Procedimiento: 30 minutos de Warzone + 20 minutos de Time Spy en bucle. Crash o artefactos: +20 mV. Estable: baja de 10 en 10 mV. Vuelve a ejecutar Hardline después: el contador de TDR confirma si es estable.
+
+Resultado esperado: misma frecuencia con menos consumo y temperatura, así que la GPU mantiene el boost más tiempo.
+
+---
+
+## Red
+
+Archivo: `src/modules/network/optimize.ps1`.
+
+Warzone usa **UDP** para el tráfico de juego.
+
+| Cambio | Tipo | Efecto real |
+|---|---|---|
+| DNS 1.1.1.1 / 1.0.0.1 (+ IPv6 si hay) | auto | No cambia el ping al servidor. Acelera la resolución de nombres del matchmaking y el launcher. Si tenías DNS por DHCP, el rollback lo devuelve a DHCP. |
+| EEE / Green Ethernet off | auto | Energy Efficient Ethernet duerme el enlace entre paquetes y añade microlatencia al despertar. Se usan las palabras clave NDIS (`*EEE`) y las propietarias de Intel I225/I226 y Realtek, no los nombres visibles (que van traducidos). |
+| TCP autotuning `normal` | auto | Solo se corrige si un tweak antiguo lo dejó en `disabled`. Afecta a descargas, no al ping. |
+| QoS DSCP 46 para `cod.exe` | auto | Marca los paquetes del juego como tráfico prioritario (EF). Solo sirve si el router respeta DSCP. Requiere `Do not use NLA=1` en equipos fuera de dominio. |
+| Bufferbloat | manual | [Test](https://www.waveform.com/tools/bufferbloat). Nota B o peor: activa SQM (fq_codel/cake) en el router y limita al ~90% del ancho de banda contratado. Es la causa principal de picos de ping cuando otro usa la red. |
+
+---
+
+## Warzone
+
+Archivo: `src/modules/game/warzone.ps1`.
+
+El juego guarda la configuración en `Documentos\Call of Duty\players\options.<n>.cod<año>.cst` (y `adv_options.ini` en Warzone 1). Los nombres de los ajustes cambian entre temporadas, así que Hardline:
+
+1. Busca cada ajuste por una lista de nombres candidatos.
+2. Solo toca claves que ya existen en tu archivo.
+3. Elige el valor según lo que el propio archivo declara como válido (`// one of [Low, Normal, High]` o `// 0 to 4`). Nunca escribe un valor que el juego no acepte.
+4. Lista los ajustes que no encontró para que los pongas a mano.
+
+| Ajuste | Valor |
+|---|---|
+| Texture Resolution, Texture Filter | Normal |
+| Particle, Shader, Terrain, Volumetric, Deferred Physics, Shadows, Static Reflections | Mínimo |
+| Bullet Impacts, Tessellation, On-Demand Streaming, Water Caustics, Screen Space Shadows, AO, SSR, Weather Grid, DoF, Motion Blur, Film Grain, V-Sync | Off |
+| `RendererWorkerCount` | Núcleos físicos (6 en un 7600X) |
+| `ConfigCloudStorageEnabled` | Off, para que la copia en la nube no sobrescriba el archivo |
+
+Texturas en Normal y no en Low: con 8 GB de VRAM caben de sobra, y en Low las superficies se vuelven uniformes y cuesta más distinguir siluetas.
+
+Sugeridos, no impuestos: FOV 105-110, ADS FOV Affected, brillo hasta que el logo de calibración sea apenas visible, pantalla completa exclusiva, límite de FPS 3-5 por debajo del refresco si usas FreeSync.
+
+El juego tiene que estar cerrado: al salir reescribe el archivo.
+
+---
+
+## Audio
+
+Archivos: `src/audio/`.
+
+### Por qué el preset funciona
+
+- **Pasos**: el golpe del tacón está en 2-3 kHz y la textura de la superficie (grava, metal, madera) en 3-4 kHz. Es además la zona donde el oído humano es más sensible (curvas de igual sonoridad).
+- **Explosiones, vehículos, disparos propios**: la energía está por debajo de 500 Hz. Recortar ahí hace que no enmascaren las frecuencias medias-altas.
+- **5 kHz**: claves espectrales de la localización (el filtrado del pabellón auditivo).
+- **10 kHz**: siseo y agudos fatigantes en sesiones largas.
+
+### Preset base
+
+```
+Filter: ON LSC Fc 100 Hz Gain -8 dB Q 0.7     graves / explosiones
+Filter: ON PK Fc 180 Hz Gain -6 dB Q 1.2      cuerpo de disparos propios
+Filter: ON PK Fc 320 Hz Gain -4 dB Q 1.0      mid-bass
+Filter: ON PK Fc 2200 Hz Gain 8 dB Q 1.8      golpe del paso
+Filter: ON PK Fc 2800 Hz Gain 9 dB Q 1.6      pasos
+Filter: ON PK Fc 3600 Hz Gain 7 dB Q 1.4      textura de superficie
+Filter: ON PK Fc 5000 Hz Gain 3 dB Q 1.0      localización
+Filter: ON HSC Fc 10000 Hz Gain -3 dB Q 0.8   siseo
+```
+
+Dos detalles que suelen salir mal en los presets que circulan:
+
+1. **El corte de graves es `LSC` (shelf bajo), no `HSC`.** Un `HSC` a 100 Hz con -8 dB atenúa todo lo que hay *por encima* de 100 Hz: bajaría los pasos en vez de las explosiones.
+2. **El preamp se calcula.** Los tres realces se solapan: en 2.8 kHz la cadena suma **+19 dB**, no +9. Con un preamp de -4 dB, cualquier explosión cercana clipea (distorsión digital) justo cuando necesitas oír pasos. `src/audio/eq.ps1` reproduce los biquads de Equalizer APO (fórmulas RBJ Audio EQ Cookbook a 48 kHz), calcula la respuesta combinada y fija `preamp = -(pico) - 1 dB`. Preset base: **-20.5 dB**. Sube el volumen de Windows para compensar; el resultado no distorsiona.
+
+Intensidad **moderada** (70%): mismas frecuencias y Q, 30% menos de ganancia. Pico +13.3 dB. Menos sonido "metálico", sigue destacando pasos.
+
+### Perfiles por headset
+
+`src/audio/profiles/headsets.json`. El preset base asume un cerrado de respuesta más o menos neutra; cada modelo corrige su firma conocida:
+
+| Headset | Driver | Impedancia | Ajuste |
+|---|---|---|---|
+| HyperX Cloud II | 53 mm | 60 Ω | Graves amplios y agudos algo adelantados: más recorte abajo, menos realce en 3.6k/5k. +2 dB de makeup por la impedancia. |
+| Logitech G Pro X | 50 mm | 35 Ω | Graves marcados, agudos apagados: más recorte en 100/180 Hz, más energía en 3.6k/5k. |
+| SteelSeries Arctis 7 | 40 mm | 32 Ω | Equilibrado con valle en 3-5 kHz: menos recorte abajo, realce de presencia más ancho. |
+| Razer BlackShark V2 | 50 mm | 32 Ω | Ya brillante y orientado a FPS: menos realce arriba, más recorte en 10 kHz para evitar sibilancia. |
+| Corsair HS80 | 50 mm | 32 Ω | Cálido y oscuro: el mayor recorte de graves y más realce arriba. |
+| Astro A40 TR | 40 mm | 48 Ω | Abierto, pocos graves: menos recorte abajo y realce moderado para conservar la escena del diseño abierto. |
+
+Son ajustes orientativos a partir de la firma conocida de cada modelo, no mediciones de tu unidad. Si algo suena demasiado agudo, usa la intensidad moderada o baja 1-2 dB los filtros de 3.6k/5k en el JSON y vuelve a ejecutar el audio (`.\src\audio\setup.ps1`).
+
+### Compresor y gate (modo Completo)
+
+Voicemeeter Potato, configurado por su [Remote API](https://github.com/vburel2018/Voicemeeter-SDK) (no se edita ningún archivo interno de Voicemeeter).
+
+| Parámetro | Valor | Por qué |
+|---|---|---|
+| Gate | -45 dB | Solo corta ruido de fondo. Más alto se come los pasos lejanos. |
+| Ratio | 4:1 | Picos (explosiones, disparos propios) bajan de forma notable sin aplastar la mezcla. |
+| Threshold | -25 dB | Pasos y recargas suelen quedar por debajo: no se comprimen. |
+| Attack | 5 ms | Deja pasar el transitorio del paso antes de comprimir. |
+| Release | 80 ms | Recupera ganancia antes del siguiente paso (cada 350-500 ms al correr). |
+| Makeup | +6 dB | Sube todo lo que no es pico. Neto: pasos más altos, explosiones más bajas. |
+
+### Enrutado
+
+```
+cod.exe  ->  CABLE Input  [Equalizer APO]  ->  CABLE Output  ->  Voicemeeter Strip 1 [Gate + Comp]  ->  A1 (headset)
+Discord, navegador, sistema  ->  Voicemeeter Input  ->  Strip 6  ->  A1 (headset, sin procesar)
+```
+
+- El juego entra por una strip de **hardware** porque en Voicemeeter solo esas tienen Gate y Compresor.
+- El EQ se instala en `CABLE Input`, así que solo afecta al juego. Discord y el resto suenan normal.
+- Coste: Voicemeeter añade 10-20 ms de latencia de audio. Si no la quieres, modo **Solo EQ**: el EQ va directo al headset, sin Voicemeeter ni VB-CABLE.
+
+Pasos que el script no puede hacer por ti (Windows no tiene API pública para el enrutado por aplicación):
+
+1. Configuración > Sistema > Sonido > Salida: `Voicemeeter Input`.
+2. Con Warzone abierto: Mezclador de volumen > `cod.exe` > Salida: `CABLE Input`.
+3. En el Configurator de Equalizer APO, marca solo el dispositivo que indica el script.
+4. Desactiva "Audio espacial" y "Mejoras de audio" en el headset, y el 7.1 virtual del software del fabricante. Warzone ya aplica su propio HRTF; apilar virtualizadores destruye la localización.
+5. En Warzone: mezcla de audio "Auriculares", música y diálogos a 0.
+
+---
+
+## Lo que Hardline NO hace
+
+| Tweak popular | Por qué no |
+|---|---|
+| `TcpAckFrequency`, `TCPNoDelay`, desactivar Nagle | Solo afectan a TCP. El tráfico de juego de Warzone es UDP. |
+| `NetworkThrottlingIndex=0xFFFFFFFF` | Limita paquetes no multimedia cuando hay reproducción MMCSS activa. Sin efecto medible en el ping de juego. |
+| `Win32PrioritySeparation` a valores exóticos | El valor por defecto en cliente ya da quantum corto variable con boost al primer plano. |
+| Desactivar Spectre/Meltdown | Hueco de seguridad real a cambio de una ganancia que en Zen 4 es mínima. |
+| Desactivar Defender o Windows Update | Seguridad. Game Mode ya frena Update durante la partida. |
+| Borrar Xbox services | Rompe la versión de Game Pass. |
+| "Limpiadores" de RAM | Windows gestiona la standby list. Vaciarla obliga a releer de disco. |
+| Aplicar ajustes de BIOS o Adrenalin | No hay API pública y fiable. Hacerlo mal deja la placa o el driver en estado inconsistente. Se dan instrucciones exactas. |
+| Ajustes de prioridad del proceso del juego | El anticheat vigila modificaciones al proceso. No merece el riesgo. |
