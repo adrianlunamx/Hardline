@@ -1,94 +1,150 @@
-# Hardline
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/logo-light.svg">
+    <img alt="Hardline" src="assets/logo-light.svg" width="460">
+  </picture>
+</p>
 
-Optimizaciones reales para Warzone. Nada de placebo.
+<p align="center">
+  <strong>Optimizaciones reales para Warzone. Nada de placebo.</strong>
+</p>
 
-Hardline es un script de PowerShell que ajusta Windows, la plataforma AMD, la red, la configuración del juego y el audio. Aplica lo que se puede aplicar de forma segura y reversible. Lo que no (BIOS, Adrenalin) te lo deja escrito paso a paso con la ruta de menús de **tu** placa. Todo cambio queda registrado con su valor anterior y se revierte con un comando.
+<p align="center">
+  <a href="https://github.com/jhernandezl2c-hash/Hardline/actions/workflows/release.yml"><img alt="CI" src="https://github.com/jhernandezl2c-hash/Hardline/actions/workflows/release.yml/badge.svg"></a>
+  <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E1116?style=flat-square">
+  <img alt="PowerShell 5.1+" src="https://img.shields.io/badge/PowerShell-5.1%2B-0E1116?style=flat-square">
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/licencia-MIT-FF5A1F?style=flat-square"></a>
+</p>
 
-## Qué hace
+<p align="center">
+  <a href="#instalación">Instalación</a> ·
+  <a href="#qué-hace">Qué hace</a> ·
+  <a href="#audio-pasos-claros-explosiones-controladas">Audio</a> ·
+  <a href="#revertir">Revertir</a> ·
+  <a href="docs/TWEAKS_EXPLAINED.md">Cada tweak explicado</a> ·
+  <a href="docs/FAQ.md">FAQ</a>
+</p>
 
-| Área | Automático | Te lo deja en el reporte |
-|---|---|---|
-| Plataformas | Eliges desde dónde juegas (Battle.net, Steam, Xbox app); las que no usas se cierran, pierden el arranque automático y sus servicios se deshabilitan | |
-| Windows | Servicios de fondo, Game DVR off, Game Mode on, HAGS off, MMCSS, plan Ultimate Performance, timer 0.5 ms, widgets/Cortana fuera | LatencyMon si hay picos DPC |
-| CPU Ryzen | Detección de familia, SMT y chipset driver | PBO, Curve Optimizer -20, validación con Prime95/CoreCycler |
-| GPU Radeon | Driver, estado real de SAM/ReBAR, crashes TDR recientes | Anti-Lag, Chill off, RIS 80%, undervolt 1100 mV |
-| RAM | Velocidad y si EXPO/XMP está activo | tRFC con ZenTimings |
-| Red | DNS 1.1.1.1, EEE/Green Ethernet off, autotuning, QoS DSCP 46 para `cod.exe` | Test de bufferbloat, SQM en el router |
-| Warzone | Ajustes gráficos en `options.*.cst` / `adv_options.ini` | FOV, brillo, Anti-Lag 2 |
-| Audio | Corrección medida de tu headset (AutoEq, ~8800 modelos) + EQ de pasos (Equalizer APO) + compresor/gate (Voicemeeter) | Enrutado de `cod.exe` en Windows |
+---
 
-Lo que Hardline **no** hace, y por qué, está en [docs/TWEAKS_EXPLAINED.md](docs/TWEAKS_EXPLAINED.md#lo-que-hardline-no-hace).
+Hardline es un script de PowerShell que ajusta Windows, la plataforma AMD, la red, la configuración de Warzone y el audio para oír pasos antes que nadie.
+
+- **Aplica** lo que se puede hacer de forma segura y reversible.
+- **Te guía** en lo que no se puede tocar desde Windows (BIOS, Adrenalin), con la ruta de menús de **tu** placa.
+- **Registra** cada cambio con su valor anterior: se revierte con un comando.
+- **Mide** antes y después, y te lo pone en un reporte.
 
 ## Instalación
 
-PowerShell como administrador:
+PowerShell **como administrador**:
 
 ```powershell
 irm https://raw.githubusercontent.com/jhernandezl2c-hash/Hardline/main/install.ps1 | iex
 ```
 
-Necesitas permisos de admin (si no los tienes, el script pide elevación). Crea un restore point antes de tocar nada. Se instala en `%LOCALAPPDATA%\Hardline`.
-
-Ver qué haría sin aplicar nada:
+Primero, si quieres ver qué haría sin tocar nada:
 
 ```powershell
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/jhernandezl2c-hash/Hardline/main/install.ps1))) -DryRun
 ```
 
-Desde un clon:
+> [!NOTE]
+> Crea un restore point antes de cambiar nada y se instala en `%LOCALAPPDATA%\Hardline`. Si no abres PowerShell como admin, pide elevación (UAC) solo.
+
+<details>
+<summary><strong>Desde un clon</strong></summary>
 
 ```powershell
 git clone https://github.com/jhernandezl2c-hash/Hardline.git
-cd hardline
+cd Hardline
 .\install.ps1
 ```
 
-### Opciones
+</details>
+
+<details>
+<summary><strong>Opciones</strong></summary>
 
 | Parámetro | Efecto |
 |---|---|
 | `-DryRun` | Detecta y muestra, no cambia nada |
 | `-Unattended` | Sin preguntas (respuestas por defecto). Los instaladores de Equalizer APO y VB-CABLE siguen abriendo su ventana: combínalo con `-SkipAudio` para una ejecución sin intervención |
-| `-Platform battlenet\|steam\|xbox` | Plataforma desde la que juegas Warzone (por defecto se deduce de dónde está `cod.exe` y se confirma) |
+| `-Platform battlenet\|steam\|xbox` | Plataforma desde la que juegas (por defecto se deduce de dónde está `cod.exe` y se confirma) |
 | `-Headset <id o modelo>` | Perfil incluido (`hyperx-cloud-ii`, `logitech-g-pro-x`, `steelseries-arctis-7`, `razer-blackshark-v2`, `corsair-hs80`, `astro-a40-tr`, `generic`), un archivo de `headsets\` o cualquier modelo para buscar en AutoEq (`-Headset "Kraken V3"`) |
 | `-AudioMode Full\|EqOnly` | EQ + compresor, o solo EQ (sin latencia añadida) |
 | `-SkipWindows` `-SkipNetwork` `-SkipGame` `-SkipAudio` `-SkipBenchmark` | Omitir módulos |
 | `-BenchmarkOnly` | Medir otra vez y comparar con el benchmark previo (tras reiniciar) |
 
-## Flujo
+</details>
 
-1. Permisos de admin
-2. Restore point `Hardline_YYYY-MM-DD_HH-mm`
-3. Detección de hardware
-4. Snapshot de la configuración actual (`backups/<fecha>/snapshot`)
-5. Benchmark previo
-6. Windows, plataformas de juego, CPU, GPU, RAM, red, Warzone
-7. Audio: headset (detectado, elegido o buscado en AutoEq), modo, instalación de Equalizer APO / VB-CABLE / Voicemeeter Potato / Peace
-8. Benchmark posterior
-9. Reporte en `reports/YYYY-MM-DD_HH-mm.txt` con pasos manuales y cómo revertir
+### Qué pasa al ejecutarlo
+
+```mermaid
+flowchart LR
+    A[Admin + restore point] --> B[Detecta hardware]
+    B --> C[Backup de configs]
+    C --> D[Benchmark previo]
+    D --> E[Windows · plataformas<br/>CPU · GPU · RAM · red · Warzone]
+    E --> F[Audio: headset,<br/>EQ y compresor]
+    F --> G[Benchmark posterior]
+    G --> H[Reporte + cómo revertir]
+```
+
+## Qué hace
+
+| Área | Automático | Te lo deja en el reporte |
+|---|---|---|
+| **Plataformas** | Eliges desde dónde juegas (Battle.net, Steam, Xbox app). Las que no usas: procesos cerrados, sin arranque automático, servicios deshabilitados | |
+| **Windows** | Servicios de fondo, Game DVR off, Game Mode on, HAGS off, MMCSS, Ultimate Performance, timer 0.5 ms, widgets/Cortana fuera | LatencyMon si hay picos DPC |
+| **CPU Ryzen** | Familia, SMT, chipset driver | PBO, Curve Optimizer -20, validación con Prime95/CoreCycler |
+| **GPU Radeon** | Driver, estado real de SAM/ReBAR, crashes TDR recientes | Anti-Lag, Chill off, RIS 80%, undervolt 1100 mV |
+| **RAM** | Velocidad y si EXPO/XMP está activo | tRFC con ZenTimings |
+| **Red** | DNS 1.1.1.1, EEE/Green Ethernet off, autotuning, QoS DSCP 46 para `cod.exe` | Test de bufferbloat, SQM en el router |
+| **Warzone** | Ajustes gráficos en `options.*.cst` / `adv_options.ini`, validados contra el propio archivo | FOV, brillo, Anti-Lag 2 |
+| **Audio** | Corrección medida de tu headset + EQ de pasos + compresor/gate | Enrutado de `cod.exe` en Windows |
+
+Lo que Hardline **no** hace, y por qué: [Lo que Hardline NO hace](docs/TWEAKS_EXPLAINED.md#lo-que-hardline-no-hace).
 
 ## Qué mejora
 
-En un Ryzen 5 7600X + RX 6650 XT, Warzone 1080p:
+Referencia: Ryzen 5 7600X + RX 6650 XT, Warzone 1080p.
 
-- **FPS**: la subida depende casi entera del punto de partida gráfico. Desde medio/alto a la configuración de Hardline (todo bajo salvo texturas) es donde está la mayor parte de la ganancia; los tweaks de Windows por sí solos mueven poco la media.
-- **1% lows y frametimes**: servicios de fondo, Game DVR, plan de energía y timer atacan los picos, no la media. Es lo que más se nota al jugar.
-- **Input lag**: Anti-Lag 2 en el juego, HAGS off y sin limitador por software.
-- **Audio**: pasos a más distancia y explosiones que no tapan todo.
+| | De dónde sale |
+|---|---|
+| **FPS** | Sobre todo de la configuración gráfica (todo bajo salvo texturas) y de EXPO/PBO. Los tweaks de Windows solos mueven poco la media. |
+| **1% lows y frametimes** | Servicios de fondo, Game DVR, plan de energía y timer atacan los picos, no la media. Es lo que más se nota al jugar. |
+| **Input lag** | Anti-Lag 2 en el juego, HAGS off, sin limitadores por software. |
+| **Audio** | Pasos a más distancia, explosiones que no lo tapan todo. |
 
-Hardline no publica cifras que no haya medido en tu equipo. Para medirlo tú: instala [CapFrameX](https://www.capframex.com/), graba 60 s en el mismo recorrido antes y después, y Hardline lee las capturas y las compara en el reporte.
+Hardline no publica cifras que no haya medido en tu equipo. Para medirlo: instala [CapFrameX](https://www.capframex.com/), graba 60 s en el mismo recorrido antes y después, y Hardline compara las capturas en el reporte.
 
-## Audio
+## Audio: pasos claros, explosiones controladas
 
-El preset de pasos realza 2-4 kHz y recorta por debajo de 500 Hz. Tres realces solapados en 2.2/2.8/3.6 kHz suman **+19 dB** en 2.8 kHz, así que Hardline calcula la respuesta real de la cadena y ajusta el preamp para que no haya clipping (en el preset base sale -20.5 dB, no los -4 dB habituales en otras guías). Detalles, perfiles por headset y enrutado: [docs/TWEAKS_EXPLAINED.md#audio](docs/TWEAKS_EXPLAINED.md#audio).
+```mermaid
+flowchart LR
+    G[cod.exe] --> C[CABLE Input]
+    C --> EQ["Equalizer APO<br/>corrección del headset<br/>+ preset de pasos"]
+    EQ --> VM["Voicemeeter<br/>gate -45 dB · comp 4:1"]
+    VM --> H((Headset))
+    D[Discord y sistema] --> VI[Voicemeeter Input] --> H
+```
+
+- **EQ de pasos**: realza 2-4 kHz (tacón y superficie) y recorta por debajo de 500 Hz (explosiones, disparos propios).
+- **Sin clipping**: los realces solapados suman **+19 dB** en 2.8 kHz. Hardline calcula la respuesta real de los filtros y ajusta el preamp (-20.5 dB en el preset base, no los -4 dB habituales en otras guías).
+- **Compresor**: baja los picos y sube lo que no lo es. Neto: pasos más altos, explosiones más bajas.
+- **Solo el juego**: Discord y el resto del sistema no pasan por el EQ.
+- **Sin latencia añadida**: `-AudioMode EqOnly` quita Voicemeeter y deja solo el EQ.
 
 ### Tu headset
 
-1. **Detectado o elegido de la lista** (6 modelos incluidos): Hardline descarga su corrección medida de [AutoEq](https://github.com/jaakkopasanen/AutoEq) (oratory1990, crinacle, Rtings) y pone encima el preset de pasos. Sin internet, usa el perfil aproximado incluido.
-2. **Otro modelo**: escribe el nombre ("Kraken V3", "Arctis Nova Pro") y elige entre los resultados de los ~8800 perfiles de AutoEq.
-3. **Manual**: descarga el perfil de [autoeq.app](https://autoeq.app) en formato Equalizer APO y déjalo en la carpeta `headsets\`. Hardline lo detecta y lo ofrece en el menú.
+1. **Detectado o elegido** (6 incluidos): descarga su corrección medida de [AutoEq](https://github.com/jaakkopasanen/AutoEq) (oratory1990, crinacle, Rtings) y pone encima el preset de pasos. Sin internet, usa un perfil aproximado.
+2. **Otro modelo**: escribe el nombre ("Kraken V3", "Arctis Nova Pro") y elige entre ~8800 perfiles medidos.
+3. **Manual**: baja el perfil de [autoeq.app](https://autoeq.app) (formato Equalizer APO) y déjalo en `headsets\`.
 
-Todo lo descargado se guarda en `headsets\`, así que la próxima vez funciona sin conexión.
+Todo lo descargado se queda en `headsets\`: la próxima vez funciona sin conexión.
+
+Detalles: [audio en TWEAKS_EXPLAINED](docs/TWEAKS_EXPLAINED.md#audio).
 
 ## Revertir
 
@@ -98,28 +154,31 @@ Todo lo descargado se guarda en `headsets\`, así que la próxima vez funciona s
 .\rollback.ps1 -Stamp 2025-01-15_14-30
 ```
 
-O usa el restore point de Windows. Si instalaste por `irm | iex`, `rollback.ps1` está en `%LOCALAPPDATA%\Hardline`.
+Restaura el valor exacto anterior de cada cambio: registro, servicios, plan de energía, DNS, NIC, QoS, tareas y archivos. También está el restore point de Windows (`Hardline_<fecha>`).
 
-El rollback restaura el valor exacto anterior de cada cambio (registro, servicios, plan de energía, DNS, NIC, QoS, tareas, archivos). No desinstala software: Voicemeeter, VB-CABLE, Equalizer APO y Peace se quitan desde Configuración > Aplicaciones.
+> [!TIP]
+> Si instalaste con `irm | iex`, `rollback.ps1` está en `%LOCALAPPDATA%\Hardline`. El rollback no desinstala software: Voicemeeter, VB-CABLE, Equalizer APO y Peace se quitan desde Configuración > Aplicaciones.
+
+## Anticheat
+
+Hardline no toca el proceso del juego, no inyecta nada y no modifica archivos del juego. Solo edita la configuración de usuario que el propio juego guarda en `Documentos\Call of Duty\players`, igual que el menú de ajustes. Más en la [FAQ](docs/FAQ.md#ricochet).
 
 ## Requisitos
 
 - Windows 10 22H2 o Windows 11
-- PowerShell 5.1 (viene con Windows; si lanzas desde PowerShell 7, el script se relanza en 5.1)
+- PowerShell 5.1 (viene con Windows; desde PowerShell 7 se relanza en 5.1)
 - Permisos de administrador
-- .NET Framework 4.7.2+ (incluido en Windows 10/11)
-- Conexión a internet para el audio (descarga los instaladores oficiales)
+- Internet para el audio (descarga los instaladores oficiales y los perfiles de AutoEq)
 
 ## Documentación
 
-- [TWEAKS_EXPLAINED.md](docs/TWEAKS_EXPLAINED.md): qué hace cada cambio y por qué
-- [SUPPORTED_HARDWARE.md](docs/SUPPORTED_HARDWARE.md): qué se detecta y qué se ajusta en cada plataforma
-- [FAQ.md](docs/FAQ.md): anticheat, rollback, problemas comunes
-
-## Anticheat
-
-Hardline no toca el proceso del juego, no inyecta nada y no modifica archivos del juego. Solo edita la configuración de usuario que el propio juego guarda en `Documentos\Call of Duty\players`, igual que el menú de ajustes. Ver [FAQ](docs/FAQ.md#ricochet).
+| | |
+|---|---|
+| [TWEAKS_EXPLAINED.md](docs/TWEAKS_EXPLAINED.md) | Qué hace cada cambio y por qué |
+| [SUPPORTED_HARDWARE.md](docs/SUPPORTED_HARDWARE.md) | Qué se detecta y qué se ajusta en cada plataforma |
+| [FAQ.md](docs/FAQ.md) | Anticheat, rollback, audio, problemas comunes |
+| [CHANGELOG.md](CHANGELOG.md) | Versiones |
 
 ## Licencia
 
-MIT. Ver [LICENSE](LICENSE).
+MIT. Ver [LICENSE](LICENSE). Los perfiles de headset descargados vienen de [AutoEq](https://github.com/jaakkopasanen/AutoEq) (MIT).
