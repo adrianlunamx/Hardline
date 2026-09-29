@@ -22,7 +22,25 @@ Archivo: `src/modules/windows/services.ps1`. Se cambia el valor `Start` de la cl
 | `RetailDemo`, `WpcMonSvc`, `Fax` | Deshabilitado | Modo tienda, control parental, fax. |
 | `WerSvc`, `PcaSvc` | Manual | Informe de errores y asistente de compatibilidad: solo arrancan si hacen falta. |
 
-**No se tocan** los servicios Xbox (`XblAuthManager`, `XblGameSave`, `XboxNetApiSvc`, `GamingServices`): la versión de Game Pass los necesita para arrancar el juego. Por defecto ya están en Manual y no consumen nada si no se usan.
+Los servicios de Xbox y Steam no están en esta lista: dependen de la plataforma desde la que juegas y se gestionan en [Plataformas de juego](#plataformas-de-juego-auto).
+
+### Plataformas de juego [auto]
+
+Archivo: `src/modules/windows/platforms.ps1`.
+
+Se pregunta desde qué plataforma juegas Warzone (preseleccionada según dónde está `cod.exe`: `steamapps` = Steam, `XboxGames` = Xbox app, resto = Battle.net). Esa no se toca. Para cada otra plataforma instalada, se pregunta si la usas para otros juegos; si no:
+
+| Plataforma | Procesos que se cierran | Arranque automático | Servicios deshabilitados |
+|---|---|---|---|
+| Battle.net | `Battle.net`, `Agent` (Blizzard Update Agent) | Valores `Run` que apuntan a Battle.net | — |
+| Steam | `steam`, `steamwebhelper` (varios procesos, 300-600 MB en total), `steamservice` | Valor `Run` de Steam | `Steam Client Service` |
+| Xbox app / Game Pass | `XboxPcApp`, `XboxPcTray`, `GameBar` | Tarea de inicio AppX de la Xbox app | `XblAuthManager`, `XblGameSave`, `XboxNetApiSvc`, `GamingServices`, `GamingServicesNet` |
+
+- Nada se desinstala. Battle.net y Steam se siguen abriendo a mano con normalidad.
+- **Xbox**: sin esos servicios no arrancan los juegos de Game Pass ni los de la Microsoft Store que usan Xbox Live (Minecraft, Forza...). Si juegas alguno, responde que sí usas la Xbox app. `GamingServices` tiene permisos restringidos en algunas builds; si no se puede modificar, se indica en el reporte.
+- **`XboxGipSvc` no se toca**: gestiona los mandos y accesorios de Xbox (firmware, palas del Elite). Solo arranca al conectar un accesorio, así que no ocupa nada si no lo usas.
+- En modo `-Unattended` las plataformas secundarias se conservan: cerrar una plataforma que usas para otros juegos no es algo que decidir sin preguntar.
+- El rollback restaura servicios y arranque automático.
 
 ### Registro [auto]
 
@@ -230,7 +248,26 @@ Intensidad **moderada** (70%): mismas frecuencias y Q, 30% menos de ganancia. Pi
 | Corsair HS80 | 50 mm | 32 Ω | Cálido y oscuro: el mayor recorte de graves y más realce arriba. |
 | Astro A40 TR | 40 mm | 48 Ω | Abierto, pocos graves: menos recorte abajo y realce moderado para conservar la escena del diseño abierto. |
 
-Son ajustes orientativos a partir de la firma conocida de cada modelo, no mediciones de tu unidad. Si algo suena demasiado agudo, usa la intensidad moderada o baja 1-2 dB los filtros de 3.6k/5k en el JSON y vuelve a ejecutar el audio (`.\src\audio\setup.ps1`).
+Son ajustes orientativos a partir de la firma conocida de cada modelo. Se usan solo como respaldo sin internet: lo normal es la corrección medida de AutoEq (abajo).
+
+### Corrección medida (AutoEq)
+
+Archivo: `src/audio/autoeq.ps1`.
+
+[AutoEq](https://github.com/jaakkopasanen/AutoEq) publica perfiles de Equalizer APO para ~8800 auriculares, calculados a partir de mediciones en laboratorio (oratory1990, crinacle, Rtings...). Cada perfil lleva ese modelo a una respuesta neutra (target Harman). La cadena final es:
+
+```
+corrección AutoEq (tu headset -> neutro)  +  preset de pasos base (neutro -> Warzone)
+```
+
+Así el preset de pasos hace lo mismo en cualquier headset, en lugar de depender de lo que ya realce o apague de fábrica.
+
+- Búsqueda por palabras sobre el índice de AutoEq (cacheado 7 días en `headsets\.cache`). Orden: coincidencia exacta, over-ear antes que in-ear, y fuente (oratory1990 > crinacle > Rtings > Filk > resto).
+- Si Windows expone el modelo en el nombre del dispositivo ("Auriculares (Razer Kraken V3)"), se usa como búsqueda sugerida.
+- El perfil descargado se guarda en `headsets\<modelo> (<fuente>).txt`. La siguiente vez se usa sin conexión.
+- **Manual**: cualquier archivo de Equalizer APO con líneas `Filter: ON PK|LSC|HSC ...` en `headsets\` aparece en el menú. Sirve el `ParametricEQ.txt` de AutoEq o lo que exporta [autoeq.app](https://autoeq.app) eligiendo Equalizer APO.
+- El preamp del archivo se ignora: se recalcula con la cadena completa. Con corrección + pasos el pico suele quedar entre +20 y +25 dB, así que el preamp baja a -21/-26 dB. Compensa con el volumen; no hay clipping.
+- Los parámetros de Voicemeeter (makeup por impedancia) se heredan del perfil incluido si tu modelo es uno de los 6.
 
 ### Compresor y gate (modo Completo)
 
@@ -275,7 +312,7 @@ Pasos que el script no puede hacer por ti (Windows no tiene API pública para el
 | `Win32PrioritySeparation` a valores exóticos | El valor por defecto en cliente ya da quantum corto variable con boost al primer plano. |
 | Desactivar Spectre/Meltdown | Hueco de seguridad real a cambio de una ganancia que en Zen 4 es mínima. |
 | Desactivar Defender o Windows Update | Seguridad. Game Mode ya frena Update durante la partida. |
-| Borrar Xbox services | Rompe la versión de Game Pass. |
+| Deshabilitar Xbox services a ciegas | Rompe Game Pass y los juegos de la Store. Hardline solo lo hace si eliges otra plataforma y confirmas que no usas la Xbox app. |
 | "Limpiadores" de RAM | Windows gestiona la standby list. Vaciarla obliga a releer de disco. |
 | Aplicar ajustes de BIOS o Adrenalin | No hay API pública y fiable. Hacerlo mal deja la placa o el driver en estado inconsistente. Se dan instrucciones exactas. |
 | Ajustes de prioridad del proceso del juego | El anticheat vigila modificaciones al proceso. No merece el riesgo. |

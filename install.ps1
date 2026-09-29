@@ -24,7 +24,13 @@
     Solo ejecuta el benchmark y lo compara con el ultimo "pre" guardado.
     Pensado para despues de reiniciar.
 .PARAMETER Headset
-    Id de headset de src/audio/profiles/headsets.json (ej. hyperx-cloud-ii).
+    Id de headset de src/audio/profiles/headsets.json (ej. hyperx-cloud-ii),
+    nombre de un archivo de la carpeta headsets\, o un modelo para buscar su
+    medicion en AutoEq (ej. "Kraken V3").
+.PARAMETER Platform
+    Plataforma desde la que juegas Warzone: battlenet, steam o xbox. Las otras
+    instaladas se cierran y pierden el arranque automatico (se pregunta).
+    Por defecto se deduce de donde esta cod.exe y se confirma.
 .PARAMETER AudioMode
     Full (EQ + compresor Voicemeeter) o EqOnly.
 #>
@@ -40,6 +46,7 @@ param(
     [switch] $NoRestorePoint,
     [switch] $BenchmarkOnly,
     [string] $Headset = '',
+    [ValidateSet('', 'battlenet', 'steam', 'xbox')] [string] $Platform = '',
     [ValidateSet('', 'Full', 'EqOnly')] [string] $AudioMode = '',
     [string] $Branch = 'main',
     [string] $InstallDir = ''
@@ -160,13 +167,16 @@ if (-not $localRoot) {
 
     if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null }
     # Se conserva lo generado en ejecuciones anteriores (backups, reports, logs).
-    Get-ChildItem $extracted.FullName -Force | Where-Object { $_.Name -notin @('backups', 'reports', 'logs') } | ForEach-Object {
+    Get-ChildItem $extracted.FullName -Force | Where-Object { $_.Name -notin @('backups', 'reports', 'logs', 'headsets') } | ForEach-Object {
         Copy-Item -Path $_.FullName -Destination $InstallDir -Recurse -Force
     }
-    foreach ($d in @('backups', 'reports', 'logs')) {
+    foreach ($d in @('backups', 'reports', 'logs', 'headsets')) {
         $p = Join-Path $InstallDir $d
         if (-not (Test-Path $p)) { New-Item -ItemType Directory -Path $p -Force | Out-Null }
     }
+    # headsets\ guarda perfiles del usuario: solo se copia la nota explicativa.
+    $leeme = Join-Path $extracted.FullName 'headsets\LEEME.txt'
+    if (Test-Path $leeme) { Copy-Item $leeme (Join-Path $InstallDir 'headsets') -Force }
     Get-ChildItem $InstallDir -Recurse -File | Unblock-File -ErrorAction SilentlyContinue
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
     Write-Host "[+] Descargado. Para revertir mas tarde: $InstallDir\rollback.ps1" -ForegroundColor Green
@@ -280,7 +290,7 @@ if (-not $SkipBenchmark) {
 }
 
 # --- Optimizaciones --------------------------------------------------------------
-Invoke-HLOptimization -Hardware $hw -SkipWindows:$SkipWindows -SkipNetwork:$SkipNetwork -SkipGame:$SkipGame
+Invoke-HLOptimization -Hardware $hw -SkipWindows:$SkipWindows -SkipNetwork:$SkipNetwork -SkipGame:$SkipGame -Platform $Platform
 
 # --- Audio ---------------------------------------------------------------------
 if (-not $SkipAudio) {

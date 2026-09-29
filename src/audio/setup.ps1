@@ -10,6 +10,7 @@
 
     Se puede ejecutar suelto:
       .\src\audio\setup.ps1                     (interactivo, requiere admin)
+      .\src\audio\setup.ps1 -HeadsetId "Kraken V3" (busca la medición en AutoEq)
       .\src\audio\setup.ps1 -ConfigureVoicemeeter -HeadsetId corsair-hs80 -HeadsetDevice "Headphones (CORSAIR HS80)"
         (segunda fase tras reiniciar; la registra el propio script en RunOnce)
 #>
@@ -23,6 +24,7 @@ param(
 $script:AudioRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $PSScriptRoot 'eq.ps1')
 . (Join-Path $PSScriptRoot 'voicemeeter.ps1')
+. (Join-Path $PSScriptRoot 'autoeq.ps1')
 
 # Fuentes de descarga. Voicemeeter con hash fijado (mismo que el manifiesto de
 # winget VB-Audio.Voicemeeter.Potato 3.1.2.2). EQ APO y Peace vienen de
@@ -145,30 +147,89 @@ function Install-HLComponent {
 # Selección de headset y modo
 # --------------------------------------------------------------------------
 
+<#
+    Devuelve @{ Id = <perfil empaquetado o 'generic'>; Correction = <corrección medida o $null> }.
+
+    Orden de preferencia para la corrección del headset:
+      archivo en headsets\ que coincida > descarga de AutoEq > perfil aproximado de headsets.json
+#>
 function Select-HLHeadset {
     param([Parameter(Mandatory)] $Database, $Hardware, [string]$Preset)
 
-    $all = @($Database.headsets) + @($Database.base)
-    if ($Preset) {
-        $hit = $all | Where-Object { $_.id -eq $Preset } | Select-Object -First 1
-        if ($hit) { return $hit.id }
-        Write-HLWarn "Headset '$Preset' no existe en headsets.json; se pregunta."
+    $root = $HL.Root
+    $bundled = @($Database.headsets)
+    $local = @(Get-HLLocalCorrections -Root $root)
+
+    # Busca corrección para un modelo empaquetado: primero en local, luego AutoEq.
+    $getCorrection = {
+        param($h, [bool]$ask)
+        $hitLocal = $local | Where-Object { $_.Name -like "*$($h.name)*" } | Select-Object -First 1
+        if ($hitLocal) { Write-HLSub "Corrección local: headsets\$(Split-Path $hitLocal.Path -Leaf)" 'OK'; return $hitLocal }
+        if ($ask -and -not (Read-HLYesNo "¿Descargar la corrección medida de AutoEq para $($h.name)? (más precisa que el perfil aproximado)" $true)) { return $null }
+        return (Find-HLAutoEqInteractive -Root $root -Query $h.name -PickBest)
     }
 
+    # --- Parámetro -Headset: id empaquetado, nombre de archivo en headsets\ o modelo para AutoEq
+    if ($Preset) {
+        $h = $bundled | Where-Object { $_.id -eq $Preset } | Select-Object -First 1
+        if ($h) { return [pscustomobject]@{ Id = $h.id; Correction = (& $getCorrection $h $false) } }
+        if ($Preset -eq 'generic') { return [pscustomobject]@{ Id = 'generic'; Correction = $null } }
+        $f = $local | Where-Object { $_.Name -like "*$Preset*" } | Select-Object -First 1
+        if ($f) { return [pscustomobject]@{ Id = 'generic'; Correction = $f } }
+        $c = Find-HLAutoEqInteractive -Root $root -Query $Preset -PickBest
+        if ($c) { return [pscustomobject]@{ Id = 'generic'; Correction = $c } }
+        Write-HLWarn "No se encontró '$Preset' (ni en headsets.json, ni en headsets\, ni en AutoEq); se pregunta."
+    }
+
+    # --- Detección
     $eps = if ($Hardware) { $Hardware.Audio } else { @(Get-HLAudioEndpoints) }
-    $det = Find-HLHeadset -Profiles $Database.headsets -Endpoints $eps
-    $default = $all.Count - 1
+    $det = Find-HLHeadset -Profiles $bundled -Endpoints $eps
+    # Nombre del modelo tal y como lo expone Windows: "Auriculares (Razer Kraken V3)" -> "Razer Kraken V3"
+    $suggest = $null
+    if (-not $det) {
+        $ep = @($eps | Where-Object { $_.Render -and $_.Name -notmatch 'CABLE|Voicemeeter|VB-Audio|Realtek|High Definition|NVIDIA|AMD|Intel|Digital|HDMI|DisplayPort' }) | Select-Object -First 1
+        if ($ep -and $ep.Name -match '\((?:\d+-\s*)?(?<m>[^)]+)\)') { $suggest = $Matches['m'].Trim() }
+    }
+
+    $options = New-Object System.Collections.Generic.List[string]
+    foreach ($h in $bundled) { $options.Add(('{0} ({1} mm, {2} ohm, {3})' -f $h.name, $h.driver_mm, $h.impedance_ohm, $h.design)) }
+    $iAutoEq = $options.Count; $options.Add('Otro modelo: buscar su medición en AutoEq (~8800 auriculares)')
+    $iLocal = -1
+    if ($local.Count -gt 0) { $iLocal = $options.Count; $options.Add("Archivo en la carpeta headsets\ ($($local.Count))") }
+    $iGeneric = $options.Count; $options.Add('Genérico (preset base, sin corrección)')
+
+    $default = $iGeneric
     if ($det) {
-        $idx = [array]::IndexOf(@($all | ForEach-Object { $_.id }), $det.Id)
+        $idx = [array]::IndexOf(@($bundled | ForEach-Object { $_.id }), $det.Id)
         if ($idx -ge 0) { $default = $idx }
         Write-HLOk "Headset detectado: $($det.DeviceName)"
+    } elseif ($suggest) {
+        $default = $iAutoEq
+        Write-HLOk "Salida de audio detectada: $suggest (no está en los perfiles incluidos)"
     }
-    $labels = $all | ForEach-Object {
-        $meta = if ($_.driver_mm) { " ({0} mm, {1} ohm, {2})" -f $_.driver_mm, $_.impedance_ohm, $_.design } else { '' }
-        "$($_.name)$meta"
+    if ($HL.Unattended -and -not $det) { return [pscustomobject]@{ Id = 'generic'; Correction = $null } }
+
+    while ($true) {
+        $i = Read-HLChoice -Prompt '¿Qué headset tienes?' -Options $options.ToArray() -Default $default
+        if ($i -lt $bundled.Count) {
+            $h = $bundled[$i]
+            $c = & $getCorrection $h (-not $HL.Unattended)
+            if (-not $c) { Write-HLInfo "Se usa el perfil aproximado de $($h.name)." }
+            return [pscustomobject]@{ Id = $h.id; Correction = $c }
+        }
+        if ($i -eq $iAutoEq) {
+            $c = Find-HLAutoEqInteractive -Root $root -Query $suggest
+            if ($c) { return [pscustomobject]@{ Id = 'generic'; Correction = $c } }
+            Write-HLInfo "Sin perfil. Puedes descargarlo a mano de https://autoeq.app (formato Equalizer APO) y dejarlo en $(Get-HLHeadsetDir -Root $root)"
+            $suggest = $null
+            continue
+        }
+        if ($i -eq $iLocal) {
+            $j = Read-HLChoice -Prompt 'Archivo' -Options @($local | ForEach-Object { "$($_.Name) ($(@($_.Filters).Count) filtros)" }) -Default 0
+            return [pscustomobject]@{ Id = 'generic'; Correction = $local[$j] }
+        }
+        return [pscustomobject]@{ Id = 'generic'; Correction = $null }
     }
-    $i = Read-HLChoice -Prompt '¿Qué headset tienes?' -Options $labels -Default $default
-    return $all[$i].id
 }
 
 function Select-HLRenderDevice {
@@ -236,8 +297,9 @@ function Invoke-HLAudioSetup {
     )
 
     $db = Get-HLHeadsetProfiles -Root $HL.Root
-    $id = Select-HLHeadset -Database $db -Hardware $Hardware -Preset $HeadsetId
-    $hp = Resolve-HLHeadsetProfile -Database $db -Id $id
+    $sel = Select-HLHeadset -Database $db -Hardware $Hardware -Preset $HeadsetId
+    $id = $sel.Id
+    $hp = Resolve-HLHeadsetProfile -Database $db -Id $id -Correction $sel.Correction
     Write-HLInfo "Perfil: $($hp.name). $($hp.rationale)"
 
     if (-not $Mode) {
@@ -288,7 +350,7 @@ function Invoke-HLAudioSetup {
 
     # --- EQ -----------------------------------------------------------------------
     $preset = Write-HLEqConfig -HeadsetProfile $hp -Intensity $Intensity
-    $pre = Get-HLAutoPreamp -Filters @(Get-HLScaledFilters -Filters $hp.filters -Intensity $Intensity)
+    $pre = Get-HLAutoPreamp -Filters @(Get-HLChainFilters -HeadsetProfile $hp -Intensity $Intensity)
     Write-HLSub "Preset EQ ($preset, preamp $pre dB)" 'OK'
     Add-HLResult -Module 'Audio' -Item 'Preset EQ APO' -Status Applied -Detail "$preset (preamp automático $pre dB)"
 
@@ -345,7 +407,7 @@ function Invoke-HLVoicemeeterPhase {
     if (-not $applied) {
         # Drivers recién instalados: los dispositivos aparecen tras reiniciar.
         $cmd = '"{0}" -NoProfile -ExecutionPolicy Bypass -File "{1}" -ConfigureVoicemeeter -HeadsetId {2} -HeadsetDevice "{3}"' -f `
-            (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'), (Join-Path $HL.Root 'src\audio\setup.ps1'), $HeadsetProfile.id, $HeadsetDevice
+            (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'), (Join-Path $HL.Root 'src\audio\setup.ps1'), $HeadsetProfile.vmProfileId, $HeadsetDevice
         Set-HLRegistryValue -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce' -Name 'HardlineVoicemeeter' -Value $cmd -Type String -Reason 'Configura Voicemeeter tras reiniciar' | Out-Null
         Write-HLSub 'Voicemeeter' 'Se configura solo tras reiniciar'
         Add-HLResult -Module 'Audio' -Item 'Voicemeeter' -Status Applied -Detail 'Pendiente de reinicio (RunOnce)'

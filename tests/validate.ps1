@@ -115,6 +115,64 @@ if ($db) {
 }
 
 # ---------------------------------------------------------------------------
+Write-Host "`n[4b] AutoEq y archivos propios (sin red)" -ForegroundColor Cyan
+. (Join-HLPath @($root, 'src', 'audio', 'autoeq.ps1'))
+$sample = @(
+    'Preamp: -6.4 dB'
+    'Filter 1: ON LSC Fc 105 Hz Gain 4.1 dB Q 0.70'
+    'Filter 2: ON PK Fc 170 Hz Gain -7.0 dB Q 1.06'
+    'Filter 3: ON HSC Fc 10000 Hz Gain -7.0 dB Q 0.70'
+    'Filter: ON PK Fc 3828 Hz Gain 5.4 dB Q 3.60'
+    '# comentario'
+    'Filter 5: OFF PK Fc 1000 Hz Gain 9 dB Q 1'
+) -join "`n"
+$parsed = @(ConvertFrom-HLEqApoFile -Text $sample)
+Assert-True ($parsed.Count -eq 4) "parser ParametricEQ: 4 filtros ON (obtenido $($parsed.Count))"
+Assert-True ($parsed[0].type -eq 'LSC' -and $parsed[0].fc -eq 105 -and $parsed[0].gain -eq 4.1 -and $parsed[0].q -eq 0.7) 'parser: valores con punto decimal'
+Assert-True ($null -eq (ConvertFrom-HLEqApoFile -Text 'Preamp: -3 dB')) 'archivo sin filtros: se rechaza'
+
+$indexText = @(
+    '# Index'
+    '- [HyperX Cloud II](./oratory1990/over-ear/HyperX%20Cloud%20II) by oratory1990'
+    '- [HyperX Cloud II](./Rtings/HMS%20II.3%20over-ear/HyperX%20Cloud%20II) by Rtings on HMS II.3'
+    '- [HyperX Cloud II Wireless](./Rtings/HMS%20II.3%20over-ear/HyperX%20Cloud%20II%20Wireless) by Rtings on HMS II.3'
+    '- [Logitech G Pro X (3.5mm jack)](./Filk/over-ear/Logitech%20G%20Pro%20X%20(3.5mm%20jack)) by Filk'
+    '- [Stax SR-Gamma Pro](./Innerfidelity/over-ear/Stax%20SR-Gamma%20Pro) by Innerfidelity'
+    '- [SteelSeries Arctis Nova 7](./Rtings/HMS%20II.3%20over-ear/SteelSeries%20Arctis%20Nova%207) by Rtings on HMS II.3'
+    '- [SteelSeries Arctis 7 2019 Edition](./Rtings/HMS%20II.3%20over-ear/SteelSeries%20Arctis%207%202019%20Edition) by Rtings on HMS II.3'
+    '- [SteelSeries Arctis 7+](./Rtings/HMS%20II.3%20over-ear/SteelSeries%20Arctis%207+) by Rtings on HMS II.3'
+    '- [Some IEM](./crinacle/711%20in-ear/Some%20IEM) by crinacle on 711'
+) -join "`n"
+$idx = @(ConvertFrom-HLAutoEqIndex -Text $indexText)
+Assert-True ($idx.Count -eq 9) "índice AutoEq: 9 entradas (obtenido $($idx.Count))"
+Assert-True ($idx[3].Path -eq 'Filk/over-ear/Logitech%20G%20Pro%20X%20(3.5mm%20jack)') 'índice: rutas con paréntesis'
+$top = @(Search-HLAutoEq -Index $idx -Query 'hyperx cloud ii')
+Assert-True ($top[0].Source -eq 'oratory1990' -and $top[0].Name -eq 'HyperX Cloud II') 'búsqueda: coincidencia exacta y mejor fuente primero'
+Assert-True (@(Search-HLAutoEq -Index $idx -Query 'G Pro X' | Where-Object { $_.Name -like 'Stax*' }).Count -eq 0) 'búsqueda: "x" no coincide dentro de "Stax"'
+Assert-True ((@(Search-HLAutoEq -Index $idx -Query 'SteelSeries Arctis 7'))[0].Name -eq 'SteelSeries Arctis 7 2019 Edition') 'búsqueda: frase contigua antes que "Arctis Nova 7" y "7+"'
+
+if ($db) {
+    $corr = [pscustomobject]@{ Name = 'Test'; Filters = $parsed; Source = 'test' }
+    $hpC = Resolve-HLHeadsetProfile -Database $db -Id 'hyperx-cloud-ii' -Correction $corr
+    Assert-True ($hpC.vmProfileId -eq 'hyperx-cloud-ii' -and $hpC.voicemeeter.comp_makeup_db -eq 8) 'con corrección: hereda Voicemeeter del modelo'
+    Assert-True (@($hpC.filters).Count -eq @($db.base.filters).Count) 'con corrección: preset de pasos base'
+    $chain = @(Get-HLChainFilters -HeadsetProfile $hpC)
+    $peakC = (Measure-HLFilterChain -Filters $chain -Points 960).PeakDb
+    $preC = Get-HLAutoPreamp -Filters $chain
+    Assert-True (($peakC + $preC) -le -0.5) ("corrección + pasos: pico {0:N1} + preamp {1} <= -0.5 dB" -f $peakC, $preC)
+    $txt = ConvertTo-HLEqApoText -HeadsetProfile $hpC -Title 't'
+    Assert-True ($txt -match 'Correccion del headset' -and ([regex]::Matches($txt, '(?m)^Filter:')).Count -eq ($chain.Count)) 'texto EQ APO: corrección + pasos'
+}
+
+. (Join-HLPath @($root, 'src', 'modules', 'windows', 'platforms.ps1'))
+$fakeHw = { param($p) [pscustomobject]@{ Game = [pscustomobject]@{ Primary = $p } } }
+Assert-True ((Get-HLGamePlatform -Hardware (& $fakeHw 'D:\SteamLibrary\steamapps\common\Call of Duty HQ\cod.exe')) -eq 'steam') 'plataforma: Steam por ruta'
+Assert-True ((Get-HLGamePlatform -Hardware (& $fakeHw 'C:\XboxGames\Call of Duty\Content\cod.exe')) -eq 'xbox') 'plataforma: Xbox por ruta'
+Assert-True ((Get-HLGamePlatform -Hardware (& $fakeHw 'C:\Program Files (x86)\Call of Duty\_retail_\cod.exe')) -eq 'battlenet') 'plataforma: Battle.net por ruta'
+$cat = @(Get-HLPlatformCatalog)
+Assert-True (($cat | Where-Object { $_.Id -eq 'xbox' }).Services -notcontains 'XboxGipSvc') 'Xbox: XboxGipSvc (mandos) no se deshabilita'
+
+# ---------------------------------------------------------------------------
 Write-Host "`n[5] voicemeeter_comp.xml" -ForegroundColor Cyan
 $xmlPath = Join-HLPath @($root, 'src', 'audio', 'configs', 'voicemeeter_comp.xml')
 $xml = $null

@@ -81,6 +81,28 @@ Para ver la curva y activar/desactivar el EQ rápido. Si guardas un preset desde
 
 Modo Solo EQ (`-AudioMode EqOnly`). Sin Voicemeeter ni VB-CABLE: Equalizer APO va directo en el headset. Pierdes la compresión de explosiones.
 
+**Mi headset no está en la lista.**
+
+Elige "Otro modelo: buscar su medición en AutoEq" y escribe el modelo (solo el nombre: "Kraken V3", no "Razer Kraken V3 X USB negro"). Si no aparece, descarga el perfil más parecido en [autoeq.app](https://autoeq.app) (destino: Equalizer APO) y déjalo en la carpeta `headsets\`; o usa el Genérico.
+
+**¿Dónde está la carpeta `headsets`?**
+
+En la carpeta de Hardline: `%LOCALAPPDATA%\Hardline\headsets` si instalaste con `irm | iex`, o `headsets\` en tu clon. Las actualizaciones de Hardline no la borran.
+
+## Plataformas
+
+**Juego en Battle.net. ¿Por qué me pregunta por Steam y Xbox?**
+
+Porque están instaladas y dejan procesos y servicios residentes. Si no las usas para otros juegos, Hardline las cierra, quita su arranque automático y deshabilita sus servicios. No las desinstala.
+
+**Deshabilité Xbox y ahora un juego de Game Pass / Microsoft Store no arranca.**
+
+Esos juegos necesitan los servicios de Xbox. `.\rollback.ps1` los restaura, o vuelve a ejecutar Hardline y responde que sí usas la Xbox app.
+
+**¿Deja de funcionar mi mando de Xbox?**
+
+No. `XboxGipSvc` (accesorios de Xbox) no se toca.
+
 ## Rendimiento
 
 **No he ganado FPS.**

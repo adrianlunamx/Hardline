@@ -124,14 +124,29 @@ function Get-HLScaledFilters {
     }
 }
 
+# Cadena completa: corrección del headset (sin escalar) + preset de pasos (escalado).
+function Get-HLChainFilters {
+    param([Parameter(Mandatory)] $HeadsetProfile, [double]$Intensity = 1.0)
+    $corr = @()
+    $p = $HeadsetProfile.PSObject.Properties['correction']
+    if ($p -and $p.Value) { $corr = @($p.Value) }
+    return @($corr + @(Get-HLScaledFilters -Filters $HeadsetProfile.filters -Intensity $Intensity))
+}
+
 function ConvertTo-HLEqApoText {
     param([Parameter(Mandatory)] $HeadsetProfile, [string]$Title, [double]$Intensity = 1.0)
 
     $hp = $HeadsetProfile
-    $filters = @(Get-HLScaledFilters -Filters $hp.filters -Intensity $Intensity)
-    $pre = Get-HLAutoPreamp -Filters $filters
-    $m = Measure-HLFilterChain -Filters $filters
+    $corr = @()
+    $cp = $hp.PSObject.Properties['correction']
+    if ($cp -and $cp.Value) { $corr = @($cp.Value) }
+    $steps = @(Get-HLScaledFilters -Filters $hp.filters -Intensity $Intensity)
+    $all = @($corr + $steps)
+    $pre = Get-HLAutoPreamp -Filters $all
+    $m = Measure-HLFilterChain -Filters $all
     $inv = [Globalization.CultureInfo]::InvariantCulture
+    $line = { param($f) 'Filter: ON {0} Fc {1} Hz Gain {2} dB Q {3}' -f $f.type,
+        ([double]$f.fc).ToString('0', $inv), ([double]$f.gain).ToString('0.0', $inv), ([double]$f.q).ToString('0.00', $inv) }
 
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine("# Hardline - $Title")
@@ -140,11 +155,18 @@ function ConvertTo-HLEqApoText {
     [void]$sb.AppendLine('# Generado por src/audio/eq.ps1. Edita headsets.json, no este archivo.')
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine(('Preamp: {0} dB' -f $pre.ToString('0.0', $inv)))
-    foreach ($f in $filters) {
+    if ($corr.Count -gt 0) {
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine("# --- Corrección del headset: $($hp.correctionSource) ---")
+        [void]$sb.AppendLine('# Lleva el headset a respuesta neutra antes del preset de pasos.')
+        foreach ($f in $corr) { [void]$sb.AppendLine((& $line $f)) }
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine('# --- Preset de pasos de Hardline ---')
+    }
+    foreach ($f in $steps) {
         $why = $f.PSObject.Properties['why']
         if ($why) { [void]$sb.AppendLine(''); [void]$sb.AppendLine("# $($why.Value)") }
-        [void]$sb.AppendLine(('Filter: ON {0} Fc {1} Hz Gain {2} dB Q {3}' -f $f.type,
-            ([double]$f.fc).ToString('0', $inv), ([double]$f.gain).ToString('0.0', $inv), ([double]$f.q).ToString('0.00', $inv)))
+        [void]$sb.AppendLine((& $line $f))
     }
     return (ConvertTo-HLAscii $sb.ToString())
 }
@@ -157,8 +179,10 @@ function Get-HLHeadsetProfiles {
 }
 
 # Devuelve el perfil completo (filtros + parámetros de Voicemeeter ya fusionados).
+# Con -Correction (AutoEq o archivo propio) el headset queda neutro, así que el
+# preset de pasos es el base; del perfil empaquetado solo se hereda Voicemeeter.
 function Resolve-HLHeadsetProfile {
-    param([Parameter(Mandatory)] $Database, [string]$Id)
+    param([Parameter(Mandatory)] $Database, [string]$Id, $Correction)
     $p = $Database.base
     if ($Id -and $Id -ne 'generic') {
         $hit = @($Database.headsets | Where-Object { $_.id -eq $Id }) | Select-Object -First 1
@@ -168,11 +192,28 @@ function Resolve-HLHeadsetProfile {
     foreach ($prop in $Database.voicemeeter_defaults.PSObject.Properties) { $vm[$prop.Name] = $prop.Value }
     $over = $p.PSObject.Properties['voicemeeter']
     if ($over) { foreach ($prop in $over.Value.PSObject.Properties) { $vm[$prop.Name] = $prop.Value } }
+
+    if ($Correction) {
+        $safeId = ($Correction.Name -replace '[^A-Za-z0-9]+', '-').Trim('-').ToLowerInvariant()
+        return [pscustomobject]@{
+            id               = $safeId
+            name             = "$($Correction.Name) (corrección $($Correction.Source))"
+            filters          = @($Database.base.filters)
+            correction       = @($Correction.Filters)
+            correctionSource = $Correction.Source
+            voicemeeter      = [pscustomobject]$vm
+            vmProfileId      = $p.id
+            rationale        = "Corrección medida ($($Correction.Source)) + preset de pasos base."
+        }
+    }
     [pscustomobject]@{
-        id          = $p.id
-        name        = $p.name
-        filters     = @($p.filters)
-        voicemeeter = [pscustomobject]$vm
-        rationale   = $p.rationale
+        id               = $p.id
+        name             = $p.name
+        filters          = @($p.filters)
+        correction       = @()
+        correctionSource = ''
+        voicemeeter      = [pscustomobject]$vm
+        vmProfileId      = $p.id
+        rationale        = $p.rationale
     }
 }

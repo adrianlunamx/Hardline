@@ -8,13 +8,14 @@ Hardline es un script de PowerShell que ajusta Windows, la plataforma AMD, la re
 
 | Área | Automático | Te lo deja en el reporte |
 |---|---|---|
+| Plataformas | Eliges desde dónde juegas (Battle.net, Steam, Xbox app); las que no usas se cierran, pierden el arranque automático y sus servicios se deshabilitan | |
 | Windows | Servicios de fondo, Game DVR off, Game Mode on, HAGS off, MMCSS, plan Ultimate Performance, timer 0.5 ms, widgets/Cortana fuera | LatencyMon si hay picos DPC |
 | CPU Ryzen | Detección de familia, SMT y chipset driver | PBO, Curve Optimizer -20, validación con Prime95/CoreCycler |
 | GPU Radeon | Driver, estado real de SAM/ReBAR, crashes TDR recientes | Anti-Lag, Chill off, RIS 80%, undervolt 1100 mV |
 | RAM | Velocidad y si EXPO/XMP está activo | tRFC con ZenTimings |
 | Red | DNS 1.1.1.1, EEE/Green Ethernet off, autotuning, QoS DSCP 46 para `cod.exe` | Test de bufferbloat, SQM en el router |
 | Warzone | Ajustes gráficos en `options.*.cst` / `adv_options.ini` | FOV, brillo, Anti-Lag 2 |
-| Audio | EQ de pasos por headset (Equalizer APO) + compresor/gate (Voicemeeter) | Enrutado de `cod.exe` en Windows |
+| Audio | Corrección medida de tu headset (AutoEq, ~8800 modelos) + EQ de pasos (Equalizer APO) + compresor/gate (Voicemeeter) | Enrutado de `cod.exe` en Windows |
 
 Lo que Hardline **no** hace, y por qué, está en [docs/TWEAKS_EXPLAINED.md](docs/TWEAKS_EXPLAINED.md#lo-que-hardline-no-hace).
 
@@ -48,7 +49,8 @@ cd hardline
 |---|---|
 | `-DryRun` | Detecta y muestra, no cambia nada |
 | `-Unattended` | Sin preguntas (respuestas por defecto). Los instaladores de Equalizer APO y VB-CABLE siguen abriendo su ventana: combínalo con `-SkipAudio` para una ejecución sin intervención |
-| `-Headset <id>` | `hyperx-cloud-ii`, `logitech-g-pro-x`, `steelseries-arctis-7`, `razer-blackshark-v2`, `corsair-hs80`, `astro-a40-tr`, `generic` |
+| `-Platform battlenet\|steam\|xbox` | Plataforma desde la que juegas Warzone (por defecto se deduce de dónde está `cod.exe` y se confirma) |
+| `-Headset <id o modelo>` | Perfil incluido (`hyperx-cloud-ii`, `logitech-g-pro-x`, `steelseries-arctis-7`, `razer-blackshark-v2`, `corsair-hs80`, `astro-a40-tr`, `generic`), un archivo de `headsets\` o cualquier modelo para buscar en AutoEq (`-Headset "Kraken V3"`) |
 | `-AudioMode Full\|EqOnly` | EQ + compresor, o solo EQ (sin latencia añadida) |
 | `-SkipWindows` `-SkipNetwork` `-SkipGame` `-SkipAudio` `-SkipBenchmark` | Omitir módulos |
 | `-BenchmarkOnly` | Medir otra vez y comparar con el benchmark previo (tras reiniciar) |
@@ -60,8 +62,8 @@ cd hardline
 3. Detección de hardware
 4. Snapshot de la configuración actual (`backups/<fecha>/snapshot`)
 5. Benchmark previo
-6. Windows, CPU, GPU, RAM, red, Warzone
-7. Audio: headset, modo, instalación de Equalizer APO / VB-CABLE / Voicemeeter Potato / Peace
+6. Windows, plataformas de juego, CPU, GPU, RAM, red, Warzone
+7. Audio: headset (detectado, elegido o buscado en AutoEq), modo, instalación de Equalizer APO / VB-CABLE / Voicemeeter Potato / Peace
 8. Benchmark posterior
 9. Reporte en `reports/YYYY-MM-DD_HH-mm.txt` con pasos manuales y cómo revertir
 
@@ -79,6 +81,14 @@ Hardline no publica cifras que no haya medido en tu equipo. Para medirlo tú: in
 ## Audio
 
 El preset de pasos realza 2-4 kHz y recorta por debajo de 500 Hz. Tres realces solapados en 2.2/2.8/3.6 kHz suman **+19 dB** en 2.8 kHz, así que Hardline calcula la respuesta real de la cadena y ajusta el preamp para que no haya clipping (en el preset base sale -20.5 dB, no los -4 dB habituales en otras guías). Detalles, perfiles por headset y enrutado: [docs/TWEAKS_EXPLAINED.md#audio](docs/TWEAKS_EXPLAINED.md#audio).
+
+### Tu headset
+
+1. **Detectado o elegido de la lista** (6 modelos incluidos): Hardline descarga su corrección medida de [AutoEq](https://github.com/jaakkopasanen/AutoEq) (oratory1990, crinacle, Rtings) y pone encima el preset de pasos. Sin internet, usa el perfil aproximado incluido.
+2. **Otro modelo**: escribe el nombre ("Kraken V3", "Arctis Nova Pro") y elige entre los resultados de los ~8800 perfiles de AutoEq.
+3. **Manual**: descarga el perfil de [autoeq.app](https://autoeq.app) en formato Equalizer APO y déjalo en la carpeta `headsets\`. Hardline lo detecta y lo ofrece en el menú.
+
+Todo lo descargado se guarda en `headsets\`, así que la próxima vez funciona sin conexión.
 
 ## Revertir
 

@@ -6,3 +6,5 @@ reports/*
 logs/*
 !logs/.gitkeep
 dist/
+headsets/*
+!headsets/LEEME.txt

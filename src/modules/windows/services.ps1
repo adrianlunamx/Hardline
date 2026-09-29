@@ -25,10 +25,8 @@ function Get-HLServicePlan {
         [pscustomobject]@{ Name = 'PcaSvc';            Target = 'Manual';   Why = 'Asistente de compatibilidad. Escanea ejecutables al lanzarlos.' }
     )
 
-    # No se tocan los servicios Xbox (XblAuthManager, XblGameSave, XboxNetApiSvc,
-    # GamingServices): la versión de Game Pass los necesita, y la de Battle.net/
-    # Steam los usa para cross-progression en algunos casos. Ya están en Manual
-    # por defecto, así que no consumen nada si no se usan.
+    # Los servicios de Xbox y Steam no están aquí: dependen de la plataforma
+    # desde la que juegas y los gestiona src/modules/windows/platforms.ps1.
     return $plan
 }
 

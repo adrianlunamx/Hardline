@@ -61,6 +61,18 @@ Todo por CIM/WMI, que usa nombres de clase no traducidos (funciona igual en Wind
 | `astro-a40-tr` | Astro A40 TR | `A40`, `ASTRO A40` |
 | `generic` | Cualquier otro | Preset base |
 
-Si tu headset conecta por jack a la placa o a una tarjeta de sonido, Windows lo ve como "Altavoces (Realtek...)" y no se detecta por nombre: elígelo en la lista.
+Para estos 6 se descarga además su corrección medida de AutoEq; el perfil de `headsets.json` es el respaldo sin internet.
 
-Añadir un headset: copia un bloque en `headsets.json`, ajusta filtros y `match`, y ejecuta `tests\validate.ps1` (comprueba rangos y que el preamp calculado no deje clipping).
+**Cualquier otro modelo**: opción "Otro modelo" en el menú, escribe el nombre y elige entre los ~8800 perfiles de [AutoEq](https://github.com/jaakkopasanen/AutoEq). O deja un archivo de Equalizer APO (de [autoeq.app](https://autoeq.app)) en la carpeta `headsets\`.
+
+Si tu headset conecta por jack a la placa o a una tarjeta de sonido, Windows lo ve como "Altavoces (Realtek...)" y no se detecta por nombre: elígelo en la lista o búscalo.
+
+Añadir un perfil incluido: copia un bloque en `headsets.json`, ajusta filtros y `match`, y ejecuta `tests\validate.ps1` (comprueba rangos y que el preamp calculado no deje clipping).
+
+## Plataformas
+
+| Plataforma | Detección |
+|---|---|
+| Battle.net | `Program Files (x86)\Battle.net\Battle.net.exe` o entrada de desinstalación |
+| Steam | `HKCU\Software\Valve\Steam\SteamExe` |
+| Xbox app / Game Pass | Paquete AppX `Microsoft.GamingApp` o servicio `XblAuthManager` |

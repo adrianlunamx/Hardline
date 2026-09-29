@@ -17,6 +17,7 @@ foreach ($f in @(
         'modules\windows\registry.ps1',
         'modules\windows\power.ps1',
         'modules\windows\timer.ps1',
+        'modules\windows\platforms.ps1',
         'modules\amd\gpu.ps1',
         'modules\amd\ryzen.ps1',
         'modules\network\optimize.ps1',
@@ -31,12 +32,14 @@ function Invoke-HLOptimization {
         [Parameter(Mandatory)] $Hardware,
         [switch] $SkipWindows,
         [switch] $SkipNetwork,
-        [switch] $SkipGame
+        [switch] $SkipGame,
+        [string] $Platform = ''
     )
 
     if (-not $SkipWindows) {
         Write-HLStep 'Optimizando Windows...'
         Invoke-HLSafely 'Servicios' 'Servicios' { Invoke-HLServices -Hardware $Hardware }
+        Invoke-HLSafely 'Plataformas' 'Plataformas de juego' { Invoke-HLPlatforms -Hardware $Hardware -Platform $Platform }
         Invoke-HLSafely 'Registro' 'Registro' { Invoke-HLRegistry -Hardware $Hardware }
         Invoke-HLSafely 'Energía' 'Plan de energía' { Invoke-HLPowerPlan -Hardware $Hardware }
         Invoke-HLSafely 'Timer' 'Timer resolution' { Install-HLTimerResolution -Hardware $Hardware }

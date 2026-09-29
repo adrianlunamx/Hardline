@@ -2,6 +2,19 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.1.0] - 2026-09-29
+
+### Añadido
+
+- Selección de plataforma (Battle.net, Steam, Xbox app). Las plataformas instaladas que no usas: procesos cerrados, arranque automático quitado (claves `Run` y tarea AppX) y servicios deshabilitados (Xbox Live, Gaming Services, Steam Client Service). `XboxGipSvc` se conserva para los mandos. Parámetro `-Platform`.
+- Corrección medida por headset desde AutoEq (~8800 modelos): búsqueda por nombre, mejor fuente primero, descarga a `headsets\` para uso sin conexión. Cadena final: corrección + preset de pasos base, con preamp recalculado sobre todo.
+- Carpeta `headsets\` para perfiles propios (ParametricEQ de AutoEq o exportación de autoeq.app).
+- `-Headset` acepta un modelo libre (`-Headset "Kraken V3"`) o un archivo de `headsets\`.
+
+### Cambiado
+
+- Los perfiles de `headsets.json` quedan como respaldo sin internet.
+
 ## [1.0.0] - 2026-09-29
 
 Primera versión.
