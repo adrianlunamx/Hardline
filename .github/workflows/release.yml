@@ -20,8 +20,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Tests
-        shell: ${{ matrix.shell }}
+      # "shell" no admite expresiones (${{ matrix.shell }}): un paso por shell.
+      - name: Tests (Windows PowerShell 5.1)
+        if: matrix.shell == 'powershell'
+        shell: powershell
+        run: ./tests/validate.ps1
+
+      - name: Tests (PowerShell 7)
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
         run: ./tests/validate.ps1
 
       - name: PSScriptAnalyzer (errores)
