@@ -62,7 +62,8 @@ function Invoke-HLPowerPlan {
         }
         $guid = $Matches[0]
         $created = $guid
-        & powercfg.exe /changename $guid $script:HLPlanName 'Hardline: sin aparcamiento de nucleos, sin ASPM, sin suspension USB.'  # ASCII: powercfg usa la codepage de consola | Out-Null
+        # Descripción en ASCII: powercfg la recibe con la codepage de la consola.
+        & powercfg.exe /changename $guid $script:HLPlanName 'Hardline: sin aparcamiento de nucleos, sin ASPM, sin suspension USB.' | Out-Null
     }
 
     # Ajustes dentro del plan creado (se borran junto con el plan en el rollback).
