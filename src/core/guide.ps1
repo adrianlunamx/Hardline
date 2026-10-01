@@ -45,16 +45,22 @@ function Get-HLGuideSteps {
     param($Manual)
     $seen = @{}
     $i = 0
-    $steps = foreach ($m in @($Manual)) {
+    # Sin @() en la cabecera: "foreach ($m in @($lista))" con una List[object]
+    # (lo que es $HL.Manual) falla en PowerShell con "Los tipos de argumentos no coinciden".
+    $items = New-Object System.Collections.Generic.List[object]
+    if ($null -ne $Manual) { foreach ($x in $Manual) { $items.Add($x) } }
+    $steps = foreach ($m in $items) {
         if (-not $m -or -not $m.Text) { continue }
         $id = Get-HLGuideStepId -Area $m.Area -Text $m.Text
         if ($seen.ContainsKey($id)) { continue }
         $seen[$id] = $true
         $phase = $script:HLGuidePhases | Where-Object { $m.Area -in $_.Areas } | Select-Object -First 1
         if (-not $phase) { $phase = $script:HLGuidePhases[0] }
+        $seq = $i
+        $i += 1
         [pscustomobject]@{
             Id = $id; PhaseOrder = $phase.Order; Phase = $phase.Title; PhaseHint = $phase.Hint
-            Area = "$($m.Area)"; Text = "$($m.Text)"; Link = "$($m.Link)"; Seq = $i++
+            Area = "$($m.Area)"; Text = "$($m.Text)"; Link = "$($m.Link)"; Seq = $seq
         }
     }
     # Número de fase visible, correlativo aunque alguna fase no tenga pasos.
@@ -116,7 +122,7 @@ a{color:var(--acc)}button{background:none;border:1px solid var(--line);color:var
     if ($ReportName) { & $add " <a href=`"$(& $enc $ReportName)`">Ver el reporte completo</a>" }
     & $add '</p>'
 
-    $steps = @($Steps)
+    $steps = @($Steps | Where-Object { $_ -and $_.Id -and $_.Text })
     if ($steps.Count -eq 0) {
         & $add '<p class="empty">No hay pasos manuales pendientes en esta sesión.</p></main></body></html>'
         return $sb.ToString()
@@ -191,7 +197,7 @@ function Get-HLGuideData {
     if (-not (Test-Path $f)) { return $null }
     try {
         $d = Get-Content $f -Raw | ConvertFrom-Json
-        return [pscustomobject]@{ Stamp = $d.Stamp; Report = $d.Report; Steps = @($d.Steps | Where-Object { $_ }) }
+        return [pscustomobject]@{ Stamp = $d.Stamp; Report = $d.Report; Steps = @($d.Steps | Where-Object { $_ -and $_.Id -and $_.Text }) }
     } catch { return $null }
 }
 

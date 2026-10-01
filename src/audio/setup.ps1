@@ -92,17 +92,31 @@ function Install-HLComponent {
 
     switch ($Name) {
         'Voicemeeter' {
+            # Con Voicemeeter abierto el instalador no puede reemplazar sus archivos.
+            Get-Process -Name 'voicemeeter*' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Milliseconds 500
             $zip = Join-Path $tmp 'voicemeeter.zip'
-            if (-not (Invoke-HLDownload -Urls $src.Urls -OutFile $zip -Sha256 $src.Sha256 -ExpectZip)) { return $false }
-            $x = Join-Path $tmp 'voicemeeter'
-            Expand-Archive -Path $zip -DestinationPath $x -Force
-            $exe = Get-ChildItem $x -Recurse -Filter 'Voicemeeter8Setup.exe' | Select-Object -First 1
-            if (-not $exe) { $exe = Get-ChildItem $x -Recurse -Filter '*Setup*.exe' | Select-Object -First 1 }
-            if (-not $exe) { return $false }
-            # -install = instalación silenciosa (código de salida 1 = OK, según el manifiesto de winget).
-            $p = Start-Process -FilePath $exe.FullName -ArgumentList '-install' -Wait -PassThru
-            $HL.NeedsReboot = $true
-            return ($p.ExitCode -in @(0, 1))
+            if (Invoke-HLDownload -Urls $src.Urls -OutFile $zip -Sha256 $src.Sha256 -ExpectZip) {
+                $x = Join-Path $tmp 'voicemeeter'
+                Expand-Archive -Path $zip -DestinationPath $x -Force
+                $exe = Get-ChildItem $x -Recurse -Filter 'Voicemeeter8Setup.exe' | Select-Object -First 1
+                if (-not $exe) { $exe = Get-ChildItem $x -Recurse -Filter '*Setup*.exe' | Select-Object -First 1 }
+                if ($exe) {
+                    # -install = instalación silenciosa (código de salida 1 = OK, según el manifiesto de winget).
+                    $p = Start-Process -FilePath $exe.FullName -ArgumentList '-install' -Wait -PassThru
+                    Write-HLLog INFO "Instalador de Voicemeeter: código $($p.ExitCode)"
+                    $HL.NeedsReboot = $true
+                    if (Test-HLVoicemeeterPotato) { return $true }
+                } else { Write-HLLog WARN 'El ZIP de Voicemeeter no trae el instalador esperado' }
+            } else { Write-HLLog WARN 'Descarga de Voicemeeter fallida o SHA256 distinto (VB-Audio pudo publicar otra versión)' }
+            # Alternativa: winget (repositorio oficial de Microsoft, mismo paquete de VB-Audio).
+            if (Get-Command winget.exe -ErrorAction SilentlyContinue) {
+                Write-HLInfo 'Probando con winget...'
+                $p = Start-Process -FilePath 'winget.exe' -ArgumentList @('install', '--id', 'VB-Audio.Voicemeeter.Potato', '-e', '--silent', '--accept-package-agreements', '--accept-source-agreements') -Wait -PassThru -WindowStyle Hidden
+                Write-HLLog INFO "winget Voicemeeter: código $($p.ExitCode)"
+                $HL.NeedsReboot = $true
+            }
+            return (Test-HLVoicemeeterPotato)
         }
         'VBCable' {
             $zip = Join-Path $tmp 'vbcable.zip'
@@ -409,6 +423,11 @@ function Invoke-HLAudioSetup {
             Write-HLSub "$c" 'OK'
             if (-not $HL.DryRun) { Add-HLManifestEntry -Type 'Info' -Data @{ Note = "Hardline instaló $c. El rollback no desinstala software: quítalo desde Configuración > Aplicaciones si no lo quieres." } }
             Add-HLResult -Module 'Audio' -Item $c -Status Applied -Detail 'Instalado (desinstalar desde Aplicaciones si reviertes)'
+        } elseif ($c -eq 'Voicemeeter' -and (Get-HLVoicemeeterDir)) {
+            # Hay otra edición instalada: se sigue con ella (sin los parámetros avanzados del compresor).
+            Write-HLWarn "No se pudo instalar Voicemeeter Potato; se usa tu Voicemeeter actual. Para el compresor completo instala Potato a mano: $($script:HLAudioSources[$c].Page)"
+            Add-HLResult -Module 'Audio' -Item $c -Status Manual -Detail "Se usa la edición instalada. Potato: $($script:HLAudioSources[$c].Page)"
+            Add-HLManualStep 'Audio' "Instala Voicemeeter Potato ($($script:HLAudioSources[$c].Page)) con Voicemeeter cerrado y vuelve a aplicar el audio: solo Potato tiene el compresor y el gate completos."
         } else {
             Write-HLErr "$c no se pudo instalar automáticamente. Descárgalo de: $($script:HLAudioSources[$c].Page)"
             Add-HLResult -Module 'Audio' -Item $c -Status Failed -Detail "Instalación manual: $($script:HLAudioSources[$c].Page)"

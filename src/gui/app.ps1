@@ -286,5 +286,13 @@ if ($MyInvocation.InvocationName -ne '.') {
         [System.Windows.MessageBox]::Show('Hardline necesita permisos de administrador. Ábrelo desde el acceso directo o con install.ps1 -Gui.', 'Hardline') | Out-Null
         return
     }
-    Show-HLGui
+    try {
+        Show-HLGui
+    } catch {
+        # Si la ventana no se puede construir, que se vea el motivo en lugar de cerrarse sin más.
+        $msg = "$($_.Exception.Message)`r`n`r`n$($_.InvocationInfo.PositionMessage)"
+        try { Add-Content -Path (Join-Path $Root 'logs\gui_error.log') -Value ("{0}`r`n{1}`r`n" -f (Get-Date -Format 's'), $msg) -Encoding UTF8 } catch { Write-Verbose 'Sin log de la interfaz' }
+        Add-Type -AssemblyName PresentationFramework
+        [System.Windows.MessageBox]::Show("La interfaz no pudo abrirse:`r`n`r`n$msg`r`n`r`nDetalle en logs\gui_error.log. Mientras tanto, el modo consola funciona: install.ps1 sin -Gui.", 'Hardline') | Out-Null
+    }
 }

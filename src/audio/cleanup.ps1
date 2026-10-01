@@ -313,7 +313,9 @@ function Get-HLEqApoDeviceAdvice {
     $list = @($Devices | ForEach-Object { $_.Name } | Where-Object { $_ })
     if ($list.Count -eq 0) { return '' }
     $target = if ($Mode -eq 'Full') { 'CABLE Input' } else { 'tu headset' }
-    $extra = if ($Mode -eq 'Full') { @($list | Where-Object { $_ -notmatch 'CABLE Input' }) } else { @($list | Select-Object -Skip 1) }
+    # El nombre visible se puede cambiar en Windows ("Art Tune +"): el del driver no.
+    $cable = 'CABLE Input|VB-Audio Virtual Cable'
+    $extra = if ($Mode -eq 'Full') { @($list | Where-Object { $_ -notmatch $cable }) } else { @($list | Select-Object -Skip 1) }
     if ($extra.Count -eq 0 -and $list.Count -le 1) { return '' }
     return ("Equalizer APO está activo ahora en: {0}. Deja marcado SOLO {1} y desmarca el resto, o el EQ se aplicará dos veces." -f ($list -join '; '), $target)
 }

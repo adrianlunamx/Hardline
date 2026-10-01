@@ -539,6 +539,13 @@ try {
     )
     $gsteps = @(Get-HLGuideSteps -Manual $man)
     Assert-True ($gsteps.Count -eq 5) 'guía: duplicados exactos fuera'
+    # $HL.Manual es una List[object]: "foreach ($x in @($lista))" fallaba con ella (37 pasos reales).
+    $many = @(1..60 | ForEach-Object { [pscustomobject]@{ Area = @('BIOS', 'Warzone', 'Pantalla', 'Audio')[$_ % 4]; Text = "Paso número $_"; Link = '' } })
+    $manyList = New-Object System.Collections.Generic.List[object]; foreach ($x in $many) { $manyList.Add($x) }
+    $mSteps = @(Get-HLGuideSteps -Manual $manyList)
+    Assert-True ($mSteps.Count -eq 60 -and @($mSteps | Where-Object { -not $_.Id -or -not $_.Text }).Count -eq 0 -and $mSteps[0].Area -eq 'Pantalla') 'guía con 60 pasos desde una List[object], como $HL.Manual: todos con id y texto'
+    Assert-True (([regex]::Matches((ConvertTo-HLGuideHtml -Steps $mSteps), 'class="step"')).Count -eq 60) 'guía HTML con 60 pasos'
+    Assert-True (([regex]::Matches((ConvertTo-HLGuideHtml -Steps (@([pscustomobject]@{ Id = $null; Text = '' }) + $gsteps)), 'class="step"')).Count -eq 5) 'guía HTML: pasos vacíos o sin id se descartan'
     Assert-True ((($gsteps | ForEach-Object { $_.PhaseNum } | Select-Object -Unique) -join ',') -eq '1,2,3,4') 'guía: fases numeradas sin huecos'
     Assert-True (($gsteps | ForEach-Object { $_.Area }) -join ',' -eq 'Pantalla,Desconocida,Warzone,BIOS,Comprobar la diferencia') 'guía: orden por fases (Windows, juego, BIOS, comprobar); áreas nuevas no se pierden'
     Assert-True ((Get-HLGuideStepId -Area 'BIOS' -Text 'Activa EXPO') -eq $gsteps[3].Id -and $gsteps[3].Id -match '^[0-9a-f]{12}$') 'guía: id estable por paso (el progreso sobrevive a reaplicar)'
@@ -582,7 +589,7 @@ try {
     $u3 = ConvertTo-HLUninstallCommand -UninstallString 'C:\Peace\unins000.exe' -QuietUninstallString '"C:\Peace\unins000.exe" /VERYSILENT'
     Assert-True ($u1.Arguments -eq '/X{12345678-1234-1234-1234-123456789ABC} /qn /norestart' -and $u1.Silent -and $u2.FilePath -eq 'C:\Program Files\FxSound\uninstall.exe' -and $u2.Arguments -eq '/mode=full' -and -not $u2.Silent -and $u3.Arguments -eq '/VERYSILENT' -and $u3.Silent) 'desinstaladores: MSI silencioso, rutas con espacios, QuietUninstallString preferido'
     $dv = @([pscustomobject]@{ Name = 'CABLE Input (VB-Audio Virtual Cable)' }, [pscustomobject]@{ Name = 'Auriculares (CORSAIR HS80)' })
-    Assert-True ((Get-HLEqApoDeviceAdvice -Devices $dv -Mode Full) -match 'SOLO CABLE Input' -and (Get-HLEqApoDeviceAdvice -Devices @($dv[0]) -Mode Full) -eq '' -and (Get-HLEqApoDeviceAdvice -Devices $dv -Mode EqOnly) -match 'tu headset') 'aviso de EQ APO activo en varios dispositivos'
+    Assert-True ((Get-HLEqApoDeviceAdvice -Devices $dv -Mode Full) -match 'SOLO CABLE Input' -and (Get-HLEqApoDeviceAdvice -Devices @($dv[0]) -Mode Full) -eq '' -and (Get-HLEqApoDeviceAdvice -Devices @([pscustomobject]@{ Name = 'Art Tune + (VB-Audio Virtual Cable)' }) -Mode Full) -eq '' -and (Get-HLEqApoDeviceAdvice -Devices $dv -Mode EqOnly) -match 'tu headset') 'aviso de EQ APO activo en varios dispositivos'
 
     $acfg = Join-Path $tmp 'apo_config'
     New-Item -ItemType Directory -Path (Join-Path $acfg 'hardline') -Force | Out-Null
@@ -603,6 +610,8 @@ try {
     Assert-True ($setupSrc -match 'Get-HLAudioInventory' -and $setupSrc -match 'Invoke-HLAudioCleanup' -and $setupSrc -notmatch "Install-HLComponent -Name 'Peace'" -and $setupSrc -match 'Test-HLVoicemeeterPotato') 'audio: limpieza antes de instalar, sin instalar Peace, Voicemeeter Potato exigido'
     Assert-True ((@(Select-HLStalePresets -Names @('warzone_footsteps_x.txt', 'warzone_footsteps_x_70.txt', 'warzone_footsteps_y.txt') -Keep @('warzone_footsteps_x.txt', 'warzone_footsteps_x_70.txt')) -join '|') -eq 'warzone_footsteps_y.txt') 'limpieza: se conservan las dos intensidades del preset actual'
     Assert-True ($setupSrc -match "Name 'Hardline EQ'" -and $setupSrc -match 'eq_panel\.ps1' -and $setupSrc -match '_70\.txt' -and 'btnEqPanel' -in $xamlNames) 'panel del EQ: acceso directo, botón en la interfaz y preset moderado instalado'
+    Assert-True ($setupSrc -match "Stop-Process" -and $setupSrc -match 'VB-Audio\.Voicemeeter\.Potato' -and $setupSrc -match 'Test-HLVoicemeeterPotato\) \{ return \$true \}') 'Voicemeeter: se cierra antes de instalar, alternativa winget, éxito = Potato presente'
+    Assert-True ($appSrc -match 'gui_error\.log' -and $appSrc -match 'La interfaz no pudo abrirse') 'interfaz: si falla al abrir, enseña el error y lo guarda'
     Assert-True ('CleanAudio' -in $instParams -and 'chkCleanAudio' -in $xamlNames -and ((ConvertTo-HLGuiArguments -State @{ Audio = $true; CleanAudio = $true }) -contains '-CleanAudio') -and -not ((ConvertTo-HLGuiArguments -State @{ Audio = $false; CleanAudio = $true }) -contains '-CleanAudio')) 'interfaz e instalador: -CleanAudio solo con audio marcado'
 } finally {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue

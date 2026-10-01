@@ -293,7 +293,15 @@ $ErrorActionPreference = 'Continue'
 
 if ($Gui) {
     Install-HLAppShortcut -Root $HLRoot | Out-Null
-    & (Join-Path $HLRoot 'src\gui\app.ps1') -Root $HLRoot
+    try {
+        & (Join-Path $HLRoot 'src\gui\app.ps1') -Root $HLRoot
+    } catch {
+        # La ventana se lanza sin consola: sin esto, un fallo no se ve.
+        $msg = "$($_.Exception.Message)`r`n$($_.InvocationInfo.PositionMessage)"
+        try { Add-Content -Path (Join-Path $HLRoot 'logs\gui_error.log') -Value ("{0}`r`n{1}`r`n" -f (Get-Date -Format 's'), $msg) } catch { Write-Verbose 'Sin log' }
+        Add-Type -AssemblyName PresentationFramework
+        [System.Windows.MessageBox]::Show("La interfaz no pudo abrirse:`r`n`r`n$msg`r`n`r`nDetalle en logs\gui_error.log", 'Hardline') | Out-Null
+    }
     return
 }
 

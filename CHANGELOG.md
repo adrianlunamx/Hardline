@@ -2,6 +2,15 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.8.1] - 2026-10-01
+
+### Corregido
+
+- **Guía de pasos vacía** ("Los tipos de argumentos no coinciden"): recorrer la lista de pasos manuales con `foreach (... in @($lista))` falla en PowerShell cuando la lista es `List[object]`. La guía vuelve a mostrar todos los pasos; los pasos vacíos se descartan.
+- **Voicemeeter no se instalaba** si ya estaba abierto: se cierra antes de instalar, se prueba winget como alternativa y el éxito se comprueba porque Potato quede instalado (no por el código de salida). Si falla y ya hay otra edición, se sigue con ella y se explica cómo instalar Potato.
+- **Aviso falso de Equalizer APO en dos dispositivos** cuando CABLE Input tiene otro nombre en Windows (p. ej. "Art Tune +"): se reconoce por el nombre del driver.
+- **Interfaz que no abre**: ahora muestra el motivo en un aviso y lo guarda en `logs\gui_error.log` en lugar de cerrarse sin decir nada.
+
 ## [1.8.0] - 2026-10-01
 
 ### Añadido
