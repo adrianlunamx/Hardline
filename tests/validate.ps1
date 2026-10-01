@@ -506,6 +506,47 @@ try {
     Assert-True ($gbSrc -match 'Get-AuthenticodeSignature' -and $gbSrc -match "'Intel'" -and $gbSrc -match 'sha256:') 'PresentMon: SHA256 de GitHub y firma de Intel antes de ejecutar'
     Assert-True ($optSrc -match "modules\\windows\\display\.ps1" -and $optSrc -match 'Invoke-HLDisplay' -and 'SkipDisplay' -in $instParams -and 'GameplayBenchOnly' -in $instParams -and $inst -match "Key = 'display'") 'pantalla y medición integradas en orquestador e instalador'
     Assert-True ('chkDisplay' -in $xamlNames -and 'btnGameplay' -in $xamlNames -and $appSrc -match 'gameplay_bench\.ps1') 'interfaz: casilla de pantalla y botón Medir partida'
+
+    # -----------------------------------------------------------------------
+    Write-Host "`n[16] Guía de pasos manuales" -ForegroundColor Cyan
+    . (Join-HLPath @($root, 'src', 'core', 'guide.ps1'))
+    $man = @(
+        [pscustomobject]@{ Area = 'BIOS'; Text = 'Activa EXPO'; Link = '' }
+        [pscustomobject]@{ Area = 'Warzone'; Text = 'Reflex <Boost> & "algo"'; Link = 'https://example.com/a?b=1&c=2' }
+        [pscustomobject]@{ Area = 'Pantalla'; Text = 'Refresco a 165 Hz'; Link = '' }
+        [pscustomobject]@{ Area = 'Desconocida'; Text = 'Algo nuevo'; Link = '' }
+        [pscustomobject]@{ Area = 'BIOS'; Text = 'Activa EXPO'; Link = '' }
+        [pscustomobject]@{ Area = 'Comprobar la diferencia'; Text = 'Medir partida'; Link = '' }
+    )
+    $gsteps = @(Get-HLGuideSteps -Manual $man)
+    Assert-True ($gsteps.Count -eq 5) 'guía: duplicados exactos fuera'
+    Assert-True ((($gsteps | ForEach-Object { $_.PhaseNum } | Select-Object -Unique) -join ',') -eq '1,2,3,4') 'guía: fases numeradas sin huecos'
+    Assert-True (($gsteps | ForEach-Object { $_.Area }) -join ',' -eq 'Pantalla,Desconocida,Warzone,BIOS,Comprobar la diferencia') 'guía: orden por fases (Windows, juego, BIOS, comprobar); áreas nuevas no se pierden'
+    Assert-True ((Get-HLGuideStepId -Area 'BIOS' -Text 'Activa EXPO') -eq $gsteps[3].Id -and $gsteps[3].Id -match '^[0-9a-f]{12}$') 'guía: id estable por paso (el progreso sobrevive a reaplicar)'
+    $ghtml = ConvertTo-HLGuideHtml -Steps $gsteps -Done @{ ($gsteps[0].Id) = $true } -Stamp 'x' -ReportName '2026-10-01.html'
+    Assert-True ($ghtml -match '&lt;Boost&gt; &amp; &quot;algo&quot;' -and $ghtml -notmatch '<Boost>' -and $ghtml -match 'href="https://example.com/a\?b=1&amp;c=2"') 'guía HTML: texto y enlaces escapados'
+    Assert-True ($ghtml -match "id=`"s$($gsteps[0].Id)`" data-id=`"$($gsteps[0].Id)`" checked" -and $ghtml -match 'href="2026-10-01.html"' -and $ghtml -match 'localStorage') 'guía HTML: hechos marcados, enlace al reporte, progreso recordado'
+    Assert-True ((ConvertTo-HLGuideHtml -Steps @()) -match 'No hay pasos manuales') 'guía HTML sin pasos'
+    $groot = Join-Path $tmp 'guia'
+    New-Item -ItemType Directory -Path $groot -Force | Out-Null
+    $gpage = Save-HLGuide -Root $groot -Manual $man -Stamp 's1' -ReportName 'r.html'
+    Assert-True ((Test-Path $gpage) -and (Test-Path (Join-HLPath @($groot, 'reports', 'guia_s1.html'))) -and (Get-HLGuideData -Root $groot).Steps.Count -eq 5) 'guía: guia.html, copia por sesión y guia.json'
+    $gdone = @{ ($gsteps[1].Id) = $true }
+    Save-HLGuideState -Root $groot -Done $gdone
+    $gst = Get-HLGuideState -Root $groot
+    Assert-True ($gst.ContainsKey($gsteps[1].Id) -and $gst.Count -eq 1 -and ((Get-Content $gpage -Raw) -notmatch 'checked data-pre') -and ((Get-Content (Update-HLGuideHtml -Root $groot) -Raw) -match 'checked data-pre')) 'guía: estado guardado y reflejado en la página'
+
+    . (Join-HLPath @($root, 'src', 'gui', 'app.ps1')) -Root $root
+    $ns5 = @($gsteps)
+    Assert-True ((Get-HLNextPendingIndex -Steps $ns5 -Done @{} -From -1) -eq 0 -and (Get-HLNextPendingIndex -Steps $ns5 -Done @{ ($ns5[1].Id) = $true } -From 0) -eq 2 -and (Get-HLNextPendingIndex -Steps $ns5 -Done @{ ($ns5[0].Id) = $true } -From 4) -eq 1) 'asistente: siguiente pendiente, saltando hechos y dando la vuelta'
+    $allDone = @{}; foreach ($x in $ns5) { $allDone[$x.Id] = $true }
+    Assert-True ((Get-HLNextPendingIndex -Steps $ns5 -Done $allDone -From 2) -eq -1) 'asistente: todo hecho'
+    [xml]$gdx = Get-Content (Join-HLPath @($root, 'src', 'gui', 'guide.xaml')) -Raw -Encoding UTF8
+    $gdNames = @($gdx.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]') | ForEach-Object { $_.GetAttribute('Name', $xns) } | Where-Object { $_ })
+    $gdUsed = @([regex]::Matches($appSrc, "'(g[A-Z]\w+)'") | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+    Assert-True ($gdUsed.Count -ge 10 -and @($gdUsed | Where-Object { $_ -notin $gdNames }).Count -eq 0) 'guide.xaml tiene todos los controles que usa el asistente'
+    $instSrc2 = Get-Content (Join-HLPath @($root, 'install.ps1')) -Raw
+    Assert-True ($instSrc2 -match 'Save-HLGuide' -and $instSrc2 -match 'Invoke-HLGuideConsole' -and 'btnGuide' -in $xamlNames -and $comSrc -match 'reports\\guia\.html') 'guía integrada: instalador, consola, interfaz y acceso directo'
 } finally {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 }

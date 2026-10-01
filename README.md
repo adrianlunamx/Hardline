@@ -92,7 +92,11 @@ cd Hardline
 
 ### Interfaz gráfica
 
-Tras la primera instalación aparece **Inicio > Hardline > Hardline**: una ventana con los módulos en casillas, opciones (plataforma, headset, modo de audio, intensidad) y botones para **Simular**, **Aplicar**, **Medir partida**, **Revertir**, **Diagnóstico de red**, **Benchmark**, **Test de pasos** y **Test de mando**, con la salida en directo. También con `install.ps1 -Gui`. Ejecuta exactamente el mismo código que la consola.
+Tras la primera instalación aparece **Inicio > Hardline > Hardline**: una ventana con los módulos en casillas, opciones (plataforma, headset, modo de audio, intensidad) y botones para **Simular**, **Aplicar**, **Medir partida**, **Guía de pasos**, **Revertir**, **Diagnóstico de red**, **Benchmark**, **Test de pasos** y **Test de mando**, con la salida en directo. También con `install.ps1 -Gui`. Ejecuta exactamente el mismo código que la consola.
+
+### Pasos manuales: la guía
+
+Lo que no se puede hacer desde Windows (BIOS, panel de la GPU, menús del juego) queda en una **guía de pasos**, ordenada de lo que más se nota a lo avanzado. Al terminar se abre sola: en la interfaz como asistente, un paso cada vez; en la consola, como página con casillas y la opción de ir paso a paso ahí mismo. Vuelve a ella cuando quieras desde **Inicio > Hardline > Guía de pasos**. Lo que marcas como hecho se recuerda.
 
 ### Qué pasa al ejecutarlo
 

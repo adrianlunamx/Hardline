@@ -67,13 +67,15 @@ jobs:
         if: matrix.shell == 'powershell'
         run: |
           Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
-          [xml]$x = Get-Content .\src\gui\main.xaml -Raw -Encoding UTF8
-          $w = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $x))
           $ns = 'http://schemas.microsoft.com/winfx/2006/xaml'
-          $names = $x.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]') | ForEach-Object { $_.GetAttribute('Name', $ns) } | Where-Object { $_ }
-          $missing = @($names | Where-Object { -not $w.FindName($_) })
-          if ($missing) { throw "Controles no encontrados: $($missing -join ', ')" }
-          Write-Host "Ventana construida: $($names.Count) controles"
+          foreach ($f in @('main.xaml', 'guide.xaml')) {
+            [xml]$x = Get-Content (Join-Path .\src\gui $f) -Raw -Encoding UTF8
+            $w = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $x))
+            $names = $x.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]') | ForEach-Object { $_.GetAttribute('Name', $ns) } | Where-Object { $_ }
+            $missing = @($names | Where-Object { -not $w.FindName($_) })
+            if ($missing) { throw "${f}: controles no encontrados: $($missing -join ', ')" }
+            Write-Host "${f}: ventana construida, $($names.Count) controles"
+          }
 
   release:
     needs: validate

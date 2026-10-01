@@ -468,6 +468,11 @@ $report = Write-HLReport -Hardware $hw
 $reportHtml = Write-HLReportHtml -Hardware $hw
 Write-HLOk "Reporte: $reportHtml"
 Write-HLInfo "Texto plano: $report"
+$guideHtml = $null
+if (-not $DryRun -and $HL.Manual.Count -gt 0) {
+    $guideHtml = Save-HLGuide -Root $HLRoot -Manual $HL.Manual -Stamp $HL.Stamp -ReportName (Split-Path $reportHtml -Leaf)
+    Write-HLOk "Guia de pasos manuales: $guideHtml"
+}
 
 $applied = @($HL.Results | Where-Object { $_.Status -eq 'Applied' }).Count
 $manual = $HL.Manual.Count
@@ -476,7 +481,7 @@ $failed = @($HL.Results | Where-Object { $_.Status -eq 'Failed' }).Count
 Write-Host ''
 Write-Host '----------------------------------------' -ForegroundColor DarkCyan
 Write-Host (" Cambios aplicados : {0}" -f $applied)
-Write-Host (" Pasos manuales    : {0} (BIOS, Adrenalin, Windows; ver reporte)" -f $manual)
+Write-Host (" Pasos manuales    : {0} (guia: Inicio > Hardline > Guia de pasos)" -f $manual)
 if ($failed -gt 0) { Write-Host (" Fallos            : {0} (ver reporte y log)" -f $failed) -ForegroundColor Red }
 Write-Host '----------------------------------------' -ForegroundColor DarkCyan
 Write-Host ''
@@ -486,9 +491,17 @@ Write-Host ("    {0}\rollback.ps1 -Stamp {1}" -f $HLRoot, $HL.Stamp)
 Write-Host '    o Restaurar sistema > punto "Hardline_*"'
 Write-Host ''
 
+# La guia se abre antes del reinicio: los pasos de Windows y del juego no lo necesitan.
+if ($guideHtml -and -not $Unattended) {
+    Start-Process -FilePath $guideHtml -ErrorAction SilentlyContinue
+    if (Read-HLYesNo "Te guio ahora por los $manual pasos manuales, uno a uno? (tambien estan en la pagina que se acaba de abrir)" $true) {
+        Invoke-HLGuideConsole -Root $HLRoot
+    }
+}
+
 if ($HL.NeedsReboot -and -not $DryRun) {
     Write-HLWarn 'Hace falta reiniciar para completar HAGS, timer resolution, servicios y drivers de audio.'
     Write-HLInfo "Despues del reinicio: $HLRoot\install.ps1 -BenchmarkOnly  (compara con el benchmark previo)"
     if (Read-HLYesNo 'Reiniciar ahora' $false) { Restart-Computer -Force }
 }
-if (-not $Unattended) { Start-Process -FilePath $reportHtml -ErrorAction SilentlyContinue }
+if (-not $Unattended -and -not $guideHtml) { Start-Process -FilePath $reportHtml -ErrorAction SilentlyContinue }

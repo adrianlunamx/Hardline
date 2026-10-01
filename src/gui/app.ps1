@@ -16,6 +16,7 @@
 param([Parameter(Mandatory)] [string] $Root)
 
 . (Join-Path $Root 'src\core\common.ps1')
+. (Join-Path $Root 'src\core\guide.ps1')
 
 # --------------------------------------------------------------------------
 # Construcción de argumentos (sin dependencias de WPF: se prueba en tests)
@@ -52,6 +53,78 @@ function ConvertTo-HLCommandLine {
         if ($x -match '^-[A-Za-z]+$') { $x } else { "'" + ($x -replace "'", "''") + "'" }
     }
     return ("[Console]::OutputEncoding = [Text.Encoding]::UTF8; `$ProgressPreference = 'SilentlyContinue'; & '{0}' {1}" -f ($Script -replace "'", "''"), ($parts -join ' ')).TrimEnd()
+}
+
+# --------------------------------------------------------------------------
+# Guía de pasos: un paso cada vez
+# --------------------------------------------------------------------------
+
+# Índice del siguiente paso no hecho a partir de $From (dando la vuelta); -1 si no queda ninguno.
+function Get-HLNextPendingIndex {
+    param([Parameter(Mandatory)] $Steps, [Parameter(Mandatory)] [hashtable] $Done, [int] $From = -1)
+    $n = @($Steps).Count
+    for ($k = 1; $k -le $n; $k++) {
+        $j = ($From + $k) % $n
+        if (-not $Done.ContainsKey($Steps[$j].Id)) { return $j }
+    }
+    return -1
+}
+
+function Show-HLGuideWindow {
+    param($Owner)
+    $data = Get-HLGuideData -Root $Root
+    if (-not $data -or $data.Steps.Count -eq 0) {
+        [System.Windows.MessageBox]::Show('No hay pasos manuales todavía. Pulsa Aplicar y al terminar aparecerán aquí.', 'Hardline') | Out-Null
+        return
+    }
+    [xml]$gx = Get-Content (Join-Path $PSScriptRoot 'guide.xaml') -Raw -Encoding UTF8
+    $w = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $gx))
+    if ($Owner) { $w.Owner = $Owner }
+    $g = @{}
+    foreach ($n in @('gPhase', 'gHint', 'gCount', 'gProgress', 'gArea', 'gText', 'gState', 'gLink', 'gPrev', 'gSkip', 'gDone', 'gList')) { $g[$n] = $w.FindName($n) }
+
+    $steps = @($data.Steps)
+    $done = Get-HLGuideState -Root $Root
+    $pos = @{ I = [Math]::Max(0, (Get-HLNextPendingIndex -Steps $steps -Done $done)) }
+
+    $render = {
+        $s = $steps[$pos.I]
+        $isDone = $done.ContainsKey($s.Id)
+        $count = @($steps | Where-Object { $done.ContainsKey($_.Id) }).Count
+        $g.gPhase.Text = '{0}. {1}' -f $s.PhaseNum, $s.Phase
+        $g.gHint.Text = $s.PhaseHint
+        $g.gCount.Text = 'Paso {0} de {1}  ·  {2} hechos' -f ($pos.I + 1), $steps.Count, $count
+        $g.gProgress.Value = $count / $steps.Count
+        $g.gArea.Text = "$($s.Area)".ToUpperInvariant()
+        $g.gText.Text = $s.Text
+        $g.gState.Text = if ($isDone) { 'Hecho' } else { '' }
+        $g.gDone.Content = if ($isDone) { 'Desmarcar' } else { 'Hecho' }
+        $g.gLink.Visibility = if ("$($s.Link)" -match '^https?://') { 'Visible' } else { 'Collapsed' }
+        $g.gPrev.IsEnabled = $pos.I -gt 0
+        $g.gSkip.IsEnabled = $pos.I -lt $steps.Count - 1
+    }
+
+    $g.gDone.Add_Click({
+            $s = $steps[$pos.I]
+            if ($done.ContainsKey($s.Id)) { $done.Remove($s.Id); Save-HLGuideState -Root $Root -Done $done; & $render; return }
+            $done[$s.Id] = $true
+            Save-HLGuideState -Root $Root -Done $done
+            $next = Get-HLNextPendingIndex -Steps $steps -Done $done -From $pos.I
+            if ($next -lt 0) {
+                & $render
+                [System.Windows.MessageBox]::Show('Todos los pasos hechos. Ahora usa "Medir partida" para comprobar la diferencia.', 'Hardline') | Out-Null
+                return
+            }
+            $pos.I = $next
+            & $render
+        })
+    $g.gSkip.Add_Click({ if ($pos.I -lt $steps.Count - 1) { $pos.I++; & $render } })
+    $g.gPrev.Add_Click({ if ($pos.I -gt 0) { $pos.I--; & $render } })
+    $g.gLink.Add_Click({ $l = "$($steps[$pos.I].Link)"; if ($l -match '^https?://') { Start-Process $l } })
+    $g.gList.Add_Click({ $h = Update-HLGuideHtml -Root $Root; if ($h) { Start-Process -FilePath $h } })
+    $w.Add_Closed({ Update-HLGuideHtml -Root $Root | Out-Null })
+    & $render
+    [void]$w.ShowDialog()
 }
 
 # --------------------------------------------------------------------------
@@ -158,7 +231,14 @@ function Show-HLGui {
             $state = & $getState
             $msg = "Se aplicarán los módulos marcados. Se crea un restore point y todo queda en el manifiesto para revertir.`n`n¿Continuar?"
             if ([System.Windows.MessageBox]::Show($msg, 'Hardline', 'YesNo', 'Question') -ne 'Yes') { return }
-            & $startJob 'Aplicando' $install (ConvertTo-HLGuiArguments -State $state) { & $openLatestReport }
+            & $startJob 'Aplicando' $install (ConvertTo-HLGuiArguments -State $state) {
+                # Al terminar, la guía de pasos manuales; si no hay pasos, el reporte.
+                $gd = Get-HLGuideData -Root $Root
+                if ($gd -and $gd.Steps.Count -gt 0 -and (Get-Date) - (Get-Item (Join-Path $Root 'reports\guia.json')).LastWriteTime -lt [TimeSpan]::FromMinutes(30)) {
+                    $ui.txtStatus.Text = 'Aplicado. Te queda la guía de pasos manuales.'
+                    Show-HLGuideWindow -Owner $window
+                } else { & $openLatestReport }
+            }
         })
     $ui.btnDryRun.Add_Click({ & $startJob 'Simulando' $install (ConvertTo-HLGuiArguments -State (& $getState) -DryRun) { & $openLatestReport } })
     $ui.btnRollback.Add_Click({
@@ -178,6 +258,7 @@ function Show-HLGui {
             & $startJob 'Test de mando' (Join-Path $Root 'src\modules\input\controller_test.ps1') @() $null
         })
     $ui.btnReport.Add_Click({ & $openLatestReport })
+    $ui.btnGuide.Add_Click({ Show-HLGuideWindow -Owner $window })
     $ui.btnFolder.Add_Click({ Start-Process explorer.exe -ArgumentList "`"$Root`"" })
     $ui.chkAudio.Add_Click({
             foreach ($c in @('txtHeadset', 'cmbAudioMode', 'cmbIntensity')) { $ui[$c].IsEnabled = [bool]$ui.chkAudio.IsChecked }

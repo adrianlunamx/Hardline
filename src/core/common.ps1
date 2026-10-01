@@ -13,7 +13,7 @@
 
 # Sin StrictMode: WMI/CIM devuelve propiedades opcionales según fabricante y driver.
 
-$Global:HLVersion = '1.5.0'
+$Global:HLVersion = '1.6.0'
 $Global:HLRepo = 'adrianlunamx/Hardline'
 
 # --------------------------------------------------------------------------
@@ -433,6 +433,12 @@ function Install-HLAppShortcut {
         $s.WorkingDirectory = $Root
         $s.Description = 'Hardline: optimizaciones para Warzone'
         $s.Save()
+        # La guía es una página local: se abre en el navegador, sin admin.
+        $g = $sh.CreateShortcut((Join-Path $dir 'Guía de pasos.lnk'))
+        $g.TargetPath = Join-Path $Root 'reports\guia.html'
+        $g.WorkingDirectory = Join-Path $Root 'reports'
+        $g.Description = 'Hardline: pasos manuales pendientes'
+        $g.Save()
         return $lnk
     } catch {
         Write-HLLog WARN "No se pudo crear el acceso directo: $($_.Exception.Message)"

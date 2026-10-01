@@ -216,6 +216,7 @@ a{color:var(--acc)}code{background:var(--panel);border:1px solid var(--line);bor
 
     if ($HL.Manual.Count -gt 0) {
         Add-HtmlLine '<h2>Pasos manuales</h2>'
+        Add-HtmlLine '<p class="sub">En orden y con casillas para ir marcando: <a href="guia.html">abrir la guía de pasos</a> (también en Inicio &gt; Hardline &gt; Guía de pasos).</p>'
         foreach ($group in ($HL.Manual | Group-Object Area)) {
             Add-HtmlLine ("<h3>{0}</h3><ol>" -f (& $enc $group.Name))
             foreach ($m in $group.Group) {

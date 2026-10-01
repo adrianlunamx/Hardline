@@ -143,6 +143,7 @@
       <WrapPanel DockPanel.Dock="Top">
         <Button x:Name="btnApply" Content="Aplicar" Style="{StaticResource Primary}"/>
         <Button x:Name="btnGameplay" Content="Medir partida"/>
+        <Button x:Name="btnGuide" Content="Guía de pasos"/>
         <Button x:Name="btnDryRun" Content="Simular (DryRun)"/>
         <Button x:Name="btnRollback" Content="Revertir última sesión"/>
         <Button x:Name="btnNetDiag" Content="Diagnóstico de red"/>

@@ -13,6 +13,7 @@ $script:SrcDir = Split-Path $PSScriptRoot -Parent
 foreach ($f in @(
         'core\benchmarker.ps1',
         'core\report.ps1',
+        'core\guide.ps1',
         'modules\windows\services.ps1',
         'modules\windows\registry.ps1',
         'modules\windows\power.ps1',

@@ -1,0 +1,63 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Hardline - guía de pasos" Width="640" Height="420" MinWidth="480" MinHeight="360"
+        WindowStartupLocation="CenterOwner" Background="#0E1116" Foreground="#E6EAF0"
+        FontFamily="Segoe UI" FontSize="13">
+  <Window.Resources>
+    <Style TargetType="Button">
+      <Setter Property="Foreground" Value="#E6EAF0"/>
+      <Setter Property="Background" Value="#1F2630"/>
+      <Setter Property="BorderBrush" Value="#2A313C"/>
+      <Setter Property="Padding" Value="14,7"/>
+      <Setter Property="Margin" Value="8,0,0,0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="b" Property="BorderBrush" Value="#FF5A1F"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="b" Property="Opacity" Value="0.4"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Window.Resources>
+
+  <DockPanel Margin="20">
+    <StackPanel DockPanel.Dock="Top">
+      <DockPanel>
+        <TextBlock x:Name="gCount" DockPanel.Dock="Right" Foreground="#8A93A3" FontSize="12"/>
+        <TextBlock x:Name="gPhase" FontSize="16" FontWeight="SemiBold"/>
+      </DockPanel>
+      <TextBlock x:Name="gHint" Foreground="#8A93A3" FontSize="12" Margin="0,2,0,10" TextWrapping="Wrap"/>
+      <ProgressBar x:Name="gProgress" Height="6" Minimum="0" Maximum="1" Foreground="#3FB950" Background="#2A313C" BorderThickness="0"/>
+    </StackPanel>
+
+    <DockPanel DockPanel.Dock="Bottom" Margin="0,14,0,0" LastChildFill="False">
+      <Button x:Name="gList" DockPanel.Dock="Left" Margin="0" Content="Ver lista completa"/>
+      <Button x:Name="gDone" DockPanel.Dock="Right" Content="Hecho" Background="#FF5A1F" BorderBrush="#FF5A1F" Foreground="#0E1116" FontWeight="SemiBold"/>
+      <Button x:Name="gSkip" DockPanel.Dock="Right" Content="Saltar"/>
+      <Button x:Name="gPrev" DockPanel.Dock="Right" Content="Anterior"/>
+    </DockPanel>
+
+    <Border Background="#161B22" BorderBrush="#2A313C" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,14,0,0">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+          <TextBlock x:Name="gArea" Foreground="#FF5A1F" FontSize="12" FontWeight="SemiBold"/>
+          <TextBlock x:Name="gText" FontSize="15" TextWrapping="Wrap" Margin="0,6,0,0" LineHeight="22"/>
+          <TextBlock x:Name="gState" Foreground="#3FB950" FontSize="12" Margin="0,10,0,0"/>
+          <Button x:Name="gLink" HorizontalAlignment="Left" Margin="0,12,0,0" Content="Abrir enlace"/>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+  </DockPanel>
+</Window>

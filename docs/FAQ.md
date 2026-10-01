@@ -133,6 +133,16 @@ No directamente, y nadie puede: el registro lo decide el servidor. Lo que sí af
 
 Unos 100-250 MB durante 10 s para medir el bufferbloat. Si tienes tarifa limitada, desmarca "Diagnóstico de red".
 
+## Pasos manuales
+
+**¿Dónde están los pasos que tengo que hacer yo?**
+
+En la **guía de pasos**: se abre sola al terminar de aplicar. Después, en **Inicio > Hardline > Guía de pasos** (página con casillas) o con el botón "Guía de pasos" de la interfaz (un paso cada vez). Están ordenados: primero Windows y el juego, que se notan más y cuestan menos; la BIOS y lo avanzado al final.
+
+**¿Se pierde lo que marqué si vuelvo a aplicar?**
+
+No. Cada paso tiene un identificador fijo; si vuelve a salir igual, sigue marcado. Lo que marcas en la interfaz o en la consola se refleja en la página. Lo que marcas en la página se recuerda en ese navegador.
+
 ## Notar la diferencia
 
 **¿Cómo sé si Hardline me ha mejorado algo?**

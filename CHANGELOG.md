@@ -2,6 +2,20 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.6.0] - 2026-10-01
+
+### Añadido
+
+- **Guía de pasos manuales**: lo que Hardline no puede hacer por ti, ordenado por fases (Windows, Warzone, panel de la GPU, red, BIOS, avanzado, comprobar), de lo que más se nota y menos cuesta a lo avanzado.
+  - Página `reports\guia.html` con casillas, barra de progreso y el siguiente paso resaltado. Se abre sola al terminar y tiene acceso directo en Inicio > Hardline > Guía de pasos.
+  - Interfaz: al aplicar se abre un asistente que muestra un paso cada vez (Hecho, Saltar, Anterior, abrir enlace). También con el botón "Guía de pasos".
+  - Consola: al terminar pregunta si quieres que te guíe ahí mismo, paso a paso.
+  - El progreso se guarda (`config\guide_state.json`) y se conserva al volver a aplicar.
+
+### Cambiado
+
+- El reporte enlaza a la guía desde su sección de pasos manuales.
+
 ## [1.5.0] - 2026-10-01
 
 Enfocada en lo que se nota al jugar y en poder demostrarlo.
