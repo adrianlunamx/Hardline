@@ -2,6 +2,22 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.7.0] - 2026-10-01
+
+### Añadido
+
+- **Limpieza del audio anterior** antes de instalar, para que no queden dos cadenas de EQ compitiendo:
+  - Equalizer APO con configuración propia (tuya, de Peace, de AutoEq): sus archivos se apartan a `config\antes_de_hardline\`. El rollback los devuelve.
+  - Equalizer APO activo en varios dispositivos: se avisa de cuáles desmarcar en el Configurator (en modo Completo el EQ se aplicaría dos veces).
+  - Presets antiguos de Hardline de otro headset o intensidad.
+  - Peace, FxSound, Boom 3D, ViPER4Windows y Razer Surround: se quita su arranque automático y se desinstalan con su propio desinstalador (confirmando programa a programa, o `-CleanAudio` / casilla en la interfaz).
+  - Nahimic: su servicio se desactiva (revertible). SteelSeries Sonar, Dolby y DTS: paso a paso en la guía.
+  - Voicemeeter Banana o Standard: se instala Potato encima, que es la que tiene el compresor completo.
+
+### Cambiado
+
+- Peace ya no se ofrece durante la instalación: al guardar reescribe `config.txt` y pisa el preset de Hardline.
+
 ## [1.6.0] - 2026-10-01
 
 ### Añadido

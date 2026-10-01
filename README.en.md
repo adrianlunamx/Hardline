@@ -96,7 +96,9 @@ flowchart LR
 .\rollback.ps1 -List        # list sessions
 ```
 
-Restores the exact previous value of every change (registry, services, power plan, DNS, NIC, QoS, scheduled tasks, files). Installed software (Voicemeeter, VB-CABLE, Equalizer APO, Peace) is removed from Settings > Apps.
+Restores the exact previous value of every change (registry, services, power plan, DNS, NIC, QoS, scheduled tasks, files). Installed software (Voicemeeter, VB-CABLE, Equalizer APO) is removed from Settings > Apps.
+
+**Existing custom audio**: before installing, Hardline looks for a previous setup (own Equalizer APO config, Peace, FxSound, Boom 3D, ViPER4Windows, Razer Surround, Nahimic, Sonar, Voicemeeter Banana) and cleans it first: old Equalizer APO files are moved to `config\antes_de_hardline\` (restored by rollback), stacking audio apps are removed with their own uninstaller (asked one by one), and you are told which devices to untick if Equalizer APO is active on more than one.
 
 ## Anti-cheat
 

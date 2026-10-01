@@ -547,6 +547,42 @@ try {
     Assert-True ($gdUsed.Count -ge 10 -and @($gdUsed | Where-Object { $_ -notin $gdNames }).Count -eq 0) 'guide.xaml tiene todos los controles que usa el asistente'
     $instSrc2 = Get-Content (Join-HLPath @($root, 'install.ps1')) -Raw
     Assert-True ($instSrc2 -match 'Save-HLGuide' -and $instSrc2 -match 'Invoke-HLGuideConsole' -and 'btnGuide' -in $xamlNames -and $comSrc -match 'reports\\guia\.html') 'guía integrada: instalador, consola, interfaz y acceso directo'
+
+    # -----------------------------------------------------------------------
+    Write-Host "`n[17] Audio personalizado anterior" -ForegroundColor Cyan
+    . (Join-HLPath @($root, 'src', 'audio', 'cleanup.ps1'))
+    Assert-True ((Test-HLHardlineEqConfig ([char]0xFEFF + "# Hardline - Equalizer APO`r`nInclude: hardline\switch.txt")) -and -not (Test-HLHardlineEqConfig "Include: peace.txt") -and -not (Test-HLHardlineEqConfig '')) 'config.txt de Hardline o ajeno'
+    $inc = Get-HLEqApoIncludes "Preamp: -6 dB`r`nInclude: peace.txt`r`n  include : AutoEq\HD600.txt; extra.txt`r`n# Include: comentado.txt"
+    Assert-True (($inc -join '|') -eq 'peace.txt|AutoEq\HD600.txt|extra.txt') 'includes del config.txt anterior (varios por línea, comentarios fuera)'
+    Assert-True ((Test-HLEqApoFx @('{1da5d803-d492-4edd-8c23-e0c0ffee7f0e},5', '{eacd2258-fcac-4ff4-b36d-419e924a6d79}')) -and -not (Test-HLEqApoFx @('{62dc1a93-ae24-464c-a43e-452f824c4250}'))) 'Equalizer APO en FxProperties (sin distinguir mayúsculas)'
+    $ff = @(Select-HLEqApoForeignFiles -Files @('config.txt', 'example.txt', 'peace.txt', 'mi_eq.txt', 'hardline\switch.txt', 'antes_de_hardline\x.txt', 'AutoEq\HD600.txt', 'sub\example.txt') -Includes @('peace.txt', 'C:\fuera\x.txt', 'otro\inc.txt'))
+    Assert-True ((($ff | Sort-Object) -join '|') -eq 'AutoEq\HD600.txt|mi_eq.txt|otro\inc.txt|peace.txt|sub\example.txt') 'archivos a apartar: lo ajeno sí; lo de Hardline, lo de serie y rutas absolutas no' (($ff | Sort-Object) -join '|')
+    Assert-True ((@(Select-HLStalePresets -Names @('warzone_footsteps_generic.txt', 'warzone_footsteps_corsair-hs80.txt', 'switch.txt') -Keep 'warzone_footsteps_corsair-hs80.txt') -join '|') -eq 'warzone_footsteps_generic.txt') 'presets antiguos de Hardline (se conserva el actual)'
+    $u1 = ConvertTo-HLUninstallCommand -UninstallString 'MsiExec.exe /I{12345678-1234-1234-1234-123456789ABC}'
+    $u2 = ConvertTo-HLUninstallCommand -UninstallString '"C:\Program Files\FxSound\uninstall.exe" /mode=full'
+    $u3 = ConvertTo-HLUninstallCommand -UninstallString 'C:\Peace\unins000.exe' -QuietUninstallString '"C:\Peace\unins000.exe" /VERYSILENT'
+    Assert-True ($u1.Arguments -eq '/X{12345678-1234-1234-1234-123456789ABC} /qn /norestart' -and $u1.Silent -and $u2.FilePath -eq 'C:\Program Files\FxSound\uninstall.exe' -and $u2.Arguments -eq '/mode=full' -and -not $u2.Silent -and $u3.Arguments -eq '/VERYSILENT' -and $u3.Silent) 'desinstaladores: MSI silencioso, rutas con espacios, QuietUninstallString preferido'
+    $dv = @([pscustomobject]@{ Name = 'CABLE Input (VB-Audio Virtual Cable)' }, [pscustomobject]@{ Name = 'Auriculares (CORSAIR HS80)' })
+    Assert-True ((Get-HLEqApoDeviceAdvice -Devices $dv -Mode Full) -match 'SOLO CABLE Input' -and (Get-HLEqApoDeviceAdvice -Devices @($dv[0]) -Mode Full) -eq '' -and (Get-HLEqApoDeviceAdvice -Devices $dv -Mode EqOnly) -match 'tu headset') 'aviso de EQ APO activo en varios dispositivos'
+
+    $acfg = Join-Path $tmp 'apo_config'
+    New-Item -ItemType Directory -Path (Join-Path $acfg 'hardline') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $acfg 'AutoEq') -Force | Out-Null
+    [IO.File]::WriteAllText((Join-Path $acfg 'config.txt'), "Include: peace.txt")
+    [IO.File]::WriteAllText((Join-Path $acfg 'peace.txt'), "Preamp: -3 dB")
+    [IO.File]::WriteAllText((Join-Path $acfg 'AutoEq\HD600.txt'), "Filter 1: ON PK Fc 100 Hz Gain 2 dB Q 1")
+    [IO.File]::WriteAllText((Join-Path $acfg 'hardline\warzone_footsteps_generic.txt'), "viejo")
+    $ainv = [pscustomobject]@{ ConfigDir = $acfg; ForeignConfig = $true; ForeignFiles = @('peace.txt', 'AutoEq\HD600.txt'); StalePresets = @('warzone_footsteps_generic.txt'); ApoDevices = @(); Enhancers = @(); VoicemeeterNoPotato = $false }
+    Assert-True (-not (Test-HLAudioInventoryClean -Inventory $ainv -KeepPreset 'warzone_footsteps_corsair-hs80.txt')) 'inventario con audio anterior: no está limpio'
+    $HL.Manifest.Clear()
+    Invoke-HLAudioCleanup -Inventory $ainv -KeepPreset 'warzone_footsteps_corsair-hs80.txt'
+    Assert-True (-not (Test-Path (Join-Path $acfg 'peace.txt')) -and -not (Test-Path (Join-Path $acfg 'AutoEq\HD600.txt')) -and -not (Test-Path (Join-Path $acfg 'hardline\warzone_footsteps_generic.txt'))) 'limpieza: lo anterior deja de estar donde Equalizer APO lo carga'
+    Assert-True ((Test-Path (Join-Path $acfg 'antes_de_hardline\peace.txt')) -and (Test-Path (Join-Path $acfg 'antes_de_hardline\AutoEq\HD600.txt')) -and (Test-Path (Join-Path $acfg 'antes_de_hardline\config.txt'))) 'limpieza: copia visible en config\antes_de_hardline (config.txt incluido)'
+    foreach ($e in @($HL.Manifest | Sort-Object { [int]$_.Seq } -Descending)) { [void](Undo-HLManifestEntry -Entry $e) }
+    Assert-True (((Get-Content (Join-Path $acfg 'peace.txt') -Raw) -eq 'Preamp: -3 dB') -and (Test-Path (Join-Path $acfg 'AutoEq\HD600.txt')) -and (Test-Path (Join-Path $acfg 'hardline\warzone_footsteps_generic.txt'))) 'rollback devuelve el audio anterior a su sitio'
+    $setupSrc = Get-Content (Join-HLPath @($root, 'src', 'audio', 'setup.ps1')) -Raw
+    Assert-True ($setupSrc -match 'Get-HLAudioInventory' -and $setupSrc -match 'Invoke-HLAudioCleanup' -and $setupSrc -notmatch "Install-HLComponent -Name 'Peace'" -and $setupSrc -match 'Test-HLVoicemeeterPotato') 'audio: limpieza antes de instalar, sin instalar Peace, Voicemeeter Potato exigido'
+    Assert-True ('CleanAudio' -in $instParams -and 'chkCleanAudio' -in $xamlNames -and ((ConvertTo-HLGuiArguments -State @{ Audio = $true; CleanAudio = $true }) -contains '-CleanAudio') -and -not ((ConvertTo-HLGuiArguments -State @{ Audio = $false; CleanAudio = $true }) -contains '-CleanAudio')) 'interfaz e instalador: -CleanAudio solo con audio marcado'
 } finally {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 }

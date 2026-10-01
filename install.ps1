@@ -45,6 +45,10 @@
     Aplica tambien los tweaks experimentales (desactivados por defecto).
 .PARAMETER NetDiagOnly
     Solo ejecuta el diagnostico de red (perdida, jitter, bufferbloat, MTU).
+.PARAMETER CleanAudio
+    Si hay un audio personalizado anterior (Peace, FxSound, Boom 3D...),
+    desinstalarlo sin preguntar. Sin este parametro, en modo desatendido
+    solo se aparta su configuracion (revertible).
 .PARAMETER SkipDisplay
     No toca la pantalla (refresco, optimizaciones de ventana, overlays).
 .PARAMETER GameplayBenchOnly
@@ -75,6 +79,7 @@ param(
     [switch] $NetDiagOnly,
     [switch] $SkipController,
     [switch] $SkipDisplay,
+    [switch] $CleanAudio,
     [switch] $GameplayBenchOnly,
     [switch] $ControllerTestOnly,
     [switch] $Gui,
@@ -452,7 +457,7 @@ Invoke-HLOptimization -Hardware $hw -SkipWindows:$SkipWindows -SkipNetwork:$Skip
 # --- Audio ---------------------------------------------------------------------
 if (-not $SkipAudio) {
     Write-HLStep 'Audio competitivo (pasos claros, explosiones controladas)...'
-    Invoke-HLSafely 'Audio' 'Audio' { Invoke-HLAudioSetup -Hardware $hw -HeadsetId $Headset -Mode $AudioMode -Intensity $EqIntensity }
+    Invoke-HLSafely 'Audio' 'Audio' { Invoke-HLAudioSetup -Hardware $hw -HeadsetId $Headset -Mode $AudioMode -Intensity $EqIntensity -CleanAudio:$CleanAudio }
 }
 
 # --- Benchmark posterior ---------------------------------------------------------

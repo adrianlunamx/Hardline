@@ -26,10 +26,12 @@ $script:AudioRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $PSScriptRoot 'voicemeeter.ps1')
 . (Join-Path $PSScriptRoot 'autoeq.ps1')
 . (Join-Path $PSScriptRoot 'eqswitch.ps1')
+. (Join-Path $PSScriptRoot 'cleanup.ps1')
 
 # Fuentes de descarga. Voicemeeter con hash fijado (mismo que el manifiesto de
-# winget VB-Audio.Voicemeeter.Potato 3.1.2.2). EQ APO y Peace vienen de
-# SourceForge (proyectos oficiales); VB-Cable de vb-audio.com.
+# winget VB-Audio.Voicemeeter.Potato 3.1.2.2). EQ APO viene de SourceForge
+# (proyecto oficial); VB-Cable de vb-audio.com. Peace ya no se instala: al
+# guardar reescribe config.txt y pisa el preset (ver cleanup.ps1).
 $script:HLAudioSources = @{
     Voicemeeter = @{
         Urls   = @('https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3122.zip')
@@ -45,10 +47,6 @@ $script:HLAudioSources = @{
         Urls   = @('https://sourceforge.net/projects/equalizerapo/files/latest/download',
                    'https://sourceforge.net/projects/equalizerapo/files/1.3/EqualizerAPO64-1.3.exe/download')
         Page   = 'https://sourceforge.net/projects/equalizerapo/'
-    }
-    Peace = @{
-        Urls   = @('https://sourceforge.net/projects/peace-equalizer-apo-extension/files/latest/download')
-        Page   = 'https://sourceforge.net/projects/peace-equalizer-apo-extension/'
     }
 }
 
@@ -75,15 +73,6 @@ function Test-HLVBCable {
     return [bool](Get-PnpDevice -Class AudioEndpoint -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -like 'CABLE Input*' })
 }
 
-function Test-HLPeace {
-    foreach ($r in @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')) {
-        $hit = Get-ChildItem $r -ErrorAction SilentlyContinue | ForEach-Object { Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue } |
-            Where-Object { $_.DisplayName -match '^Peace' }
-        if ($hit) { return $true }
-    }
-    return $false
-}
-
 # --------------------------------------------------------------------------
 # Instalación
 # --------------------------------------------------------------------------
@@ -95,7 +84,7 @@ function Get-HLTempDir {
 }
 
 function Install-HLComponent {
-    param([Parameter(Mandatory)] [ValidateSet('Voicemeeter', 'VBCable', 'EqualizerAPO', 'Peace')] [string] $Name)
+    param([Parameter(Mandatory)] [ValidateSet('Voicemeeter', 'VBCable', 'EqualizerAPO')] [string] $Name)
 
     $src = $script:HLAudioSources[$Name]
     $tmp = Get-HLTempDir
@@ -134,12 +123,6 @@ function Install-HLComponent {
             $p = Start-Process -FilePath $exe -Wait -PassThru
             $HL.NeedsReboot = $true
             return [bool](Get-HLEqApoDir)
-        }
-        'Peace' {
-            $exe = Join-Path $tmp 'PeaceSetup.exe'
-            if (-not (Invoke-HLDownload -Urls $src.Urls -OutFile $exe -ExpectPE)) { return $false }
-            $p = Start-Process -FilePath $exe -Wait -PassThru
-            return (Test-HLPeace)
         }
     }
 }
@@ -355,7 +338,8 @@ function Invoke-HLAudioSetup {
         $Hardware,
         [string] $HeadsetId,
         [ValidateSet('', 'Full', 'EqOnly')] [string] $Mode = '',
-        [double] $Intensity = 0
+        [double] $Intensity = 0,
+        [switch] $CleanAudio
     )
 
     $db = Get-HLHeadsetProfiles -Root $HL.Root
@@ -380,6 +364,23 @@ function Invoke-HLAudioSetup {
     }
     Add-HLResult -Module 'Audio' -Item 'Perfil' -Status Info -Detail "$($hp.name), modo $Mode, intensidad $([int]($Intensity*100))%"
 
+    # --- Audio anterior: limpieza antes de instalar -----------------------------
+    $keepPreset = "warzone_footsteps_$($hp.id).txt"
+    $apo0 = Get-HLEqApoDir
+    $inv = Get-HLAudioInventory -ConfigDir $(if ($apo0) { Get-HLEqApoConfigDir -InstallDir $apo0 } else { '' })
+    if (Test-HLAudioInventoryClean -Inventory $inv -KeepPreset $keepPreset) {
+        Write-HLSub 'Audio personalizado anterior' 'OK (nada que limpiar)'
+    } else {
+        Show-HLAudioInventory -Inventory $inv -KeepPreset $keepPreset
+        $doClean = if ($HL.Unattended) { $true } else { Read-HLYesNo 'Limpiar el audio anterior antes de instalar (recomendado; lo que se aparta vuelve con el rollback)' $true }
+        if ($doClean) {
+            Invoke-HLSafely 'Audio' 'Limpieza del audio anterior' { Invoke-HLAudioCleanup -Inventory $inv -KeepPreset $keepPreset -AllowUninstall ([bool]$CleanAudio) }
+        } else {
+            Add-HLResult -Module 'Audio' -Item 'Audio anterior' -Status Manual -Detail 'Se mantiene: puede haber dos cadenas de EQ a la vez'
+            Add-HLManualStep 'Audio' 'Mantuviste tu audio anterior. Si los pasos no suenan como en el test, vuelve a aplicar con la limpieza: puede haber dos EQ actuando a la vez.'
+        }
+    }
+
     # --- Instalación ------------------------------------------------------------
     $needed = @('EqualizerAPO')
     if ($Mode -eq 'Full') { $needed = @('VBCable', 'Voicemeeter') + $needed }
@@ -387,7 +388,7 @@ function Invoke-HLAudioSetup {
         $present = switch ($c) {
             'EqualizerAPO' { [bool](Get-HLEqApoDir) }
             'VBCable'      { Test-HLVBCable }
-            'Voicemeeter'  { [bool](Get-HLVoicemeeterDir) }
+            'Voicemeeter'  { Test-HLVoicemeeterPotato }
         }
         if ($present) { Write-HLSub "$c" 'OK (ya instalado)'; continue }
         Write-HLSub "Instalando $c"
@@ -402,13 +403,6 @@ function Invoke-HLAudioSetup {
             if ($c -eq 'EqualizerAPO') { return }
         }
     }
-    if (-not (Test-HLPeace)) {
-        Write-HLInfo 'Peace es una interfaz gráfica para EQ APO. Útil para ver la curva; si guardas un preset desde Peace, reemplaza el de Hardline.'
-        if (Read-HLYesNo '¿Instalar Peace?' $true) {
-            if (Install-HLComponent -Name 'Peace') { Add-HLResult -Module 'Audio' -Item 'Peace' -Status Applied -Detail 'Instalado' }
-            else { Add-HLResult -Module 'Audio' -Item 'Peace' -Status Failed -Detail $script:HLAudioSources.Peace.Page }
-        }
-    }
 
     # --- EQ -----------------------------------------------------------------------
     $preset = Write-HLEqConfig -HeadsetProfile $hp -Intensity $Intensity
@@ -418,6 +412,8 @@ function Invoke-HLAudioSetup {
     Invoke-HLSafely 'Audio' 'Atajos de audio' { Install-HLAudioShortcuts }
 
     $target = if ($Mode -eq 'Full') { 'CABLE Input (VB-Audio Virtual Cable)' } else { 'tu headset' }
+    $devAdvice = Get-HLEqApoDeviceAdvice -Devices @(Get-HLEqApoDevices) -Mode $Mode
+    if ($devAdvice) { Write-HLWarn $devAdvice; Add-HLManualStep 'Audio' $devAdvice }
     $apo = Get-HLEqApoDir
     if ($apo -and -not $HL.DryRun -and -not $HL.Unattended) {
         Write-HLWarn "En el Configurator de Equalizer APO marca SOLO: $target. Después pulsa OK y cierra."

@@ -38,7 +38,7 @@ Todo lo que aparece en `backups/<sesión>/manifest.json`: valores de registro (i
 
 **¿Qué no revierte?**
 
-- Software instalado (Voicemeeter, VB-CABLE, Equalizer APO, Peace). Se quita desde Configuración > Aplicaciones.
+- Software instalado (Voicemeeter, VB-CABLE, Equalizer APO) y lo que la limpieza de audio desinstaló a petición tuya. Se gestiona desde Configuración > Aplicaciones.
 - AppX desinstalados (Xbox Game Bar, Cortana), si aceptaste quitarlos. Reinstalar desde la Microsoft Store; los enlaces están en el reporte.
 - Lo que cambiaste tú en BIOS o Adrenalin.
 
@@ -73,9 +73,13 @@ Intensidad moderada: `.\src\audio\setup.ps1` y elige "Moderada". O baja 1-2 dB l
 
 Discord no debe salir por `CABLE Input`. Ponlo en la salida por defecto (`Voicemeeter Input`) o directo al headset.
 
-**¿Para qué sirve Peace si Hardline ya escribe el EQ?**
+**Ya tenía un EQ o un audio personalizado. ¿Se mezcla con el de Hardline?**
 
-Para ver la curva y activar/desactivar el EQ rápido. Si guardas un preset desde Peace, sustituye el de Hardline en `config.txt`; para volver al de Hardline, ejecuta otra vez el audio.
+No. Antes de instalar, Hardline lo detecta y lo limpia. Tu configuración de Equalizer APO se aparta a `config\antes_de_hardline\` (el rollback la devuelve). Peace, FxSound, Boom 3D, ViPER4Windows o Razer Surround se desinstalan con su propio desinstalador, preguntando uno a uno. Nahimic se desactiva. Si Equalizer APO está activo en varios dispositivos, te dice cuáles desmarcar.
+
+**¿Y Peace?**
+
+Hardline ya no lo instala. Al guardar un preset en Peace se reescribe `config.txt` y desaparece el de Hardline, que es justo la confusión que se quiere evitar. Para encender y apagar el EQ está `Ctrl+Alt+F10`.
 
 **Quiero cero latencia añadida.**
 

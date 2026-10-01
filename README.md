@@ -177,6 +177,14 @@ flowchart LR
 
 Todo lo descargado se queda en `headsets\`: la próxima vez funciona sin conexión.
 
+### Si ya tenías un audio personalizado
+
+Antes de instalar, Hardline busca lo que haya: un Equalizer APO con tu propia configuración, Peace, FxSound, Boom 3D, ViPER4Windows, Razer Surround, Nahimic, Sonar, Voicemeeter Banana. Si encuentra algo, lo limpia primero:
+
+- La configuración anterior de Equalizer APO se aparta a `config\antes_de_hardline\`. No se pierde y el rollback la devuelve.
+- Los programas que se apilan con el EQ se desinstalan con su propio desinstalador. Te pregunta uno a uno; en la interfaz decide la casilla "desinstalarlo antes".
+- Si Equalizer APO está activo en más de un dispositivo, te dice cuáles desmarcar.
+
 Detalles: [audio en TWEAKS_EXPLAINED](docs/TWEAKS_EXPLAINED.md#audio).
 
 ## Modo partida
@@ -200,7 +208,7 @@ El juego no se toca. Todo es editable en `config\gamesession.json` y queda regis
 Restaura el valor exacto anterior de cada cambio: registro, servicios, plan de energía, DNS, NIC, QoS, tareas y archivos. También está el restore point de Windows (`Hardline_<fecha>`).
 
 > [!TIP]
-> Si instalaste con `irm | iex`, `rollback.ps1` está en `%LOCALAPPDATA%\Hardline`. El rollback no desinstala software: Voicemeeter, VB-CABLE, Equalizer APO y Peace se quitan desde Configuración > Aplicaciones.
+> Si instalaste con `irm | iex`, `rollback.ps1` está en `%LOCALAPPDATA%\Hardline`. El rollback no desinstala software: Voicemeeter, VB-CABLE y Equalizer APO se quitan desde Configuración > Aplicaciones. Lo que la limpieza de audio desinstaló a petición tuya (Peace, FxSound...) tampoco se reinstala.
 
 ## Anticheat
 

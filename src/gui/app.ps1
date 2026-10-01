@@ -42,6 +42,7 @@ function ConvertTo-HLGuiArguments {
         if ($State.Headset) { $a.Add('-Headset'); $a.Add($State.Headset) }
         if ($State.AudioMode) { $a.Add('-AudioMode'); $a.Add($State.AudioMode) }
         if ($State.Intensity) { $a.Add('-EqIntensity'); $a.Add($State.Intensity) }
+        if ($State.CleanAudio) { $a.Add('-CleanAudio') }
     }
     return $a.ToArray()
 }
@@ -167,7 +168,7 @@ function Show-HLGui {
             Bench = [bool]$ui.chkBench.IsChecked; Experimental = [bool]$ui.chkExperimental.IsChecked
             Platform = "$($ui.cmbPlatform.SelectedItem.Tag)"; DisableOthers = [bool]$ui.chkDisableOthers.IsChecked
             Headset = $ui.txtHeadset.Text.Trim(); AudioMode = "$($ui.cmbAudioMode.SelectedItem.Tag)"
-            Intensity = "$($ui.cmbIntensity.SelectedItem.Tag)"
+            Intensity = "$($ui.cmbIntensity.SelectedItem.Tag)"; CleanAudio = [bool]$ui.chkCleanAudio.IsChecked
         }
     }
     $openLatestReport = {
@@ -261,7 +262,7 @@ function Show-HLGui {
     $ui.btnGuide.Add_Click({ Show-HLGuideWindow -Owner $window })
     $ui.btnFolder.Add_Click({ Start-Process explorer.exe -ArgumentList "`"$Root`"" })
     $ui.chkAudio.Add_Click({
-            foreach ($c in @('txtHeadset', 'cmbAudioMode', 'cmbIntensity')) { $ui[$c].IsEnabled = [bool]$ui.chkAudio.IsChecked }
+            foreach ($c in @('txtHeadset', 'cmbAudioMode', 'cmbIntensity', 'chkCleanAudio')) { $ui[$c].IsEnabled = [bool]$ui.chkAudio.IsChecked }
         })
 
     $window.Add_Closing({

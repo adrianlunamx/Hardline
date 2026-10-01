@@ -408,6 +408,20 @@ Así el preset de pasos hace lo mismo en cualquier headset, en lugar de depender
 - El preamp del archivo se ignora: se recalcula con la cadena completa. Con corrección + pasos el pico suele quedar entre +20 y +25 dB, así que el preamp baja a -21/-26 dB. Compensa con el volumen; no hay clipping.
 - Los parámetros de Voicemeeter (makeup por impedancia) se heredan del perfil incluido si tu modelo es uno de los 6.
 
+### Audio anterior: limpieza antes de instalar
+
+Archivo: `src/audio/cleanup.ps1`.
+
+| Qué se busca | Qué se hace |
+|---|---|
+| `config.txt` de Equalizer APO que no es de Hardline | Todo lo que no es de serie ni de Hardline se aparta a `config\antes_de_hardline\` (también lo que incluía el `config.txt` anterior). Copia en el backup de la sesión: el rollback lo devuelve. |
+| Equalizer APO activo en varios dispositivos | Se leen los efectos de cada dispositivo (`MMDevices\Audio\Render\*\FxProperties`, CLSID de Equalizer APO). Antes del Configurator se dice cuál dejar: CABLE Input en modo Completo, el headset en Solo EQ. |
+| Presets antiguos de Hardline | Se apartan los `warzone_footsteps_*.txt` que no son el actual. |
+| Peace, FxSound, Boom 3D, ViPER4Windows, Razer Surround | Sin arranque automático (revertible). Desinstalación con su propio desinstalador: silenciosa si el programa lo permite (MSI o `QuietUninstallString`), si no se abre el suyo. Se confirma programa a programa; en modo desatendido solo con `-CleanAudio`. No se puede revertir. |
+| Nahimic | Servicio `NahimicService` desactivado (revertible). |
+| SteelSeries Sonar, Dolby Atmos, DTS | Van dentro de otras apps: instrucciones en la guía de pasos. |
+| Voicemeeter Banana o Standard | Se instala Potato encima: mismo programa y desinstalador; solo Potato expone el compresor completo. |
+
 ### Compresor y gate (modo Completo)
 
 Voicemeeter Potato, configurado por su [Remote API](https://github.com/vburel2018/Voicemeeter-SDK) (no se edita ningún archivo interno de Voicemeeter).

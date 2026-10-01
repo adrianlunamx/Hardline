@@ -132,6 +132,9 @@
                 <ComboBoxItem Content="Completa" Tag="1.0"/>
                 <ComboBoxItem Content="Moderada (70%)" Tag="0.7"/>
               </ComboBox>
+              <CheckBox x:Name="chkCleanAudio" IsChecked="True" Margin="0,10,0,0">
+                <TextBlock TextWrapping="Wrap" Text="Si hay un audio personalizado anterior (Peace, FxSound, Boom 3D...), desinstalarlo antes. Su configuración siempre se aparta (revertible)."/>
+              </CheckBox>
             </StackPanel>
           </Border>
         </StackPanel>
