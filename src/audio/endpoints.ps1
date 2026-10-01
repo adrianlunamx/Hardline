@@ -75,6 +75,7 @@ namespace Hardline {
         [DllImport("ole32.dll")] static extern int PropVariantClear(ref PropVariant pv);
         static readonly PropKey DeviceDesc = new PropKey("a45c254e-df1c-4efd-8020-67d146a850e0", 2);
         static readonly PropKey InterfaceName = new PropKey("026e516e-b814-414b-83cd-856d6fef4822", 2);
+        static readonly PropKey IconPath = new PropKey("259abffc-50a7-47ce-af08-68c9a7d73366", 12);
         const int VT_LPWSTR = 31, ACTIVE = 1, STGM_READ = 0, STGM_READWRITE = 2;
 
         static string Read(IPropertyStore s, PropKey k) {
@@ -83,7 +84,7 @@ namespace Hardline {
             try { return v.vt == VT_LPWSTR ? Marshal.PtrToStringUni(v.p) : ""; } finally { PropVariantClear(ref v); }
         }
 
-        // Dispositivos activos: id, flujo (0 = reproducción, 1 = grabación), nombre, nombre del driver.
+        // Dispositivos activos: id, flujo (0 = reproducción, 1 = grabación), nombre, nombre del driver, icono.
         public static string[][] List() {
             var list = new List<string[]>();
             var e = (IMMDeviceEnumerator)new MMDeviceEnumeratorCom();
@@ -95,7 +96,7 @@ namespace Hardline {
                     IMMDevice d; if (c.Item(i, out d) != 0) continue;
                     string id; d.GetId(out id);
                     IPropertyStore s; if (d.OpenPropertyStore(STGM_READ, out s) != 0) continue;
-                    list.Add(new[] { id, flow.ToString(), Read(s, DeviceDesc), Read(s, InterfaceName) });
+                    list.Add(new[] { id, flow.ToString(), Read(s, DeviceDesc), Read(s, InterfaceName), Read(s, IconPath) });
                 }
             }
             return list.ToArray();
@@ -111,12 +112,17 @@ namespace Hardline {
         }
 
         // 0 = correcto; si no, el HRESULT (acceso denegado sin administrador).
-        public static int Rename(string id, string name) {
+        public static int Rename(string id, string name) { return SetString(id, DeviceDesc, name); }
+
+        // Icono ("ruta,índice"), el que Configuración > Sonido muestra junto al nombre.
+        public static int SetIcon(string id, string path) { return SetString(id, IconPath, path); }
+
+        static int SetString(string id, PropKey key, string value) {
             var e = (IMMDeviceEnumerator)new MMDeviceEnumeratorCom();
             IMMDevice d; int hr = e.GetDevice(id, out d); if (hr != 0) return hr;
             IPropertyStore s; hr = d.OpenPropertyStore(STGM_READWRITE, out s); if (hr != 0) return hr;
-            var v = new PropVariant(); v.vt = VT_LPWSTR; v.p = Marshal.StringToCoTaskMemUni(name);
-            var k = DeviceDesc;
+            var v = new PropVariant(); v.vt = VT_LPWSTR; v.p = Marshal.StringToCoTaskMemUni(value);
+            var k = key;
             try { hr = s.SetValue(ref k, ref v); if (hr == 0) hr = s.Commit(); }
             finally { Marshal.FreeCoTaskMem(v.p); }
             return hr;
@@ -127,14 +133,40 @@ namespace Hardline {
 }
 
 <#
-    Nombre que le corresponde a un dispositivo de VB-CABLE según su driver y
-    flujo, o '' si no es de VB-CABLE. Solo el cable principal: los de
-    Voicemeeter (VAIO, AUX) y los cables A/B tienen otro nombre de driver.
+    Nombre de fábrica de un dispositivo virtual de VB-Audio según su driver y
+    flujo, o '' si no es uno que Hardline use. VB-CABLE principal y la
+    entrada principal de Voicemeeter (VAIO): son los nombres que citan las
+    instrucciones. AUX, VAIO3 y los cables A/B no se tocan.
 #>
 function Get-HLCableDefaultName {
     param([string] $InterfaceName, [int] $Flow)
-    if ($InterfaceName -ne 'VB-Audio Virtual Cable') { return '' }
-    if ($Flow -eq 0) { return 'CABLE Input' } else { return 'CABLE Output' }
+    switch ($InterfaceName) {
+        'VB-Audio Virtual Cable'    { if ($Flow -eq 0) { return 'CABLE Input' } else { return 'CABLE Output' } }
+        'VB-Audio Voicemeeter VAIO' { if ($Flow -eq 0) { return 'Voicemeeter Input' } else { return 'Voicemeeter Output' } }
+        default { return '' }
+    }
+}
+
+<#
+    Icono de fábrica de VB-CABLE: el que trae su propio driver (dos iconos,
+    -100 y -101). '' si no se encuentra el driver.
+#>
+function Get-HLCableDefaultIcon {
+    param([int] $Flow, [string] $DriverStore = (Join-Path $env:windir 'System32\DriverStore\FileRepository'))
+    $sys = @(Get-ChildItem $DriverStore -Directory -Filter 'vbmmecable64*' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending |
+            ForEach-Object { Get-ChildItem $_.FullName -Filter 'vbaudio_cable64*.sys' -File -ErrorAction SilentlyContinue }) | Select-Object -First 1
+    if (-not $sys) { return '' }
+    $idx = if ($Flow -eq 0) { -100 } else { -101 }
+    return ('{0},{1}' -f $sys.FullName, $idx)
+}
+
+# ¿El icono ("ruta,índice") apunta a un archivo que ya no existe?
+function Test-HLIconMissing {
+    param([string] $Icon)
+    if (-not $Icon) { return $false }
+    $path = [Environment]::ExpandEnvironmentVariables(($Icon -replace ',\s*-?\d+\s*$', '').Trim('"'))
+    if (-not [IO.Path]::IsPathRooted($path)) { return $false }
+    return (-not (Test-Path -LiteralPath $path))
 }
 
 function Get-HLDefaultRenderName {
@@ -157,7 +189,7 @@ function Get-HLRenderDeviceScore {
     return $score
 }
 
-# Dispositivos de VB-CABLE renombrados: Id, Flow, Name, Default.
+# Dispositivos de VB-CABLE / VAIO renombrados: Id, Flow, Name, Default.
 function Get-HLRenamedCables {
     Initialize-HLEndpointApi
     foreach ($d in [Hardline.AudioEndpoints]::List()) {
@@ -176,8 +208,8 @@ function Set-HLEndpointName {
     return $true
 }
 
-# Devuelve a VB-CABLE sus nombres de fábrica. Si no se puede, queda como paso manual.
-# Devuelve cuántos se renombraron.
+# Devuelve a VB-CABLE y a Voicemeeter sus nombres de fábrica. Si no se puede,
+# queda como paso manual. Devuelve cuántos se renombraron.
 function Restore-HLCableNames {
     $renamed = @()
     $count = 0
@@ -186,13 +218,35 @@ function Restore-HLCableNames {
         try {
             Set-HLEndpointName -Id $c.Id -Name $c.Default -PrevName $c.Name | Out-Null
             $count++
-            Write-HLSub "Nombre de VB-CABLE: ""$($c.Name)"" -> ""$($c.Default)""" 'OK'
+            Write-HLSub "Nombre de audio: ""$($c.Name)"" -> ""$($c.Default)""" 'OK'
             Add-HLResult -Module 'Audio' -Item "Nombre de $($c.Default)" -Status Applied -Detail "Se llamaba ""$($c.Name)"" (lo renombró otro programa). El rollback lo devuelve."
         } catch {
             Add-HLResult -Module 'Audio' -Item "Nombre de $($c.Default)" -Status Manual -Detail $_.Exception.Message
             $panel = if ($c.Flow -eq 0) { 'Salida' } else { 'Entrada' }
             Add-HLManualStep 'Audio' ("Configuración > Sistema > Sonido > {0}: ""{1}"" es tu {2}. Ábrelo y en Cambiar nombre pon ""{2}"" para que coincida con las instrucciones." -f $panel, $c.Name, $c.Default)
         }
+    }
+    return $count
+}
+
+<#
+    VB-CABLE con un icono que ya no existe (Art Tune les pone los suyos desde
+    ProgramData\ArtTune, que la limpieza aparta): vuelve el icono de su
+    driver. El anterior queda en el manifiesto. Devuelve cuántos se cambiaron.
+#>
+function Restore-HLCableIcons {
+    if ($HL.DryRun) { return 0 }
+    $count = 0
+    try { Initialize-HLEndpointApi; $list = @([Hardline.AudioEndpoints]::List()) } catch { Write-HLLog WARN "No se pudieron leer los iconos de audio: $($_.Exception.Message)"; return 0 }
+    foreach ($d in $list) {
+        if ($d[3] -ne 'VB-Audio Virtual Cable' -or -not (Test-HLIconMissing $d[4])) { continue }
+        $icon = Get-HLCableDefaultIcon -Flow ([int]$d[1])
+        if (-not $icon) { continue }
+        $hr = [Hardline.AudioEndpoints]::SetIcon($d[0], $icon)
+        if ($hr -ne 0) { Write-HLLog WARN ("Icono de {0}: 0x{1:X8}" -f $d[2], $hr); continue }
+        Add-HLManifestEntry -Type 'AudioEndpointIcon' -Data @{ Id = $d[0]; PrevIcon = $d[4]; NewIcon = $icon; ModulePath = $script:HLEndpointModule }
+        Write-HLSub "Icono de $($d[2]): el de VB-CABLE" 'OK'
+        $count++
     }
     return $count
 }

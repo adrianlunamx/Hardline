@@ -32,10 +32,11 @@
 $script:HLEqApoClsid = '{EACD2258-FCAC-4FF4-B36D-419E924A6D79}'
 
 # Archivos que trae Equalizer APO en config\: no son configuración tuya.
-$script:HLEqApoStockFiles = @('config.txt', 'example.txt', 'demo.txt', 'multichannel.txt', 'iir_lowpass.txt', 'readme.txt')
+$script:HLEqApoStockFiles = @('config.txt', 'example.txt', 'demo.txt', 'multichannel.txt', 'iir_lowpass.txt', 'selective_delay.txt', 'readme.txt')
 
 $script:HLAudioEnhancers = @(
-    @{ Name = 'Art Tune';          Display = '^Art ?Tune';             Process = @('ArtTune*');              Endpoint = 'Art Tune'; Kind = 'Uninstall'; Why = 'Procesa el audio con sus propios efectos y renombra los dispositivos de VB-CABLE ("Art Tune +"), así que las instrucciones ya no coinciden.' }
+    # Art Tune normalmente no se registra en Aplicaciones: su rastro (ArtTuneDB, HeSuVi, VST, iconos) lo busca Get-HLArtTuneFootprint.
+    @{ Name = 'Art Tune';          Display = '^Art ?Tune';             Process = @('ArtTune*');              Kind = 'Uninstall'; Why = 'Procesa el audio con sus propios efectos y renombra los dispositivos de VB-CABLE ("Art Tune +"), así que las instrucciones ya no coinciden.' }
     @{ Name = 'Peace';             Display = '^Peace';                 Process = @('Peace');                 Kind = 'Uninstall'; Why = 'Al guardar en Peace se reescribe config.txt y se pierde el preset de Hardline.' }
     @{ Name = 'FxSound';           Display = '^FxSound';               Process = @('FxSound');               Kind = 'Uninstall'; Why = 'Su propio EQ y "realce" se suman al de Hardline.' }
     @{ Name = 'Boom 3D';           Display = '^Boom 3D';               Process = @('Boom3D');                Kind = 'Uninstall'; Why = 'Virtualizador y EQ propios encima del de Hardline.' }
@@ -116,6 +117,23 @@ function ConvertTo-HLUninstallCommand {
     return [pscustomobject]@{ FilePath = $exe; Arguments = $args_.Trim(); Silent = $silent }
 }
 
+<#
+    ¿Existe el desinstalador al que apunta la entrada? Si se borró la carpeta
+    del programa a mano, la entrada queda huérfana en Aplicaciones: el programa
+    ya no está y lanzar el desinstalador falla siempre. Solo se da por
+    huérfana con una ruta absoluta y limpia a un .exe que no existe: msiexec,
+    RunDll32 (InstallShield) y cualquier cosa que no se entienda bien cuentan
+    como presentes, porque quitar la entrada de un programa instalado sería peor.
+#>
+function Test-HLUninstallerPresent {
+    param([Parameter(Mandatory)] $Entry)
+    $c = ConvertTo-HLUninstallCommand -UninstallString $Entry.UninstallString -QuietUninstallString $Entry.QuietUninstallString
+    $path = [Environment]::ExpandEnvironmentVariables("$($c.FilePath)").Trim()
+    if ($path -notmatch '^[A-Za-z]:\\[^"<>|?*]+\.exe$') { return $true }
+    if ((Split-Path $path -Leaf) -match '^(msiexec|rundll32)\.exe$') { return $true }
+    return (Test-Path -LiteralPath $path)
+}
+
 # --------------------------------------------------------------------------
 # Sistema
 # --------------------------------------------------------------------------
@@ -123,9 +141,12 @@ function ConvertTo-HLUninstallCommand {
 function Get-HLUninstallEntries {
     $roots = @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall', 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall')
     foreach ($r in $roots) {
-        Get-ChildItem $r -ErrorAction SilentlyContinue | ForEach-Object { Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue } |
-            Where-Object { $_.DisplayName -and $_.UninstallString } |
-            ForEach-Object { [pscustomobject]@{ DisplayName = $_.DisplayName; UninstallString = $_.UninstallString; QuietUninstallString = "$($_.QuietUninstallString)" } }
+        foreach ($k in (Get-ChildItem $r -ErrorAction SilentlyContinue)) {
+            $p = Get-ItemProperty $k.PSPath -ErrorAction SilentlyContinue
+            if (-not ($p -and $p.DisplayName -and $p.UninstallString)) { continue }
+            # Key: ruta de la clave en formato de reg.exe, para poder quitar una entrada huérfana.
+            [pscustomobject]@{ DisplayName = $p.DisplayName; UninstallString = $p.UninstallString; QuietUninstallString = "$($p.QuietUninstallString)"; Key = $k.Name }
+        }
     }
 }
 
@@ -145,9 +166,79 @@ function Get-HLEqApoDevices {
     }
 }
 
+<#
+    Rastro de Art Tune (un paquete de configuración para Equalizer APO, sin
+    desinstalador en Aplicaciones) y de HeSuVi (virtualizador surround que
+    se apila con el HRTF de Warzone). Devuelve:
+      Items       lo que se aparta entero (reversible): carpetas de config\,
+                  VST, iconos, LEQ Control Panel y accesos directos a ello.
+      UserCopies  copias que Art Tune guardó en Documentos / Descargas. Son
+                  tuyas y no afectan al audio: solo se listan.
+      ArtTune     $true si hay rastro de Art Tune (no solo de HeSuVi).
+    Las rutas base son parámetros para probarlo sin tocar el sistema.
+#>
+function Get-HLArtTuneFootprint {
+    param(
+        [string] $ConfigDir,
+        [string] $ProgramData = $env:ProgramData,
+        [string[]] $ProgramFiles = @($env:ProgramFiles, ${env:ProgramFiles(x86)}),
+        [string] $LocalAppData = $env:LOCALAPPDATA,
+        [string[]] $LinkDirs = @(),
+        [string[]] $UserDirs = @()
+    )
+    $items = New-Object System.Collections.Generic.List[object]
+    $add = { param($p, $what) if ($p -and (Test-Path -LiteralPath $p) -and -not ($items | Where-Object { $_.Path -eq $p })) { $items.Add([pscustomobject]@{ Path = $p; What = $what }) } }
+
+    $artTune = $false
+    if ($ConfigDir -and (Test-Path -LiteralPath $ConfigDir)) {
+        $db = Join-Path $ConfigDir 'ArtTuneDB'
+        if (Test-Path -LiteralPath $db) { $artTune = $true; & $add $db 'Biblioteca de Art Tune en Equalizer APO' }
+        & $add (Join-Path $ConfigDir 'HeSuVi') 'HeSuVi: virtualizador surround encima del HRTF de Warzone'
+        # Copias que Art Tune deja junto a config.txt (_backup_AAAAMMDD).
+        if ($artTune) { foreach ($b in @(Get-ChildItem -LiteralPath $ConfigDir -Directory -Filter '_backup_*' -ErrorAction SilentlyContinue)) { & $add $b.FullName 'Copia de configuración de Art Tune' } }
+    }
+    if ($ProgramData) {
+        $pd = Join-Path $ProgramData 'ArtTune'
+        if (Test-Path -LiteralPath $pd) { $artTune = $true; & $add $pd 'Iconos de Art Tune para los dispositivos de VB-CABLE' }
+    }
+    foreach ($pf in @($ProgramFiles | Where-Object { $_ })) {
+        $vst = Join-Path $pf 'VSTPlugins\ArtTuneKit'
+        if (Test-Path -LiteralPath $vst) { $artTune = $true; & $add $vst 'Plugin VST de Art Tune (cadena "Art Tune +")' }
+    }
+    if ($artTune -and $LocalAppData) {
+        & $add (Join-Path $LocalAppData 'Programs\LEQControlPanel') 'LEQ Control Panel (ecualización de sonoridad que trae Art Tune)'
+    }
+
+    # Accesos directos que apuntan a lo anterior (ArtTuneDB.lnk en el escritorio, HeSuVi...).
+    if ($items.Count -gt 0) {
+        $sh = $null
+        try { $sh = New-Object -ComObject WScript.Shell } catch { $sh = $null }
+        foreach ($ld in @($LinkDirs | Where-Object { $_ -and (Test-Path -LiteralPath $_) })) {
+            foreach ($lnk in @(Get-ChildItem -LiteralPath $ld -Filter '*.lnk' -File -Recurse -Depth 1 -ErrorAction SilentlyContinue)) {
+                $target = ''
+                if ($sh) { try { $target = "$($sh.CreateShortcut($lnk.FullName).TargetPath)" } catch { $target = '' } }
+                $hit = @($items | Where-Object { $target -and $target.StartsWith($_.Path, [StringComparison]::OrdinalIgnoreCase) }).Count -gt 0
+                if ($hit -or $lnk.BaseName -match '^(Art ?Tune|ArtTuneDB|HeSuVi|LEQ Control Panel)') { & $add $lnk.FullName 'Acceso directo' }
+            }
+        }
+    }
+
+    $copies = @(foreach ($ud in @($UserDirs | Where-Object { $_ -and (Test-Path -LiteralPath $_) })) {
+            Get-ChildItem -LiteralPath $ud -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^(Art ?Tune|ArtTuneDB)' } | ForEach-Object { $_.FullName }
+        })
+    return [pscustomobject]@{ Items = @($items.ToArray()); UserCopies = $copies; ArtTune = $artTune }
+}
+
 function Get-HLAudioInventory {
     param([string]$ConfigDir)
-    $inv = [ordered]@{ ConfigDir = $ConfigDir; ForeignConfig = $false; ForeignFiles = @(); StalePresets = @(); ApoDevices = @(); Enhancers = @(); VoicemeeterNoPotato = $false }
+    $inv = [ordered]@{ ConfigDir = $ConfigDir; ForeignConfig = $false; ForeignFiles = @(); StalePresets = @(); ApoDevices = @(); Enhancers = @(); VoicemeeterNoPotato = $false
+        Footprint = @(); UserCopies = @(); Orphans = @() }
+
+    $userDirs = @([Environment]::GetFolderPath('MyDocuments'), (Join-Path $env:USERPROFILE 'Downloads'))
+    $linkDirs = @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('CommonDesktopDirectory'), [Environment]::GetFolderPath('Programs'), [Environment]::GetFolderPath('CommonPrograms'))
+    $fp = Get-HLArtTuneFootprint -ConfigDir $ConfigDir -LinkDirs $linkDirs -UserDirs $userDirs
+    $inv.Footprint = @($fp.Items)
+    $inv.UserCopies = @($fp.UserCopies)
 
     if ($ConfigDir -and (Test-Path $ConfigDir)) {
         $cfg = Join-Path $ConfigDir 'config.txt'
@@ -155,7 +246,11 @@ function Get-HLAudioInventory {
         if ($text.Trim() -and -not (Test-HLHardlineEqConfig $text)) {
             $inv.ForeignConfig = $true
             $files = @(Get-ChildItem $ConfigDir -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName.Substring($ConfigDir.TrimEnd('\').Length + 1) })
-            $inv.ForeignFiles = @(Select-HLEqApoForeignFiles -Files $files -Includes (Get-HLEqApoIncludes $text) | Where-Object { Test-Path (Join-Path $ConfigDir $_) })
+            # Lo que se aparta como carpeta entera (ArtTuneDB, HeSuVi) no se mueve archivo a archivo.
+            $whole = @($inv.Footprint | ForEach-Object { $_.Path } | Where-Object { $_.StartsWith($ConfigDir.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase) } |
+                    ForEach-Object { $_.Substring($ConfigDir.TrimEnd('\').Length + 1) + '\' })
+            $files = @($files | Where-Object { $f = $_; -not ($whole | Where-Object { $f.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) }) })
+            $inv.ForeignFiles = @(Select-HLEqApoForeignFiles -Files $files -Includes (Get-HLEqApoIncludes $text) | Where-Object { $f = $_; (Test-Path (Join-Path $ConfigDir $f)) -and -not ($whole | Where-Object { $f.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) }) })
         }
         $hlDir = Join-Path $ConfigDir 'hardline'
         if (Test-Path $hlDir) { $inv.StalePresets = @(Get-ChildItem $hlDir -Filter 'warzone_footsteps_*.txt' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) }
@@ -169,6 +264,13 @@ function Get-HLAudioInventory {
     if (@($script:HLAudioEnhancers | Where-Object { $_.Appx }).Count) { $appx = @(Get-AppxPackage -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) }
     $inv.Enhancers = @(foreach ($e in $script:HLAudioEnhancers) {
             $entry = if ($e.Display) { $entries | Where-Object { $_.DisplayName -match $e.Display } | Select-Object -First 1 } else { $null }
+            # Solo en lo que Hardline desinstala: el software de tarjetas (Kind Manual) no se toca.
+            if ($entry -and $e.Kind -eq 'Uninstall' -and -not (Test-HLUninstallerPresent -Entry $entry)) {
+                # Huérfana: el programa ya no está, pero sigue en Aplicaciones. Se quita la entrada (revertible).
+                Write-HLLog INFO "$($e.Name): entrada de desinstalación huérfana ($($entry.UninstallString) no existe)."
+                $inv.Orphans += [pscustomobject]@{ Name = $e.Name; DisplayName = $entry.DisplayName; Key = $entry.Key }
+                $entry = $null
+            }
             $running = @(foreach ($pat in @($e.Process)) { if ($pat) { $procs | Where-Object { $_ -like $pat } } }).Count -gt 0
             $svc = if ($e.Service) { Get-Service -Name $e.Service -ErrorAction SilentlyContinue } else { $null }
             $ep = if ($e.Endpoint) { @($endpoints | Where-Object { $_ -match [regex]::Escape($e.Endpoint) }).Count -gt 0 } else { $false }
@@ -177,6 +279,16 @@ function Get-HLAudioInventory {
                 [pscustomobject]@{ Name = $e.Name; Kind = $e.Kind; Why = $e.Why; Advice = "$($e.Advice)"; Entry = $entry; Service = $e.Service; Process = @($e.Process) }
             }
         })
+
+    # ReaPlugs: plugins VST que carga la cadena "Art Tune +". Sin Art Tune puede ser
+    # tuyo (para un DAW), así que solo se ofrece quitarlo si hay rastro de Art Tune.
+    $artTuneSeen = $fp.ArtTune -or @($endpoints | Where-Object { $_ -match 'Art Tune' }).Count -gt 0
+    if ($artTuneSeen) {
+        $rp = $entries | Where-Object { $_.DisplayName -match '^ReaPlugs' } | Select-Object -First 1
+        if ($rp -and (Test-HLUninstallerPresent -Entry $rp)) {
+            $inv.Enhancers += [pscustomobject]@{ Name = 'ReaPlugs'; Kind = 'Uninstall'; Why = 'Plugins VST que carga la cadena "Art Tune +" dentro de Equalizer APO.'; Advice = ''; Entry = $rp; Service = $null; Process = @() }
+        }
+    }
 
     $inv.VoicemeeterNoPotato = [bool](Get-HLVoicemeeterDir) -and -not (Test-HLVoicemeeterPotato)
     return [pscustomobject]$inv
@@ -190,7 +302,16 @@ function Test-HLVoicemeeterPotato {
 function Test-HLAudioInventoryClean {
     param([Parameter(Mandatory)] $Inventory, [string[]] $KeepPreset = @())
     return (-not $Inventory.ForeignConfig -and @(Select-HLStalePresets -Names $Inventory.StalePresets -Keep $KeepPreset).Count -eq 0 -and
-        $Inventory.ApoDevices.Count -le 1 -and $Inventory.Enhancers.Count -eq 0 -and -not $Inventory.VoicemeeterNoPotato)
+        $Inventory.ApoDevices.Count -le 1 -and $Inventory.Enhancers.Count -eq 0 -and -not $Inventory.VoicemeeterNoPotato -and
+        (Get-HLCount $Inventory 'Footprint') -eq 0 -and (Get-HLCount $Inventory 'Orphans') -eq 0)
+}
+
+# Elementos de una lista del inventario (0 si no existe la propiedad).
+function Get-HLCount {
+    param($Object, [string] $Name)
+    $p = $Object.PSObject.Properties[$Name]
+    if (-not $p -or $null -eq $p.Value) { return 0 }
+    return @($p.Value | Where-Object { $null -ne $_ }).Count
 }
 
 function Show-HLAudioInventory {
@@ -199,6 +320,11 @@ function Show-HLAudioInventory {
     if ($Inventory.ForeignConfig) { Write-HLSub ("Equalizer APO con configuración propia ({0} archivos): se apartan a config\antes_de_hardline\" -f $Inventory.ForeignFiles.Count) }
     $stale = @(Select-HLStalePresets -Names $Inventory.StalePresets -Keep $KeepPreset)
     if ($stale.Count) { Write-HLSub ("Presets antiguos de Hardline: {0}" -f ($stale -join ', ')) }
+    if ((Get-HLCount $Inventory 'Footprint') -gt 0) {
+        Write-HLSub 'Art Tune / HeSuVi: se aparta todo (vuelve con el rollback):'
+        foreach ($f in $Inventory.Footprint) { Write-HLInfo ("  {0}: {1}" -f $f.What, $f.Path) }
+    }
+    if ((Get-HLCount $Inventory 'Orphans') -gt 0) { Write-HLSub ("Entradas de Aplicaciones de programas que ya no están: {0}. Se quitan de la lista." -f (($Inventory.Orphans | ForEach-Object { $_.DisplayName }) -join ', ')) }
     if ($Inventory.ApoDevices.Count -gt 1) { Write-HLSub ("Equalizer APO activo en {0} dispositivos: {1}" -f $Inventory.ApoDevices.Count, (($Inventory.ApoDevices | ForEach-Object { $_.Name }) -join '; ')) }
     foreach ($e in $Inventory.Enhancers) { Write-HLSub ("{0}: {1}" -f $e.Name, $e.Why) }
     if ($Inventory.VoicemeeterNoPotato) { Write-HLSub 'Voicemeeter sin la edición Potato: se instala Potato encima (conserva tu configuración).' }
@@ -221,6 +347,23 @@ function Move-HLAudioFile {
     Backup-HLFile -Path $src -Reason $Reason | Out-Null
     Remove-Item -LiteralPath $src -Force
     return $true
+}
+
+<#
+    Deja config.txt sin filtros (copia en el manifiesto) y reinicia el audio
+    de Windows: Equalizer APO suelta los VST y archivos de la configuración
+    anterior. Hardline escribe su config.txt justo después.
+#>
+function Clear-HLEqApoConfig {
+    param([Parameter(Mandatory)] [string] $ConfigDir)
+    if ($HL.DryRun) { return }
+    $cfg = Join-Path $ConfigDir 'config.txt'
+    if (Test-Path -LiteralPath $cfg) {
+        Backup-HLFile -Path $cfg -Reason 'config.txt neutro para soltar la configuración anterior' | Out-Null
+        Set-Content -LiteralPath $cfg -Value '# Hardline: configuración anterior apartada. Hardline escribe la suya a continuación.' -Encoding UTF8
+    }
+    Write-HLInfo 'Reiniciando el audio de Windows para soltar la configuración anterior...'
+    try { Restart-Service -Name 'Audiosrv' -Force -ErrorAction Stop; Start-Sleep -Seconds 2 } catch { Write-HLLog WARN "No se pudo reiniciar Audiosrv: $($_.Exception.Message)" }
 }
 
 function Invoke-HLUninstallProgram {
@@ -250,6 +393,50 @@ function Invoke-HLAudioCleanup {
         $keepDir = Join-Path $cfgDir 'antes_de_hardline'
         if (-not (Test-Path $keepDir)) { New-Item -ItemType Directory -Path $keepDir -Force | Out-Null }
         if (Test-Path $old) { Copy-Item -LiteralPath $old -Destination (Join-Path $keepDir 'config.txt') -Force }
+    }
+
+    # Art Tune / HeSuVi: carpetas enteras a backups\<sesión>\apartado\.
+    $footprint = @($Inventory.Footprint | Where-Object { $_ })
+    if ($footprint.Count -gt 0) {
+        if (-not $HL.DryRun) { Get-Process -Name 'HeSuVi', 'LEQControlPanel' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }
+        $audioRestarted = $false
+        $aside = 0
+        foreach ($f in $footprint) {
+            $done = $false
+            try { [void](Move-HLPathAside -Path $f.Path -Reason $f.What); $done = $true }
+            catch {
+                # Archivo en uso: Equalizer APO tiene cargado un VST o un filtro de la configuración
+                # anterior. Se deja config.txt neutro, se reinicia el audio y se vuelve a intentar.
+                if (-not $audioRestarted -and -not $HL.DryRun) {
+                    $audioRestarted = $true
+                    Clear-HLEqApoConfig -ConfigDir $cfgDir
+                    try { [void](Move-HLPathAside -Path $f.Path -Reason $f.What); $done = $true } catch { Write-HLLog WARN "No se pudo apartar $($f.Path): $($_.Exception.Message)" }
+                } else { Write-HLLog WARN "No se pudo apartar $($f.Path): $($_.Exception.Message)" }
+            }
+            if ($done) { $aside++ } else {
+                Add-HLResult -Module 'Audio' -Item "Audio anterior: $($f.What)" -Status Manual -Detail "En uso: $($f.Path)"
+                Add-HLManualStep 'Audio' "Reinicia y vuelve a aplicar el audio: no se pudo apartar $($f.Path) ($($f.What)) porque estaba en uso."
+            }
+        }
+        if ($aside) {
+            Write-HLSub "Art Tune / HeSuVi apartados ($aside elementos)" 'OK'
+            Add-HLResult -Module 'Audio' -Item 'Audio anterior: Art Tune / HeSuVi' -Status Applied -Detail "$aside carpetas y accesos apartados a backups\$($HL.Stamp)\apartado. El rollback los devuelve."
+        }
+        Add-HLManualStep 'Audio' 'Si activaste "Ecualización de sonoridad" (Loudness Equalization) con LEQ Control Panel: Configuración > Sonido > tu headset > Mejoras de audio: desactivadas. Comprime el audio por su cuenta, encima del compresor de Hardline.'
+    }
+    $copies = @($Inventory.UserCopies | Where-Object { $_ })
+    if ($copies.Count -gt 0) {
+        Add-HLManualStep 'Audio' ("Copias de Art Tune en tus carpetas (no afectan al audio, Hardline no las toca): {0}. Bórralas si ya no las quieres." -f ($copies -join '; '))
+    }
+    foreach ($o in @($Inventory.Orphans | Where-Object { $_ -and $_.Key })) {
+        try {
+            if (Remove-HLRegistryKey -Key $o.Key -Reason "Entrada huérfana de $($o.Name)") {
+                Write-HLSub "$($o.DisplayName): entrada sin programa quitada de Aplicaciones" 'OK'
+                Add-HLResult -Module 'Audio' -Item "Audio anterior: $($o.Name)" -Status Applied -Detail 'Ya no estaba instalado; se quitó su entrada de Aplicaciones (revertible).'
+            }
+        } catch {
+            Add-HLResult -Module 'Audio' -Item "Audio anterior: $($o.Name)" -Status Failed -Detail $_.Exception.Message
+        }
     }
     foreach ($f in $Inventory.ForeignFiles) {
         if (Move-HLAudioFile -ConfigDir $cfgDir -Relative $f -Reason 'Configuración anterior de Equalizer APO') { $moved++ }

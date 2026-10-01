@@ -2,6 +2,26 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Añadido
+
+- **Limpieza completa de Art Tune y HeSuVi** antes de instalar el audio. Art Tune no se registra en Aplicaciones, así que se busca su rastro y se aparta entero a `backups\<sesión>\apartado\` (el rollback lo devuelve): la biblioteca `ArtTuneDB` y sus copias `_backup_*` en Equalizer APO, HeSuVi (virtualizador surround que se apila con el HRTF de Warzone), el VST `ArtTuneKit`, los iconos de `ProgramData\ArtTune`, LEQ Control Panel y los accesos directos. ReaPlugs se ofrece desinstalar si hay rastro de Art Tune. Las copias que Art Tune dejó en Documentos y Descargas solo se listan.
+- Si algo de eso está en uso (un VST cargado por Equalizer APO), se deja `config.txt` neutro, se reinicia el audio de Windows y se reintenta.
+- **Nombres e iconos de fábrica**: además de VB-CABLE, la entrada de Voicemeeter vuelve a llamarse "Voicemeeter Input" / "Voicemeeter Output" ("Normal Audio" / "Virtual Mix" con Art Tune), y los cables recuperan el icono de su driver si apuntaba a algo que ya no existe. Revertible.
+- **Entradas huérfanas de Aplicaciones** (p. ej. Peace borrado a mano): se quitan de la lista con copia (`reg export`); el rollback la importa.
+
+- **`rollback.ps1 -All`**: revierte todas las sesiones pendientes, de la más nueva a la más antigua. Cada aplicación crea su propia sesión y revertir solo la última dejaba puestos servicios, registro, DNS y QoS de las anteriores. El botón de la interfaz pasa a ser **"Revertir todo"** e indica cuántas sesiones hay.
+
+### Corregido
+
+- **Voicemeeter no arrancaba con Windows** con la edición básica o Banana: la entrada de inicio apuntaba siempre a `voicemeeter8.exe` (Potato), aunque no estuviera instalado. Ahora apunta a la edición instalada; si no encuentra ninguna, lo avisa en la guía.
+- **Instalación de Potato repetida en cada aplicación**: si falla encima de otra edición, no se reintenta con el mismo instalador (cada intento cerraba Voicemeeter y cortaba el audio). En consola se pregunta; con un instalador nuevo se vuelve a probar.
+- **"Desinstalar Peace" fallaba siempre** cuando Peace se había borrado a mano y quedaba su entrada en Aplicaciones apuntando a un desinstalador que ya no existe. Esas entradas huérfanas se ignoran.
+- **Servicios relajados**: un servicio que ya estaba deshabilitado (p. ej. PcaSvc) pasaba a Manual. Ahora Hardline solo restringe el tipo de inicio, nunca lo afloja, y no toca drivers de arranque.
+- **El rollback no devolvía el DNS** si Windows había cambiado el índice del adaptador (pasa al reiniciar o reinstalar el driver de red): buscaba la interfaz por un número que ya no era la suya y fallaba, dejando 1.1.1.1. Ahora la busca por GUID y por nombre.
+- `selective_delay.txt` de Equalizer APO ya no se toma por configuración ajena.
+
 ## [1.10.1] - 2026-10-01
 
 ### Cambiado

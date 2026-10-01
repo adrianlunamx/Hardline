@@ -310,8 +310,13 @@ function Show-HLGui {
         })
     $ui.btnDryRun.Add_Click({ & $startJob 'Simulando' $install (ConvertTo-HLGuiArguments -State (& $getState) -DryRun) { & $openLatestReport } })
     $ui.btnRollback.Add_Click({
-            if ([System.Windows.MessageBox]::Show('¿Revertir todos los cambios de la última sesión?', 'Hardline', 'YesNo', 'Warning') -ne 'Yes') { return }
-            & $startJob 'Revirtiendo' (Join-Path $Root 'rollback.ps1') @('-Unattended') $null
+            # Cada vez que se aplica se crea una sesión: revertir solo la última dejaría
+            # puestos los cambios de las anteriores.
+            $pending = @(Get-ChildItem (Join-Path $Root 'backups') -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path (Join-Path $_.FullName 'manifest.json') }).Count
+            if ($pending -eq 0) { [System.Windows.MessageBox]::Show('No hay cambios de Hardline pendientes de revertir.', 'Hardline') | Out-Null; return }
+            $msg = "¿Revertir todos los cambios de Hardline? ($pending sesiones pendientes, de la más nueva a la más antigua)"
+            if ([System.Windows.MessageBox]::Show($msg, 'Hardline', 'YesNo', 'Warning') -ne 'Yes') { return }
+            & $startJob 'Revirtiendo' (Join-Path $Root 'rollback.ps1') @('-All', '-Unattended') $null
         })
     $ui.btnNetDiag.Add_Click({ & $startJob 'Diagnóstico de red' $install @('-NetDiagOnly') { & $openLatestReport } })
     $ui.btnBench.Add_Click({ & $startJob 'Benchmark' $install @('-BenchmarkOnly') $null })

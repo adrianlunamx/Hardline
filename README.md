@@ -184,9 +184,10 @@ Todo lo descargado se queda en `headsets\`: la próxima vez funciona sin conexi�
 
 ### Si ya tenías un audio personalizado
 
-Antes de instalar, Hardline busca lo que haya: un Equalizer APO con tu propia configuración, Peace, FxSound, Boom 3D, ViPER4Windows, Razer Surround, Nahimic, Sonar, Voicemeeter Banana. Si encuentra algo, lo limpia primero:
+Antes de instalar, Hardline busca lo que haya: un Equalizer APO con tu propia configuración, Art Tune, HeSuVi, Peace, FxSound, Boom 3D, ViPER4Windows, Razer Surround, Nahimic, Sonar, Voicemeeter Banana. Si encuentra algo, lo limpia primero:
 
 - La configuración anterior de Equalizer APO se aparta a `config\antes_de_hardline\`. No se pierde y el rollback la devuelve.
+- Art Tune y HeSuVi se apartan enteros (biblioteca, VST, iconos, LEQ Control Panel, accesos directos) a `backups\<sesión>\apartado\`, y VB-CABLE y Voicemeeter recuperan sus nombres e iconos de fábrica. El rollback lo devuelve todo.
 - Los programas que se apilan con el EQ se desinstalan con su propio desinstalador. Te pregunta uno a uno; en la interfaz decide la casilla "desinstalarlo antes".
 - Si Equalizer APO está activo en más de un dispositivo, te dice cuáles desmarcar.
 
@@ -206,6 +207,7 @@ El juego no se toca. Todo es editable en `config\gamesession.json` y queda regis
 
 ```powershell
 .\rollback.ps1              # última sesión
+.\rollback.ps1 -All         # todas las sesiones: como antes de Hardline
 .\rollback.ps1 -List        # ver sesiones
 .\rollback.ps1 -Stamp 2025-01-15_14-30
 ```

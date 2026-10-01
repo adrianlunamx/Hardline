@@ -132,7 +132,7 @@ function Set-HLDns {
     }
     if ($HL.DryRun) { Write-HLSub "DNS $($Adapter.Name) -> Cloudflare" 'SKIP (DryRun)'; return }
 
-    Add-HLManifestEntry -Type 'Dns' -Data @{ InterfaceIndex = $Adapter.InterfaceIndex; InterfaceAlias = $Adapter.Name; PrevServers = $prev; NewServers = $target }
+    Add-HLManifestEntry -Type 'Dns' -Data @{ InterfaceIndex = $Adapter.InterfaceIndex; InterfaceAlias = $Adapter.Name; InterfaceGuid = "$($Adapter.Guid)"; PrevServers = $prev; NewServers = $target }
     Set-DnsClientServerAddress -InterfaceIndex $Adapter.InterfaceIndex -ServerAddresses $target -ErrorAction Stop
     Clear-DnsClientCache -ErrorAction SilentlyContinue
     $from = if ($prev.Count) { $prev -join ', ' } else { 'DHCP' }

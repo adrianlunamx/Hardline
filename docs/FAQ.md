@@ -28,7 +28,7 @@ Porque faltaban permisos de administrador (se abre con UAC) o porque lo lanzaste
 
 **¿Puedo ejecutarlo varias veces?**
 
-Sí. Lo que ya tiene el valor objetivo se omite y no se registra. Cada ejecución crea su propia sesión en `backups/`. Para revertir todo, revierte de la más nueva a la más antigua (`rollback.ps1` sin parámetros coge siempre la más nueva pendiente).
+Sí. Lo que ya tiene el valor objetivo se omite y no se registra. Cada ejecución crea su propia sesión en `backups/`. Para revertir todo: `rollback.ps1 -All` (o el botón **Revertir todo** de la interfaz), que va de la más nueva a la más antigua. `rollback.ps1` sin parámetros solo revierte la más nueva pendiente.
 
 ## Actualizar
 
@@ -50,7 +50,7 @@ Todo lo que aparece en `backups/<sesión>/manifest.json`: valores de registro (i
 
 **Algo se rompió y no sé qué.**
 
-1. `.\rollback.ps1`
+1. `.\rollback.ps1 -All`
 2. Si persiste: Panel de control > Recuperación > Abrir Restaurar sistema > punto `Hardline_<fecha>`.
 3. El log de la sesión (`logs/`) tiene cada cambio con su valor anterior.
 
@@ -81,7 +81,7 @@ Discord no debe salir por `CABLE Input`. Ponlo en la salida por defecto (`Voicem
 
 **Ya tenía un EQ o un audio personalizado. ¿Se mezcla con el de Hardline?**
 
-No. Antes de instalar, Hardline lo detecta y lo limpia. Tu configuración de Equalizer APO se aparta a `config\antes_de_hardline\` (el rollback la devuelve). Peace, FxSound, Boom 3D, ViPER4Windows o Razer Surround se desinstalan con su propio desinstalador, preguntando uno a uno. Nahimic se desactiva. Si Equalizer APO está activo en varios dispositivos, te dice cuáles desmarcar.
+No. Antes de instalar, Hardline lo detecta y lo limpia. Tu configuración de Equalizer APO se aparta a `config\antes_de_hardline\` (el rollback la devuelve). Art Tune y HeSuVi se apartan enteros y los dispositivos que Art Tune renombró ("Art Tune +", "Virtual Mix") recuperan su nombre e icono. Peace, FxSound, Boom 3D, ViPER4Windows o Razer Surround se desinstalan con su propio desinstalador, preguntando uno a uno. Nahimic se desactiva. Si Equalizer APO está activo en varios dispositivos, te dice cuáles desmarcar.
 
 **Los pasos se oyen bajos y mis disparos muy altos.**
 
