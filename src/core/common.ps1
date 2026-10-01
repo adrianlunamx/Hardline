@@ -500,6 +500,27 @@ function Show-HLUpdateNotice {
 # Rollback
 # --------------------------------------------------------------------------
 
+<#
+    Índice de interfaz actual del adaptador de una entrada del manifiesto.
+    El índice cambia al reiniciar o reinstalar el driver (y otro adaptador
+    puede heredar el antiguo): se busca por GUID, después por nombre y solo
+    al final se usa el índice guardado.
+#>
+function Resolve-HLInterfaceIndex {
+    param([Parameter(Mandatory)] $Entry, $Adapters = $null)
+    if ($null -eq $Adapters) { $Adapters = @(Get-NetAdapter -IncludeHidden -ErrorAction SilentlyContinue) }
+    $guid = $Entry.PSObject.Properties['InterfaceGuid']
+    if ($guid -and $guid.Value) {
+        $a = @($Adapters | Where-Object { "$($_.InterfaceGuid)".Trim('{}') -eq "$($guid.Value)".Trim('{}') }) | Select-Object -First 1
+        if ($a) { return [int]$a.ifIndex }
+    }
+    if ($Entry.InterfaceAlias) {
+        $a = @($Adapters | Where-Object { $_.Name -eq $Entry.InterfaceAlias }) | Select-Object -First 1
+        if ($a) { return [int]$a.ifIndex }
+    }
+    return [int]$Entry.InterfaceIndex
+}
+
 function Undo-HLManifestEntry {
     param([Parameter(Mandatory)] $Entry)
 
@@ -540,12 +561,14 @@ function Undo-HLManifestEntry {
             return "Ajuste de energía $($Entry.Setting)"
         }
         'Dns' {
+            $idx = Resolve-HLInterfaceIndex -Entry $Entry
             $servers = @($Entry.PrevServers | Where-Object { $_ })
             if ($servers.Count -eq 0) {
-                Set-DnsClientServerAddress -InterfaceIndex $Entry.InterfaceIndex -ResetServerAddresses -ErrorAction Stop
+                Set-DnsClientServerAddress -InterfaceIndex $idx -ResetServerAddresses -ErrorAction Stop
             } else {
-                Set-DnsClientServerAddress -InterfaceIndex $Entry.InterfaceIndex -ServerAddresses $servers -ErrorAction Stop
+                Set-DnsClientServerAddress -InterfaceIndex $idx -ServerAddresses $servers -ErrorAction Stop
             }
+            Clear-DnsClientCache -ErrorAction SilentlyContinue
             return "DNS en $($Entry.InterfaceAlias)"
         }
         'TcpAutoTuning' {

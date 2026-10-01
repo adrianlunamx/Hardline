@@ -277,6 +277,14 @@ try {
         ${function:Get-HLRegistryValue} = $origGetReg
         $HL.DryRun = $origDry
     }
+
+    # DNS: el índice de interfaz cambia al reiniciar; el rollback busca el adaptador por GUID o nombre.
+    $fakeNics = @([pscustomobject]@{ Name = 'Conexión de área local* 4'; ifIndex = 14; InterfaceGuid = '{9B602DA0-0000-0000-0000-000000000000}' },
+        [pscustomobject]@{ Name = 'Ethernet'; ifIndex = 13; InterfaceGuid = '{99034675-39D7-48CC-B297-490F25AE444C}' })
+    $ix1 = Resolve-HLInterfaceIndex -Entry ([pscustomobject]@{ InterfaceIndex = 14; InterfaceAlias = 'Ethernet' }) -Adapters $fakeNics
+    $ix2 = Resolve-HLInterfaceIndex -Entry ([pscustomobject]@{ InterfaceIndex = 14; InterfaceAlias = 'Renombrado'; InterfaceGuid = '99034675-39D7-48CC-B297-490F25AE444C' }) -Adapters $fakeNics
+    $ix3 = Resolve-HLInterfaceIndex -Entry ([pscustomobject]@{ InterfaceIndex = 7; InterfaceAlias = 'Ya no existe' }) -Adapters $fakeNics
+    Assert-True ($ix1 -eq 13 -and $ix2 -eq 13 -and $ix3 -eq 7) 'rollback de DNS: adaptador por GUID o nombre, no por un índice que ya es de otro' "$ix1 $ix2 $ix3"
 } finally {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 }
