@@ -98,7 +98,7 @@ jobs:
           test -s dist/notes.md || echo "Hardline ${TAG}" > dist/notes.md
 
       - name: Publicar release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.TAG }}
           name: Hardline ${{ env.TAG }}
