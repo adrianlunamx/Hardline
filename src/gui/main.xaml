@@ -128,6 +128,9 @@
                 <ComboBoxItem Content="Solo EQ (sin latencia añadida)" Tag="EqOnly"/>
               </ComboBox>
 
+              <TextBlock Text="Salida del headset (Voicemeeter A1)" Style="{StaticResource Label}"/>
+              <ComboBox x:Name="cmbOutput"/>
+
               <TextBlock Text="Intensidad del EQ" Style="{StaticResource Label}"/>
               <ComboBox x:Name="cmbIntensity" SelectedIndex="0">
                 <ComboBoxItem Content="Completa" Tag="1.0"/>

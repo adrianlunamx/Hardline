@@ -621,6 +621,13 @@ try {
     Assert-True ((Get-HLCableDefaultName 'VB-Audio Virtual Cable' 0) -eq 'CABLE Input' -and (Get-HLCableDefaultName 'VB-Audio Virtual Cable' 1) -eq 'CABLE Output' -and (Get-HLCableDefaultName 'VB-Audio Voicemeeter VAIO' 0) -eq '' -and (Get-HLCableDefaultName 'Sound BlasterX G1' 0) -eq '') 'nombres de fábrica de VB-CABLE (Voicemeeter y otros dispositivos no se tocan)'
     $epOk = $true; try { Initialize-HLEndpointApi } catch { $epOk = $false }
     Assert-True ($epOk -and ('Hardline.AudioEndpoints' -as [type])) 'API de nombres de audio compila'
+    $devs = @('HDMI (AMD High Definition Audio Device)', 'DP (AMD High Definition Audio Device)', 'Speakers (Sound BlasterX G1)')
+    $sc = @($devs | ForEach-Object { Get-HLRenderDeviceScore -Name $_ })
+    Assert-True ($sc[2] -gt $sc[0] -and $sc[2] -gt $sc[1]) 'salida automática: Sound BlasterX antes que el HDMI/DP del monitor (tu caso)'
+    Assert-True ((Get-HLRenderDeviceScore -Name 'Auriculares (CORSAIR HS80)' -HeadsetPatterns @('HS80')) -gt (Get-HLRenderDeviceScore -Name 'Altavoces (Realtek)' -WindowsDefault 'Altavoces (Realtek)')) 'salida automática: el headset detectado manda sobre la predeterminada'
+    Assert-True ((Get-HLRenderDeviceScore -Name 'Altavoces (Realtek)' -WindowsDefault 'Altavoces (Realtek)') -gt (Get-HLRenderDeviceScore -Name 'Auriculares USB')) 'salida automática: la predeterminada de Windows antes que otra cualquiera'
+    $gaDev = @(ConvertTo-HLGuiArguments -State @{ Audio = $true; OutputDevice = 'Speakers (Sound BlasterX G1)' })
+    Assert-True ('AudioDevice' -in $instParams -and ($gaDev -join '|') -match '-AudioDevice\|Speakers \(Sound BlasterX G1\)' -and -not ((ConvertTo-HLGuiArguments -State @{ Audio = $true; OutputDevice = '' }) -contains '-AudioDevice') -and 'cmbOutput' -in $xamlNames) 'interfaz: selector de salida del headset (-AudioDevice); Automática no pasa nada'
     Assert-True ($comSrc -match "'AudioEndpointName' \{" -and (Get-Content (Join-HLPath @($root, 'src', 'audio', 'endpoints.ps1')) -Raw) -match "Type 'AudioEndpointName'" -and $setupSrc -match 'Restore-HLCableNames') 'nombres de VB-CABLE: se restauran al instalar y el rollback los devuelve'
     Assert-True (@($script:HLAudioEnhancers | Where-Object { $_.Name -eq 'Art Tune' -and $_.Endpoint -eq 'Art Tune' -and $_.Kind -eq 'Uninstall' }).Count -eq 1 -and @($script:HLAudioEnhancers | Where-Object { $_.Name -match 'Sound Blaster' -and $_.Kind -eq 'Manual' }).Count -eq 1) 'Art Tune (desinstalable) y Sound Blaster (solo aviso) detectados como audio anterior'
     Assert-True ($setupSrc -match 'Wait-Job \$job -Timeout 90' -and $setupSrc -match 'Stop-Job') 'fase tras reiniciar: tiempo límite, la ventana no se queda colgada'

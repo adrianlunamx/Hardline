@@ -101,6 +101,15 @@ namespace Hardline {
             return list.ToArray();
         }
 
+        // Salida predeterminada de Windows (rol consola): "nombre (driver)", o "".
+        public static string DefaultRender() {
+            var e = (IMMDeviceEnumerator)new MMDeviceEnumeratorCom();
+            IMMDevice d; if (e.GetDefaultAudioEndpoint(0, 0, out d) != 0) return "";
+            IPropertyStore s; if (d.OpenPropertyStore(STGM_READ, out s) != 0) return "";
+            string desc = Read(s, DeviceDesc), iface = Read(s, InterfaceName);
+            return iface.Length > 0 ? desc + " (" + iface + ")" : desc;
+        }
+
         // 0 = correcto; si no, el HRESULT (acceso denegado sin administrador).
         public static int Rename(string id, string name) {
             var e = (IMMDeviceEnumerator)new MMDeviceEnumeratorCom();
@@ -126,6 +135,26 @@ function Get-HLCableDefaultName {
     param([string] $InterfaceName, [int] $Flow)
     if ($InterfaceName -ne 'VB-Audio Virtual Cable') { return '' }
     if ($Flow -eq 0) { return 'CABLE Input' } else { return 'CABLE Output' }
+}
+
+function Get-HLDefaultRenderName {
+    try { Initialize-HLEndpointApi; return [Hardline.AudioEndpoints]::DefaultRender() } catch { return '' }
+}
+
+<#
+    Puntuación de una salida para A1 de Voicemeeter (el headset). Sin nadie que
+    conteste, la primera de la lista suele ser el HDMI del monitor: aquí el
+    headset detectado y la salida predeterminada de Windows van primero y las
+    salidas de monitor (HDMI / DisplayPort) al final.
+#>
+function Get-HLRenderDeviceScore {
+    param([Parameter(Mandatory)] [string] $Name, [string[]] $HeadsetPatterns = @(), [string] $WindowsDefault = '')
+    $score = 0
+    foreach ($p in $HeadsetPatterns) { if ($p -and $Name -match $p) { $score += 100; break } }
+    if ($WindowsDefault -and $Name -eq $WindowsDefault) { $score += 50 }
+    if ($Name -match 'Headphone|Headset|Auricular|Cascos|Speakers|Altavoces|USB|Sound ?Blaster|Realtek|Line Out|Salida') { $score += 10 }
+    if ($Name -match 'HDMI|DisplayPort|\bDP\b|AMD High Definition|NVIDIA High Definition|Intel\(R\) Display|Monitor|\bTV\b') { $score -= 100 }
+    return $score
 }
 
 # Dispositivos de VB-CABLE renombrados: Id, Flow, Name, Default.

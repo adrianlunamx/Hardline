@@ -2,6 +2,12 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.9.1] - 2026-10-01
+
+### Corregido
+
+- **Voicemeeter configurado con la salida equivocada** al aplicar desde la interfaz: sin nadie que contestara, se usaba la primera salida de la lista (a menudo el HDMI del monitor). Ahora la interfaz tiene el selector **"Salida del headset (Voicemeeter A1)"** (`-AudioDevice` en consola). En "Automática" manda el headset detectado y después la salida predeterminada de Windows; las salidas de monitor (HDMI / DisplayPort) quedan las últimas. La salida elegida se muestra en la salida del proceso.
+
 ## [1.9.0] - 2026-10-01
 
 ### Añadido

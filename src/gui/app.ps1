@@ -17,6 +17,7 @@ param([Parameter(Mandatory)] [string] $Root)
 
 . (Join-Path $Root 'src\core\common.ps1')
 . (Join-Path $Root 'src\core\guide.ps1')
+. (Join-Path $Root 'src\core\detector.ps1')
 
 # --------------------------------------------------------------------------
 # Construcción de argumentos (sin dependencias de WPF: se prueba en tests)
@@ -43,6 +44,7 @@ function ConvertTo-HLGuiArguments {
         if ($State.AudioMode) { $a.Add('-AudioMode'); $a.Add($State.AudioMode) }
         if ($State.Intensity) { $a.Add('-EqIntensity'); $a.Add($State.Intensity) }
         if ($State.CleanAudio) { $a.Add('-CleanAudio') }
+        if ($State.OutputDevice) { $a.Add('-AudioDevice'); $a.Add($State.OutputDevice) }
     }
     return $a.ToArray()
 }
@@ -151,6 +153,19 @@ function Show-HLGui {
     }
     $ui.txtVersion.Text = "v$HLVersion  ·  $Root"
 
+    # Salidas para A1: la elegida aquí manda; "Automática" nunca coge el HDMI/DP del monitor si hay otra.
+    $autoItem = New-Object System.Windows.Controls.ComboBoxItem
+    $autoItem.Content = 'Automática (headset detectado o salida de Windows)'; $autoItem.Tag = ''
+    [void]$ui.cmbOutput.Items.Add($autoItem)
+    try {
+        foreach ($ep in @(Get-HLAudioEndpoints | Where-Object { $_.Render -and $_.Name -notmatch 'CABLE|Voicemeeter|VB-Audio' } | Sort-Object Name -Unique)) {
+            $it = New-Object System.Windows.Controls.ComboBoxItem
+            $it.Content = $ep.Name; $it.Tag = $ep.Name
+            [void]$ui.cmbOutput.Items.Add($it)
+        }
+    } catch { Write-HLLog DEBUG 'Sin lista de salidas de audio' }
+    $ui.cmbOutput.SelectedIndex = 0
+
     $script:job = $null      # @{ Process; LogPath; Position; OnExit }
     $buttons = @('btnApply', 'btnDryRun', 'btnRollback', 'btnNetDiag', 'btnBench', 'btnFootstep', 'btnControllerTest', 'btnGameplay')
 
@@ -176,6 +191,7 @@ function Show-HLGui {
             Platform = "$($ui.cmbPlatform.SelectedItem.Tag)"; DisableOthers = [bool]$ui.chkDisableOthers.IsChecked
             Headset = $ui.txtHeadset.Text.Trim(); AudioMode = "$($ui.cmbAudioMode.SelectedItem.Tag)"
             Intensity = "$($ui.cmbIntensity.SelectedItem.Tag)"; CleanAudio = [bool]$ui.chkCleanAudio.IsChecked
+            OutputDevice = "$($ui.cmbOutput.SelectedItem.Tag)"
         }
     }
     $openLatestReport = {
@@ -305,7 +321,7 @@ function Show-HLGui {
     $ui.btnGuide.Add_Click({ Show-HLGuideWindow -Owner $window })
     $ui.btnFolder.Add_Click({ Start-Process explorer.exe -ArgumentList "`"$Root`"" })
     $ui.chkAudio.Add_Click({
-            foreach ($c in @('txtHeadset', 'cmbAudioMode', 'cmbIntensity', 'chkCleanAudio')) { $ui[$c].IsEnabled = [bool]$ui.chkAudio.IsChecked }
+            foreach ($c in @('txtHeadset', 'cmbAudioMode', 'cmbIntensity', 'chkCleanAudio', 'cmbOutput')) { $ui[$c].IsEnabled = [bool]$ui.chkAudio.IsChecked }
         })
 
     $window.Add_Closing({

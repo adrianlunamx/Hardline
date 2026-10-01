@@ -49,6 +49,10 @@
     Descarga la ultima release (SHA256 verificado) encima de esta instalacion,
     aunque se ejecute desde la copia local. Conserva backups, reportes y
     configuracion. Con -Gui vuelve a abrir la interfaz al terminar.
+.PARAMETER AudioDevice
+    Salida del headset para Voicemeeter (A1), por nombre o parte del nombre:
+    -AudioDevice "Sound BlasterX". Sin el, se pregunta (o se elige la mas
+    probable, nunca el HDMI/DP del monitor si hay otra).
 .PARAMETER CleanAudio
     Si hay un audio personalizado anterior (Peace, FxSound, Boom 3D...),
     desinstalarlo sin preguntar. Sin este parametro, en modo desatendido
@@ -84,6 +88,7 @@ param(
     [switch] $SkipController,
     [switch] $SkipDisplay,
     [switch] $CleanAudio,
+    [string] $AudioDevice = '',
     [switch] $Update,
     [switch] $GameplayBenchOnly,
     [switch] $ControllerTestOnly,
@@ -480,7 +485,7 @@ Invoke-HLOptimization -Hardware $hw -SkipWindows:$SkipWindows -SkipNetwork:$Skip
 # --- Audio ---------------------------------------------------------------------
 if (-not $SkipAudio) {
     Write-HLStep 'Audio competitivo (pasos claros, explosiones controladas)...'
-    Invoke-HLSafely 'Audio' 'Audio' { Invoke-HLAudioSetup -Hardware $hw -HeadsetId $Headset -Mode $AudioMode -Intensity $EqIntensity -CleanAudio:$CleanAudio }
+    Invoke-HLSafely 'Audio' 'Audio' { Invoke-HLAudioSetup -Hardware $hw -HeadsetId $Headset -Mode $AudioMode -Intensity $EqIntensity -CleanAudio:$CleanAudio -OutputDevice $AudioDevice }
 }
 
 # --- Benchmark posterior ---------------------------------------------------------

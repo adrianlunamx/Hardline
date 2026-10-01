@@ -232,19 +232,32 @@ function Select-HLHeadset {
 }
 
 function Select-HLRenderDevice {
-    param([Parameter(Mandatory)] [string] $HeadsetId, $Database)
+    param([Parameter(Mandatory)] [string] $HeadsetId, $Database, [string] $Preferred = '')
 
     $render = @(Get-HLAudioEndpoints | Where-Object { $_.Render -and $_.Name -notmatch 'CABLE|Voicemeeter|VB-Audio' })
     if ($render.Count -eq 0) { return $null }
+
+    # Elegida en la interfaz o con -AudioDevice.
+    if ($Preferred) {
+        $hit = @($render | Where-Object { $_.Name -eq $Preferred }) + @($render | Where-Object { $_.Name -like "*$Preferred*" }) | Select-Object -First 1
+        if ($hit) { return $hit.Name }
+        Write-HLWarn "La salida elegida ""$Preferred"" no está conectada; se elige automáticamente."
+    }
+
     $h = @($Database.headsets | Where-Object { $_.id -eq $HeadsetId }) | Select-Object -First 1
-    $default = 0
-    if ($h) {
-        for ($i = 0; $i -lt $render.Count; $i++) {
-            foreach ($pat in @($h.match)) { if ($render[$i].Name -match $pat) { $default = $i; break } }
-        }
+    $patterns = if ($h) { @($h.match) } else { @() }
+    $winDefault = Get-HLDefaultRenderName
+    $best = 0; $bestScore = [int]::MinValue
+    for ($i = 0; $i -lt $render.Count; $i++) {
+        $sc = Get-HLRenderDeviceScore -Name $render[$i].Name -HeadsetPatterns $patterns -WindowsDefault $winDefault
+        if ($sc -gt $bestScore) { $best = $i; $bestScore = $sc }
     }
     if ($render.Count -eq 1) { return $render[0].Name }
-    $i = Read-HLChoice -Prompt 'Dispositivo de salida del headset (A1 de Voicemeeter)' -Options @($render | ForEach-Object { $_.Name }) -Default $default
+    if ($HL.Unattended) {
+        Write-HLSub "Salida del headset (A1): $($render[$best].Name) (automática; se cambia en la interfaz, ""Salida del headset"")"
+        return $render[$best].Name
+    }
+    $i = Read-HLChoice -Prompt 'Dispositivo de salida del headset (A1 de Voicemeeter)' -Options @($render | ForEach-Object { $_.Name }) -Default $best
     return $render[$i].Name
 }
 
@@ -366,7 +379,8 @@ function Invoke-HLAudioSetup {
         [string] $HeadsetId,
         [ValidateSet('', 'Full', 'EqOnly')] [string] $Mode = '',
         [double] $Intensity = 0,
-        [switch] $CleanAudio
+        [switch] $CleanAudio,
+        [string] $OutputDevice = ''
     )
 
     $db = Get-HLHeadsetProfiles -Root $HL.Root
@@ -465,7 +479,7 @@ function Invoke-HLAudioSetup {
 
     # --- Voicemeeter ----------------------------------------------------------------
     if ($Mode -eq 'Full') {
-        $dev = Select-HLRenderDevice -HeadsetId $id -Database $db
+        $dev = Select-HLRenderDevice -HeadsetId $id -Database $db -Preferred $OutputDevice
         if (-not $dev) {
             Write-HLWarn 'No se encontró ningún dispositivo de salida para A1.'
             Add-HLResult -Module 'Audio' -Item 'Voicemeeter' -Status Failed -Detail 'Sin dispositivo de salida'
