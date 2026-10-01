@@ -45,6 +45,11 @@
     Aplica tambien los tweaks experimentales (desactivados por defecto).
 .PARAMETER NetDiagOnly
     Solo ejecuta el diagnostico de red (perdida, jitter, bufferbloat, MTU).
+.PARAMETER SkipController
+    No toca nada del mando (energia USB, ajustes de mando de Warzone).
+.PARAMETER ControllerTestOnly
+    Solo ejecuta el test de mando: drift de los sticks, zona muerta minima
+    recomendada y tasa de actualizacion real. No cambia nada.
 .PARAMETER EqIntensity
     Intensidad del EQ de pasos: 1.0 (completa) o 0.7 (moderada).
 .PARAMETER DisableOtherPlatforms
@@ -63,6 +68,8 @@ param(
     [switch] $SkipNetDiag,
     [switch] $Experimental,
     [switch] $NetDiagOnly,
+    [switch] $SkipController,
+    [switch] $ControllerTestOnly,
     [switch] $Gui,
     [switch] $DisableOtherPlatforms,
     [double] $EqIntensity = 0,
@@ -278,6 +285,12 @@ if ($Gui) {
     return
 }
 
+if ($ControllerTestOnly) {
+    & (Join-Path $HLRoot 'src\modules\input\controller_test.ps1')
+    if (-not $Unattended) { Read-Host 'Pulsa Enter para cerrar' | Out-Null }
+    return
+}
+
 if ($NetDiagOnly) {
     Initialize-HLSession -Root $HLRoot -Unattended -NoBackup
     Show-HLBanner
@@ -364,6 +377,7 @@ if (-not $explicit) {
         [pscustomobject]@{ Key = 'network';   Label = 'Red: DNS, ahorro de energia de la NIC, QoS'; Default = $true }
         [pscustomobject]@{ Key = 'netdiag';   Label = 'Diagnostico de red: perdida, jitter, bufferbloat, MTU (~40 s)'; Default = $true }
         [pscustomobject]@{ Key = 'game';      Label = 'Warzone: ajustes graficos'; Default = $true }
+        [pscustomobject]@{ Key = 'controller'; Label = 'Mando: energia USB del mando, capas de remapeo, ajustes de mando de Warzone'; Default = $true }
         [pscustomobject]@{ Key = 'audio';     Label = 'Audio: EQ de pasos y compresor'; Default = $true }
         [pscustomobject]@{ Key = 'bench';     Label = 'Benchmark antes/despues (~40 s)'; Default = $true }
         [pscustomobject]@{ Key = 'exp';       Label = 'EXPERIMENTAL: disabledynamictick, colas de raton/teclado, prioridad (evidencia debil)'; Default = $false }
@@ -376,6 +390,7 @@ if (-not $explicit) {
     $SkipNetDiag = -not $menu['netdiag']
     $Experimental = [bool]$menu['exp']
     $SkipGame = -not $menu['game']
+    $SkipController = -not $menu['controller']
     $SkipAudio = -not $menu['audio']
     $SkipBenchmark = -not $menu['bench']
 }
@@ -416,7 +431,7 @@ if (-not $SkipBenchmark) {
 
 # --- Optimizaciones --------------------------------------------------------------
 Invoke-HLOptimization -Hardware $hw -SkipWindows:$SkipWindows -SkipNetwork:$SkipNetwork -SkipGame:$SkipGame `
-    -SkipPlatforms:$SkipPlatforms -SkipLatency:$SkipLatency -Experimental:$Experimental -SkipNetDiag:$SkipNetDiag `
+    -SkipPlatforms:$SkipPlatforms -SkipLatency:$SkipLatency -Experimental:$Experimental -SkipNetDiag:$SkipNetDiag -SkipController:$SkipController `
     -DisableOtherPlatforms:$DisableOtherPlatforms -Platform $Platform -GameSession $GameSession
 
 # --- Audio ---------------------------------------------------------------------

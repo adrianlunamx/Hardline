@@ -93,6 +93,7 @@
               <CheckBox x:Name="chkNetwork" IsChecked="True" Content="Red: DNS, ahorro de energía NIC, QoS"/>
               <CheckBox x:Name="chkNetDiag" IsChecked="True" Content="Diagnóstico de red (~40 s)"/>
               <CheckBox x:Name="chkGame" IsChecked="True" Content="Warzone: ajustes gráficos"/>
+              <CheckBox x:Name="chkController" IsChecked="True" Content="Mando: energía USB, capas de remapeo, ajustes"/>
               <CheckBox x:Name="chkAudio" IsChecked="True" Content="Audio: EQ de pasos y compresor"/>
               <CheckBox x:Name="chkBench" IsChecked="True" Content="Benchmark antes/después"/>
               <CheckBox x:Name="chkExperimental" IsChecked="False" Foreground="#D29922"
@@ -145,6 +146,7 @@
         <Button x:Name="btnNetDiag" Content="Diagnóstico de red"/>
         <Button x:Name="btnBench" Content="Benchmark"/>
         <Button x:Name="btnFootstep" Content="Test de pasos"/>
+        <Button x:Name="btnControllerTest" Content="Test de mando"/>
         <Button x:Name="btnReport" Content="Abrir último reporte"/>
         <Button x:Name="btnFolder" Content="Carpeta de Hardline"/>
       </WrapPanel>

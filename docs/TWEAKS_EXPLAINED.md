@@ -288,6 +288,33 @@ El juego tiene que estar cerrado: al salir reescribe el archivo.
 
 ---
 
+## Mando
+
+Archivos: `src/modules/input/controller.ps1` y `controller_test.ps1`.
+
+El retraso de un mando en PC viene, por orden de impacto, de:
+
+| Causa | Qué hace Hardline |
+|---|---|
+| **Conexión** | Detecta si va por USB, adaptador inalámbrico o Bluetooth. Bluetooth comparte radio con el Wi-Fi y da latencia variable: aviso y recomendación de cable o adaptador oficial. |
+| **Capas de remapeo** | DS4Windows, reWASD, x360ce, InputMapper, JoyToKey, DSX y BetterJoy convierten el mando en otro virtual: un salto más. Warzone soporta Xbox, DualSense y DualShock de forma nativa. Aviso si están abiertos; con mandos PlayStation, instrucción para desactivar Steam Input. No se cierran solos: algunos se usan con HidHide para otros juegos. |
+| **Ahorro de energía USB** [auto, revertible] | `EnhancedPowerManagementEnabled`, `AllowIdleIrpInD3` y `SelectiveSuspendEnabled` a 0 en `Enum\<dispositivo>\Device Parameters` del mando y de su hub. Evita que Windows suspenda el puerto y el primer input tras una pausa llegue tarde. Efectivo al reconectar o reiniciar. |
+| **Ajustes del juego** [auto] | Zona muerta de gatillos 0 (dispara en cuanto tocas), efecto de gatillo del DualSense off (la resistencia retrasa el disparo), vibración off. Mismo editor de `options.*.cst` que la configuración gráfica: solo claves existentes y valores válidos. |
+| **Zona muerta de sticks** [medida] | El test mide el drift real en reposo. La zona muerta mínima recomendada es el peor drift + 2 puntos (temperatura, desgaste). Por encima del 15 % de drift el stick está gastado y conviene recalibrarlo o cambiarlo. |
+
+### Test de mando
+
+Dos fases de 5 s, sin cambiar nada:
+
+1. **Reposo**: muestras cada ~1 ms con el mando quieto. Se calcula el radio máximo del stick respecto al centro (decide la zona muerta) y el descentrado medio.
+2. **Movimiento**: girando los dos sticks, se registra cada cambio de estado (`dwPacketNumber` en XInput, marca de tiempo del dispositivo en Windows.Gaming.Input). La mediana del intervalo da los Hz reales; el p95 y el máximo dicen si llegan regulares. Un hueco aislado no falsea la cifra.
+
+Mandos Xbox y compatibles se leen por XInput, también desde la interfaz. DualSense/DualShock sin capa XInput se leen por Windows.Gaming.Input, que solo entrega datos a la ventana en primer plano: para ellos usa `install.ps1 -ControllerTestOnly` desde la consola.
+
+Úsalo para comparar: mismo mando por cable, adaptador y Bluetooth, en tu equipo.
+
+---
+
 ## Audio
 
 Archivos: `src/audio/`.
@@ -409,4 +436,5 @@ Archivos: `src/audio/eqswitch.ps1`, `eq_toggle.ps1`, `eq_toggle.vbs`, `footstep_
 | Deshabilitar Xbox services a ciegas | Rompe Game Pass y los juegos de la Store. Hardline solo lo hace si eliges otra plataforma y confirmas que no usas la Xbox app. |
 | "Limpiadores" de RAM | Windows gestiona la standby list. Vaciarla obliga a releer de disco. |
 | Aplicar ajustes de BIOS o Adrenalin | No hay API pública y fiable. Hacerlo mal deja la placa o el driver en estado inconsistente. Se dan instrucciones exactas. |
+| "Overclock" del sondeo USB del mando (hidusbf y similares) | Exige un driver sin firmar o el modo de prueba de Windows. Riesgo con el anticheat y con Secure Boot. El test de mando mide la tasa real para que compares conexiones. |
 | Ajustes de prioridad del proceso del juego | El anticheat vigila modificaciones al proceso. No merece el riesgo. |

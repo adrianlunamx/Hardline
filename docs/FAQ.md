@@ -133,6 +133,28 @@ No directamente, y nadie puede: el registro lo decide el servidor. Lo que sí af
 
 Unos 100-250 MB durante 10 s para medir el bufferbloat. Si tienes tarifa limitada, desmarca "Diagnóstico de red".
 
+## Mando
+
+**¿Hardline quita el delay del mando?**
+
+Quita lo que se puede quitar desde Windows sin riesgo: el ahorro de energía USB del mando y su hub, y te avisa de lo que añade latencia (Bluetooth, DS4Windows, reWASD, Steam Input). En el juego pone la zona muerta de gatillos a 0 y desactiva el efecto de gatillo y la vibración. Lo que más se nota: cable en vez de Bluetooth y no pasar por una capa de remapeo.
+
+**¿Qué zona muerta pongo en los sticks?**
+
+La que te dé el test de mando (botón "Test de mando" o `install.ps1 -ControllerTestOnly`). Mide el drift real de tus sticks; con menos zona muerta la mira se mueve sola, con más pierdes movimientos finos.
+
+**¿Sube la tasa de sondeo (polling rate) del mando?**
+
+No. Hacerlo exige un driver sin firmar o el modo de prueba de Windows, con riesgo de conflicto con el anticheat. El test mide la tasa real para que compares cable, adaptador y Bluetooth.
+
+**Uso DS4Windows con un DualSense.**
+
+Warzone soporta DualSense y DualShock de forma nativa. Cierra DS4Windows para jugar; si lo necesitas para otros juegos, ábrelo solo entonces.
+
+**El test no detecta mi DualSense desde la interfaz.**
+
+Windows solo entrega la entrada de los mandos PlayStation a la ventana en primer plano, y la interfaz ejecuta el test en segundo plano. Usa `install.ps1 -ControllerTestOnly` desde la consola. Los mandos Xbox funcionan en los dos casos.
+
 ## Interfaz gráfica
 
 **No encuentro la ventana.**

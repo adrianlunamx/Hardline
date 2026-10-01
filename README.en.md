@@ -64,6 +64,7 @@ It downloads the **latest release** and verifies its SHA256 before running (`-Ch
 | **Experimental** *(off by default)* | `disabledynamictick`, mouse/keyboard queue size, `Win32PrioritySeparation`. Weak evidence: measure and revert if nothing changes | |
 | **Network** | DNS 1.1.1.1, NIC power saving off, autotuning, DSCP 46 QoS for `cod.exe` | Router SQM if there is bufferbloat |
 | **Network diagnosis** | Packet loss and jitter to the router and to the Internet separately, bufferbloat under load (A+ to F), MTU | Hit registration is server-side; this measures what reaches the server and whether problems are at home or at your ISP |
+| **Controller** | Detects controller and connection; USB power saving off for the controller and its hub; warns about Bluetooth and remapping layers (DS4Windows, reWASD, Steam Input...); trigger deadzone 0, vibration off. Built-in test measures stick drift and real update rate (Hz) | Stick deadzone from the test result, wired or official adapter |
 | **Warzone** | Graphics settings in `options.*.cst`, validated against the file's own allowed values | FOV, brightness |
 | **Audio** | Measured headset correction (AutoEq, ~8800 models) + footsteps EQ + compressor/gate (Voicemeeter). `Ctrl+Alt+F10` toggles the EQ in-game; a built-in A/B footstep test | Per-app routing of `cod.exe` in Windows |
 

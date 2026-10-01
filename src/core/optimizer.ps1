@@ -29,6 +29,7 @@ foreach ($f in @(
         'modules\network\optimize.ps1',
         'modules\network\diagnose.ps1',
         'modules\game\warzone.ps1',
+        'modules\input\controller.ps1',
         'audio\setup.ps1'
     )) {
     . (Join-Path $script:SrcDir $f)
@@ -44,6 +45,7 @@ function Invoke-HLOptimization {
         [switch] $SkipLatency,
         [switch] $Experimental,
         [switch] $SkipNetDiag,
+        [switch] $SkipController,
         [switch] $DisableOtherPlatforms,
         [string] $Platform = '',
         [ValidateSet('', 'Yes', 'No')] [string] $GameSession = ''
@@ -106,5 +108,9 @@ function Invoke-HLOptimization {
 
     if (-not $SkipGame) {
         Invoke-HLSafely 'Warzone' 'Config de Warzone' { Invoke-HLWarzone -Hardware $Hardware }
+    }
+
+    if (-not $SkipController) {
+        Invoke-HLSafely 'Mando' 'Mando' { Invoke-HLController -Hardware $Hardware }
     }
 }

@@ -31,7 +31,7 @@ function ConvertTo-HLGuiArguments {
     $a.Add('-Unattended')
     if ($DryRun) { $a.Add('-DryRun') }
     $map = [ordered]@{ Windows = '-SkipWindows'; Platforms = '-SkipPlatforms'; Latency = '-SkipLatency'; Network = '-SkipNetwork'
-        NetDiag = '-SkipNetDiag'; Game = '-SkipGame'; Audio = '-SkipAudio'; Bench = '-SkipBenchmark' }
+        NetDiag = '-SkipNetDiag'; Game = '-SkipGame'; Controller = '-SkipController'; Audio = '-SkipAudio'; Bench = '-SkipBenchmark' }
     foreach ($k in $map.Keys) { if (-not $State[$k]) { $a.Add($map[$k]) } }
     $a.Add('-GameSession'); $a.Add($(if ($State.Session) { 'Yes' } else { 'No' }))
     if ($State.Experimental) { $a.Add('-Experimental') }
@@ -71,7 +71,7 @@ function Show-HLGui {
     $ui.txtVersion.Text = "v$HLVersion  ·  $Root"
 
     $script:job = $null      # @{ Process; LogPath; Position; OnExit }
-    $buttons = @('btnApply', 'btnDryRun', 'btnRollback', 'btnNetDiag', 'btnBench', 'btnFootstep')
+    $buttons = @('btnApply', 'btnDryRun', 'btnRollback', 'btnNetDiag', 'btnBench', 'btnFootstep', 'btnControllerTest')
 
     $setBusy = {
         param([bool]$busy, [string]$status)
@@ -89,7 +89,8 @@ function Show-HLGui {
             Windows = [bool]$ui.chkWindows.IsChecked; Platforms = [bool]$ui.chkPlatforms.IsChecked
             Session = [bool]$ui.chkSession.IsChecked; Latency = [bool]$ui.chkLatency.IsChecked
             Network = [bool]$ui.chkNetwork.IsChecked; NetDiag = [bool]$ui.chkNetDiag.IsChecked
-            Game = [bool]$ui.chkGame.IsChecked; Audio = [bool]$ui.chkAudio.IsChecked
+            Game = [bool]$ui.chkGame.IsChecked; Controller = [bool]$ui.chkController.IsChecked
+            Audio = [bool]$ui.chkAudio.IsChecked
             Bench = [bool]$ui.chkBench.IsChecked; Experimental = [bool]$ui.chkExperimental.IsChecked
             Platform = "$($ui.cmbPlatform.SelectedItem.Tag)"; DisableOthers = [bool]$ui.chkDisableOthers.IsChecked
             Headset = $ui.txtHeadset.Text.Trim(); AudioMode = "$($ui.cmbAudioMode.SelectedItem.Tag)"
@@ -167,6 +168,10 @@ function Show-HLGui {
     $ui.btnNetDiag.Add_Click({ & $startJob 'Diagnóstico de red' $install @('-NetDiagOnly') { & $openLatestReport } })
     $ui.btnBench.Add_Click({ & $startJob 'Benchmark' $install @('-BenchmarkOnly') $null })
     $ui.btnFootstep.Add_Click({ & $startJob 'Test de pasos' (Join-Path $Root 'src\audio\footstep_test.ps1') @() $null })
+    $ui.btnControllerTest.Add_Click({
+            [System.Windows.MessageBox]::Show("Test de mando (~15 s):`n`n1. Al empezar, suelta el mando y no lo toques (5 s).`n2. Cuando lo indique la salida, gira los dos sticks sin parar (5 s).`n`nLos resultados aparecen en el panel de salida.", 'Hardline') | Out-Null
+            & $startJob 'Test de mando' (Join-Path $Root 'src\modules\input\controller_test.ps1') @() $null
+        })
     $ui.btnReport.Add_Click({ & $openLatestReport })
     $ui.btnFolder.Add_Click({ Start-Process explorer.exe -ArgumentList "`"$Root`"" })
     $ui.chkAudio.Add_Click({

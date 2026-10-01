@@ -10,6 +10,7 @@ Hardline funciona en cualquier PC con Windows 10 22H2 / 11. Lo que cambia según
 | GPU | Radeon RX 6000 / 7000 / 9000, GeForce RTX, Intel Arc | Radeon RX 5000, GeForce GTX | Gráficos integrados: solo los ajustes comunes |
 | RAM | DDR5 en AM5 | DDR4 (AM4, Intel) | Detección de EXPO/XMP en todas |
 | Red | Intel I225/I226, Realtek 8125/8111, cualquier NIC con `*EEE` estándar | Wi-Fi (solo DNS y QoS) | |
+| Mando | Xbox One / Series, DualSense, DualShock 4 | 8BitDo, PowerA, SCUF, Razer, Hori, PDP | Test de mando: XInput o Windows.Gaming.Input; si no aparece en `joy.cpl`, no se detecta |
 | Placa (rutas de BIOS) | ASUS, MSI, Gigabyte, ASRock | Otras | Instrucciones genéricas |
 | OS | Windows 11 | Windows 10 22H2 | Win10 2004+: sin timer resolution global (limitación de Windows) |
 

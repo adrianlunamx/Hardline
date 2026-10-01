@@ -367,7 +367,7 @@ try {
     Assert-True ($missing.Count -eq 0) 'todo control usado en app.ps1 existe en main.xaml' ($missing -join ', ')
 
     . (Join-HLPath @($root, 'src', 'gui', 'app.ps1')) -Root $root
-    $state = @{ Windows = $true; Platforms = $false; Session = $true; Latency = $true; Network = $true; NetDiag = $false; Game = $true
+    $state = @{ Windows = $true; Platforms = $false; Session = $true; Latency = $true; Network = $true; NetDiag = $false; Game = $true; Controller = $false
         Audio = $true; Bench = $false; Experimental = $true; Platform = 'steam'; DisableOthers = $true; Headset = "Kraken V3 o'brien"
         AudioMode = 'EqOnly'; Intensity = '0.7' }
     $guiArgs = @(ConvertTo-HLGuiArguments -State $state -DryRun)
@@ -375,7 +375,7 @@ try {
     $instParams = @($instAst.ParamBlock.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath })
     $unknown = @($guiArgs | Where-Object { $_ -match '^-[A-Za-z]+$' } | ForEach-Object { $_.Substring(1) } | Where-Object { $_ -notin $instParams })
     Assert-True ($unknown.Count -eq 0) 'la GUI solo pasa parámetros que install.ps1 acepta' ($unknown -join ', ')
-    Assert-True (($guiArgs -contains '-SkipPlatforms') -and ($guiArgs -contains '-SkipNetDiag') -and ($guiArgs -contains '-SkipBenchmark') -and -not ($guiArgs -contains '-SkipWindows')) 'casillas desmarcadas -> -Skip* correctos'
+    Assert-True (($guiArgs -contains '-SkipPlatforms') -and ($guiArgs -contains '-SkipNetDiag') -and ($guiArgs -contains '-SkipBenchmark') -and ($guiArgs -contains '-SkipController') -and -not ($guiArgs -contains '-SkipWindows')) 'casillas desmarcadas -> -Skip* correctos'
     Assert-True (($guiArgs -join ' ') -match '-Unattended' -and ($guiArgs -join ' ') -match '-DryRun' -and ($guiArgs -join ' ') -match '-GameSession Yes') 'GUI: desatendido, DryRun y modo partida'
     $cmdLine = ConvertTo-HLCommandLine -Script 'C:\Users\a b\Hardline\install.ps1' -Arguments $guiArgs
     $cmdErr = $null; [void][System.Management.Automation.Language.Parser]::ParseInput($cmdLine, [ref]$null, [ref]$cmdErr)
@@ -404,6 +404,48 @@ try {
     $expSrc = Get-Content (Join-HLPath @($root, 'src', 'modules', 'windows', 'experimental.ps1')) -Raw
     Assert-True ($expSrc -match 'Test-HLBitLocker' -and $expSrc -match "Type 'Bcd'") 'disabledynamictick: comprueba BitLocker y queda en el manifiesto'
     Assert-True ($inst -match "Key = 'exp';\s+Label = '[^']*';\s+Default = \`$false") 'experimental desmarcado por defecto en el menú'
+
+    # -----------------------------------------------------------------------
+    Write-Host "`n[14] Mando" -ForegroundColor Cyan
+    . (Join-HLPath @($root, 'src', 'modules', 'input', 'controller.ps1'))
+    $fakePnp = @(
+        [pscustomobject]@{ FriendlyName = 'Xbox Controller'; InstanceId = 'USB\VID_045E&PID_0B12\3033363030'; Class = 'XnaComposite' }
+        [pscustomobject]@{ FriendlyName = 'HID-compliant game controller'; InstanceId = 'HID\VID_045E&PID_0B12&IG_00\8&2A1B&0&0000'; Class = 'HIDClass' }
+        [pscustomobject]@{ FriendlyName = 'HID-compliant game controller'; InstanceId = 'HID\{00001124-0000-1000-8000-00805f9b34fb}_VID&0002054c_PID&0ce6&Col01\9&1&0'; Class = 'HIDClass' }
+        [pscustomobject]@{ FriendlyName = 'HID-compliant mouse'; InstanceId = 'HID\VID_045E&PID_0823&MI_00\7&1&0'; Class = 'HIDClass' }
+        [pscustomobject]@{ FriendlyName = 'Xbox Wireless Adapter for Windows'; InstanceId = 'USB\VID_045E&PID_02FE\1'; Class = 'USB' }
+        [pscustomobject]@{ FriendlyName = 'USB Input Device'; InstanceId = 'USB\VID_1234&PID_5678\1'; Class = 'HIDClass' }
+    )
+    $pads = @(Get-HLControllerFromPnp -Devices $fakePnp)
+    $xbox = @($pads | Where-Object { $_.Vid -eq '045E' })
+    $ds = @($pads | Where-Object { $_.Vid -eq '054C' })
+    Assert-True ($pads.Count -eq 2) 'mandos: 2 físicos de 6 nodos (ratón, adaptador y otros fuera)' ("$($pads.Count): " + (($pads | ForEach-Object { $_.Name }) -join '; '))
+    Assert-True ($xbox.Count -eq 1 -and $xbox[0].Connection -eq 'USB' -and $xbox[0].InstanceId -like 'USB\*') 'Xbox por USB: nodos USB/HID unidos, se queda el nodo USB'
+    Assert-True ($ds.Count -eq 1 -and $ds[0].Connection -eq 'Bluetooth' -and $ds[0].PlayStation -and $ds[0].Brand -eq 'Sony (PlayStation)') 'DualSense por Bluetooth: VID desde VID&0002054c'
+    $czRules = @(Get-HLWarzoneControllerRules)
+    Assert-True ($czRules.Count -ge 3 -and @($czRules | Where-Object { $_.Target -eq '0' -and $_.Label -match 'gatillos' }).Count -eq 1) 'reglas de Warzone: zona muerta de gatillos 0'
+    $ctlSrc = Get-Content (Join-HLPath @($root, 'src', 'modules', 'input', 'controller.ps1')) -Raw
+    Assert-True ($ctlSrc -match 'Set-HLRegistryValue' -and $ctlSrc -notmatch 'pnputil|devcon|bcdedit') 'energía USB por Set-HLRegistryValue (revertible), sin instalar drivers ni modo de prueba'
+
+    . (Join-HLPath @($root, 'src', 'modules', 'input', 'controller_test.ps1'))
+    Assert-True ((ConvertFrom-HLXInputAxis 32767) -eq 1 -and (ConvertFrom-HLXInputAxis -32768) -eq -1 -and (ConvertFrom-HLXInputAxis 0) -eq 0) 'eje XInput normalizado a -1..1'
+    Assert-True ((ConvertFrom-HLRawAxis 0.5) -eq 0 -and (ConvertFrom-HLRawAxis 1) -eq 1 -and (ConvertFrom-HLRawAxis 0.25) -eq -0.5) 'eje Windows.Gaming.Input normalizado a -1..1'
+    $rest = Measure-HLStickRest -X @(0.03, 0.04, 0.03) -Y @(0.0, 0.03, 0.0)
+    Assert-True ($rest.Samples -eq 3 -and $rest.MaxRadius -eq 0.05 -and $rest.Offset -gt 0.03 -and $rest.Offset -lt 0.04) 'drift en reposo: radio máximo y descentrado'
+    $dz5 = Get-HLRecommendedDeadzone -MaxRadius 0.05
+    $dz0 = Get-HLRecommendedDeadzone -MaxRadius 0
+    $dzW = Get-HLRecommendedDeadzone -MaxRadius 0.4
+    Assert-True ($dz5.Percent -eq 7 -and -not $dz5.Worn -and $dz0.Percent -eq 2 -and $dzW.Percent -eq 30 -and $dzW.Worn) 'zona muerta: drift + 2, mínimo 2, tope 30 y aviso de desgaste'
+    $ts = @(0.0, 4.0, 8.0, 12.0, 16.0, 20.0, 24.0, 40.0)
+    $rs = Get-HLRateStats -TimestampsMs $ts
+    Assert-True ($rs.Hz -eq 250 -and $rs.MedianMs -eq 4 -and $rs.MaxMs -eq 16 -and $rs.Updates -eq 8) 'tasa de actualización: mediana de intervalos (un hueco no la falsea)'
+    Assert-True ((Get-HLRateStats -TimestampsMs @(1.0)).Hz -eq 0 -and (Get-HLRateVerdict -Stats (Get-HLRateStats -TimestampsMs @())) -match 'Sin datos') 'sin estados nuevos: sin datos, sin división por cero'
+    Assert-True ((Get-HLRateVerdict -Stats $rs) -match '^Buena') 'veredicto de 250 Hz'
+
+    $optSrc = Get-Content (Join-HLPath @($root, 'src', 'core', 'optimizer.ps1')) -Raw
+    Assert-True ($optSrc -match "modules\\input\\controller\.ps1" -and $optSrc -match 'Invoke-HLController' -and $optSrc -match 'SkipController') 'el orquestador carga y ejecuta el módulo de mando'
+    Assert-True ($inst -match "Key = 'controller'" -and $inst -match 'controller_test\.ps1' -and 'SkipController' -in $instParams -and 'ControllerTestOnly' -in $instParams) 'install.ps1: menú, -SkipController y -ControllerTestOnly'
+    Assert-True ($appSrc -match 'controller_test\.ps1' -and 'chkController' -in $xamlNames -and 'btnControllerTest' -in $xamlNames) 'interfaz: casilla de mando y botón de test'
 } finally {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 }

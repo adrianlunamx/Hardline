@@ -2,6 +2,13 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.4.0] - 2026-10-01
+
+### Añadido
+
+- **Mando**: detecta los mandos conectados (Xbox, DualSense, DualShock, 8BitDo, PowerA, SCUF, Razer y otros) y su conexión. Por USB desactiva el ahorro de energía del mando y de su hub (revertible); por Bluetooth avisa de la latencia añadida. Avisa si DS4Windows, reWASD, x360ce, InputMapper, DSX u otras capas de remapeo están en ejecución, y de Steam Input con mandos PlayStation. En Warzone: zona muerta de gatillos 0, efecto de gatillo y vibración desactivados. `-SkipController`.
+- **Test de mando**: mide el drift real de cada stick en reposo y recomienda la zona muerta mínima para Warzone; mide la tasa de actualización real (Hz) y la regularidad de los intervalos para comparar cable, adaptador y Bluetooth. No cambia nada. Botón en la interfaz y `-ControllerTestOnly`.
+
 ## [1.3.0] - 2026-10-01
 
 ### Añadido

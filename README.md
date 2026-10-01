@@ -83,12 +83,14 @@ cd Hardline
 | `-NetDiagOnly` | Solo el diagnóstico de red |
 | `-Experimental` | Aplicar también los tweaks experimentales |
 | `-SkipLatency` `-SkipNetDiag` | Omitir latencia avanzada / diagnóstico de red |
+| `-SkipController` | Omitir el módulo de mando |
+| `-ControllerTestOnly` | Solo el test de mando (drift, zona muerta, Hz) |
 
 </details>
 
 ### Interfaz gráfica
 
-Tras la primera instalación aparece **Inicio > Hardline > Hardline**: una ventana con los módulos en casillas, opciones (plataforma, headset, modo de audio, intensidad) y botones para **Simular**, **Aplicar**, **Revertir**, **Diagnóstico de red**, **Benchmark** y **Test de pasos**, con la salida en directo. También con `install.ps1 -Gui`. Ejecuta exactamente el mismo código que la consola.
+Tras la primera instalación aparece **Inicio > Hardline > Hardline**: una ventana con los módulos en casillas, opciones (plataforma, headset, modo de audio, intensidad) y botones para **Simular**, **Aplicar**, **Revertir**, **Diagnóstico de red**, **Benchmark**, **Test de pasos** y **Test de mando**, con la salida en directo. También con `install.ps1 -Gui`. Ejecuta exactamente el mismo código que la consola.
 
 ### Qué pasa al ejecutarlo
 
@@ -117,6 +119,7 @@ flowchart LR
 | **RAM** | Velocidad y si EXPO/XMP está activo | tRFC con ZenTimings |
 | **Red** | DNS 1.1.1.1, EEE/Green Ethernet off, autotuning, QoS DSCP 46 para `cod.exe` | SQM en el router si hay bufferbloat |
 | **Diagnóstico de red** | Pérdida y jitter al router y a Internet por separado, bufferbloat bajo carga (nota A+ a F), MTU | Qué falla y dónde: casa o proveedor |
+| **Mando** | Detecta mando y conexión; ahorro de energía USB off en el mando y su hub; avisa de Bluetooth y de capas de remapeo (DS4Windows, reWASD, Steam Input...); zona muerta de gatillos 0, vibración off. Test de drift y Hz | Zona muerta de sticks según el test, cable o adaptador oficial |
 | **Warzone** | Ajustes gráficos en `options.*.cst` / `adv_options.ini`, validados contra el propio archivo | FOV, brillo, Anti-Lag 2 |
 | **Audio** | Corrección medida de tu headset + EQ de pasos + compresor/gate. `Ctrl+Alt+F10` enciende/apaga el EQ en partida y hay un test de pasos A/B | Enrutado de `cod.exe` en Windows |
 
