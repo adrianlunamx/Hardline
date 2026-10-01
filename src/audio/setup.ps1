@@ -380,8 +380,11 @@ function Invoke-HLAudioSetup {
         [ValidateSet('', 'Full', 'EqOnly')] [string] $Mode = '',
         [double] $Intensity = 0,
         [switch] $CleanAudio,
-        [string] $OutputDevice = ''
+        [string] $OutputDevice = '',
+        [ValidateSet('', 'normal', 'pasos')] [string] $Dynamics = ''
     )
+    # Sin elección explícita se mantiene la última (config\audio.json) o "normal".
+    if (-not $Dynamics) { $Dynamics = (Get-HLAudioSettings -Root $HL.Root).Dynamics }
 
     $db = Get-HLHeadsetProfiles -Root $HL.Root
     $sel = Select-HLHeadset -Database $db -Hardware $Hardware -Preset $HeadsetId
@@ -461,6 +464,7 @@ function Invoke-HLAudioSetup {
     # --- EQ -----------------------------------------------------------------------
     $preset = Write-HLEqConfig -HeadsetProfile $hp -Intensity $Intensity
     $pre = Get-HLAutoPreamp -Filters @(Get-HLChainFilters -HeadsetProfile $hp -Intensity $Intensity)
+    if (-not $HL.DryRun) { Save-HLAudioSettings -Root $HL.Root -Set @{ HeadsetId = "$($hp.vmProfileId)"; PreampDb = [double]$pre; Dynamics = $Dynamics; Overrides = $hp.voicemeeter } }
     Write-HLSub "Preset EQ ($preset, preamp $pre dB)" 'OK'
     Add-HLResult -Module 'Audio' -Item 'Preset EQ APO' -Status Applied -Detail "$preset (preamp automático $pre dB)"
     Invoke-HLSafely 'Audio' 'Atajos de audio' { Install-HLAudioShortcuts }
@@ -484,7 +488,7 @@ function Invoke-HLAudioSetup {
             Write-HLWarn 'No se encontró ningún dispositivo de salida para A1.'
             Add-HLResult -Module 'Audio' -Item 'Voicemeeter' -Status Failed -Detail 'Sin dispositivo de salida'
         } else {
-            Invoke-HLVoicemeeterPhase -HeadsetProfile $hp -HeadsetDevice $dev
+            Invoke-HLVoicemeeterPhase -HeadsetProfile $hp -HeadsetDevice $dev -Dynamics $Dynamics -PreampDb ([double]$pre)
         }
         Add-HLManualStep 'Audio' 'Configuración > Sistema > Sonido > Salida: "Voicemeeter Input". Así Discord y el resto pasan por Voicemeeter sin procesar.'
         Add-HLManualStep 'Audio' 'Con Warzone abierto: Configuración > Sistema > Sonido > Mezclador de volumen > cod.exe > Dispositivo de salida: "CABLE Input". Windows lo recuerda para siguientes sesiones.'
@@ -492,12 +496,13 @@ function Invoke-HLAudioSetup {
 
     Add-HLManualStep 'Audio' 'Propiedades del headset en Windows: desactiva "Mejoras de audio" y "Audio espacial" (Windows Sonic/Dolby). Warzone ya aplica su propio HRTF; apilar virtualizadores destruye la localización.'
     Add-HLManualStep 'Audio' 'Software del headset (G HUB, iCUE, NGENUITY, SteelSeries GG, Synapse): EQ plano y 7.1 virtual desactivado. El EQ lo hace Hardline.'
-    Add-HLManualStep 'Audio' 'Warzone > Audio: Mezcla "Auriculares", volumen de música y diálogo a 0, efectos al 100%.'
+    Add-HLManualStep 'Audio' 'Warzone > Audio: Mezcla "Auriculares", volumen de música y diálogo a 0, efectos al 100%. Si aparece "Reducción del sonido de tinnitus", actívala: quita el pitido tras explosiones cercanas.'
+    Add-HLManualStep 'Audio' 'Pasos más altos y disparos más bajos: panel del EQ (Inicio > Hardline > Hardline EQ) > Compresor > "Pasos al máximo". Se aplica al momento con Voicemeeter abierto; compáralo en partida con "Normal".'
     Add-HLManualStep 'Audio' 'Tras reiniciar: Inicio > Hardline > "Hardline test de pasos". Suena la misma escena con el EQ apagado y encendido; en la segunda, los pasos de la izquierda deben destacar sobre la explosión. En partida, Ctrl+Alt+F10 enciende/apaga el EQ (en pantalla completa exclusiva, si el atajo no responde, usa "Sin bordes").'
 }
 
 function Invoke-HLVoicemeeterPhase {
-    param([Parameter(Mandatory)] $HeadsetProfile, [Parameter(Mandatory)] [string] $HeadsetDevice)
+    param([Parameter(Mandatory)] $HeadsetProfile, [Parameter(Mandatory)] [string] $HeadsetDevice, [string] $Dynamics = 'normal', [double] $PreampDb = 0)
 
     $xml = Join-Path $HL.Root 'src\audio\configs\voicemeeter_comp.xml'
     if ($HL.DryRun) { Write-HLSub 'Voicemeeter' 'SKIP (DryRun)'; return }
@@ -507,7 +512,7 @@ function Invoke-HLVoicemeeterPhase {
     $applied = $false
     if ($vmDir -and $cableReady) {
         try {
-            $r = Set-HLVoicemeeterConfig -XmlPath $xml -HeadsetDevice $HeadsetDevice -Overrides $HeadsetProfile.voicemeeter
+            $r = Set-HLVoicemeeterConfig -XmlPath $xml -HeadsetDevice $HeadsetDevice -Overrides $HeadsetProfile.voicemeeter -Dynamics $Dynamics -PreampDb $PreampDb
             if ($r.Failed.Count -gt 0) { Write-HLWarn ("Parámetros rechazados por Voicemeeter: " + ($r.Failed -join ', ')) }
             $vm = $HeadsetProfile.voicemeeter
             Write-HLSub ("Voicemeeter: gate {0} dB, comp {1}:1 @ {2} dB, {3}/{4} ms, makeup +{5} dB" -f $vm.gate_threshold_db, $vm.comp_ratio, $vm.comp_threshold_db, $vm.comp_attack_ms, $vm.comp_release_ms, $vm.comp_makeup_db) 'OK'
@@ -569,7 +574,8 @@ if ($MyInvocation.InvocationName -ne '.') {
             Initialize-HLSession -Root $root -NoBackup -Unattended
             $db = Get-HLHeadsetProfiles -Root $root
             $p = Resolve-HLHeadsetProfile -Database $db -Id $id
-            $r = Set-HLVoicemeeterConfig -XmlPath (Join-Path $root 'src\audio\configs\voicemeeter_comp.xml') -HeadsetDevice $device -Overrides $p.voicemeeter
+            $st = Get-HLAudioSettings -Root $root
+            $r = Set-HLVoicemeeterConfig -XmlPath (Join-Path $root 'src\audio\configs\voicemeeter_comp.xml') -HeadsetDevice $device -Overrides $p.voicemeeter -Dynamics $st.Dynamics -PreampDb $st.PreampDb
             [pscustomobject]@{ Type = $r.Type; Statements = $r.Statements; Failed = @($r.Failed) }
         }
         $done = Wait-Job $job -Timeout 90

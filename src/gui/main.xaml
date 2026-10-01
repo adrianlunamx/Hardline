@@ -131,6 +131,13 @@
               <TextBlock Text="Salida del headset (Voicemeeter A1)" Style="{StaticResource Label}"/>
               <ComboBox x:Name="cmbOutput"/>
 
+              <TextBlock Text="Compresor (Voicemeeter)" Style="{StaticResource Label}"/>
+              <ComboBox x:Name="cmbDynamics" SelectedIndex="0">
+                <ComboBoxItem Content="Mantener el actual" Tag=""/>
+                <ComboBoxItem Content="Normal: explosiones controladas" Tag="normal"/>
+                <ComboBoxItem Content="Pasos al máximo: disparos y explosiones muy bajos" Tag="pasos"/>
+              </ComboBox>
+
               <TextBlock Text="Intensidad del EQ" Style="{StaticResource Label}"/>
               <ComboBox x:Name="cmbIntensity" SelectedIndex="0">
                 <ComboBoxItem Content="Completa" Tag="1.0"/>

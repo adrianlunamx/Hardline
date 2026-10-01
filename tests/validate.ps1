@@ -628,6 +628,26 @@ try {
     Assert-True ((Get-HLRenderDeviceScore -Name 'Altavoces (Realtek)' -WindowsDefault 'Altavoces (Realtek)') -gt (Get-HLRenderDeviceScore -Name 'Auriculares USB')) 'salida automática: la predeterminada de Windows antes que otra cualquiera'
     $gaDev = @(ConvertTo-HLGuiArguments -State @{ Audio = $true; OutputDevice = 'Speakers (Sound BlasterX G1)' })
     Assert-True ('AudioDevice' -in $instParams -and ($gaDev -join '|') -match '-AudioDevice\|Speakers \(Sound BlasterX G1\)' -and -not ((ConvertTo-HLGuiArguments -State @{ Audio = $true; OutputDevice = '' }) -contains '-AudioDevice') -and 'cmbOutput' -in $xamlNames) 'interfaz: selector de salida del headset (-AudioDevice); Automática no pasa nada'
+    [xml]$vmCfg = Get-Content $vmXml -Raw -Encoding UTF8
+    $dN0 = Get-HLDynamicsValues -Config $vmCfg.HardlineVoicemeeter -Mode normal -PreampDb 0
+    $dN20 = Get-HLDynamicsValues -Config $vmCfg.HardlineVoicemeeter -Mode normal -PreampDb -20
+    $dP20 = Get-HLDynamicsValues -Config $vmCfg.HardlineVoicemeeter -Mode pasos -PreampDb -20
+    Assert-True ($dN0.Threshold -eq -25 -and $dN0.GainOut -eq 6 -and $dN0.Limit -eq 12) 'dinámica normal sin EQ: valores del XML'
+    Assert-True ($dN20.GateThr -le -60 -and $dN20.Threshold -eq -40 -and $dN20.GainOut -eq 16 -and $dN20.GateDamping -eq -20) 'dinámica normal con preamp -20: umbrales desplazados (el gate ya no corta pasos lejanos) y ganancia recuperada'
+    Assert-True ($dP20.GateKnob -eq 0 -and $dP20.Ratio -eq 8 -and $dP20.Attack -le 2 -and $dP20.GainOut -eq 24 -and $dP20.Limit -lt 0 -and $dP20.Threshold -ge -40) 'Pasos al máximo: sin gate, 8:1 rápido, +24 dB y limitador, dentro de los rangos de Voicemeeter'
+    $hyper = Get-HLDynamicsValues -Config $vmCfg.HardlineVoicemeeter -Mode normal -Overrides ([pscustomobject]@{ comp_makeup_db = 8 }) -PreampDb 0
+    Assert-True ($hyper.GainOut -eq 8) 'ajustes del headset (headsets.json) se respetan'
+    $vmPas = (New-HLVoicemeeterScript -XmlPath $vmXml -HeadsetDevice 'X' -Dynamics pasos -PreampDb -20) -join ' '
+    Assert-True ($vmPas -match 'Strip\[0\]\.Comp\.Ratio=8;' -and $vmPas -match 'Strip\[0\]\.Limit=-6;' -and $vmPas -match 'Strip\[0\]\.Gate=0;') 'script de Voicemeeter con perfil Pasos al máximo'
+    $asRoot = Join-Path $tmp 'audioset'; New-Item -ItemType Directory -Path $asRoot -Force | Out-Null
+    $as0 = Get-HLAudioSettings -Root $asRoot
+    Save-HLAudioSettings -Root $asRoot -Set @{ Dynamics = 'pasos'; PreampDb = -20.5; HeadsetId = 'x' }
+    Save-HLAudioSettings -Root $asRoot -Set @{ Dynamics = 'normal' }
+    $as1 = Get-HLAudioSettings -Root $asRoot
+    Assert-True ($as0.Dynamics -eq 'normal' -and $as1.Dynamics -eq 'normal' -and $as1.PreampDb -eq -20.5 -and $as1.HeadsetId -eq 'x') 'config\audio.json: valores por defecto y cambios parciales sin perder el resto'
+    $gaDyn = @(ConvertTo-HLGuiArguments -State @{ Audio = $true; Dynamics = 'pasos' })
+    $eqPanelSrc = Get-Content (Join-HLPath @($root, 'src', 'gui', 'eq_panel.ps1')) -Raw
+    Assert-True ('AudioDynamics' -in $instParams -and ($gaDyn -join '|') -match '-AudioDynamics\|pasos' -and 'cmbDynamics' -in $xamlNames -and $eqPanelSrc -match 'Set-HLVoicemeeterDynamics') 'perfil de compresor: instalador, interfaz y panel del EQ'
     Assert-True ($comSrc -match "'AudioEndpointName' \{" -and (Get-Content (Join-HLPath @($root, 'src', 'audio', 'endpoints.ps1')) -Raw) -match "Type 'AudioEndpointName'" -and $setupSrc -match 'Restore-HLCableNames') 'nombres de VB-CABLE: se restauran al instalar y el rollback los devuelve'
     Assert-True (@($script:HLAudioEnhancers | Where-Object { $_.Name -eq 'Art Tune' -and $_.Endpoint -eq 'Art Tune' -and $_.Kind -eq 'Uninstall' }).Count -eq 1 -and @($script:HLAudioEnhancers | Where-Object { $_.Name -match 'Sound Blaster' -and $_.Kind -eq 'Manual' }).Count -eq 1) 'Art Tune (desinstalable) y Sound Blaster (solo aviso) detectados como audio anterior'
     Assert-True ($setupSrc -match 'Wait-Job \$job -Timeout 90' -and $setupSrc -match 'Stop-Job') 'fase tras reiniciar: tiempo límite, la ventana no se queda colgada'

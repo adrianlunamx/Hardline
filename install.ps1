@@ -53,6 +53,9 @@
     Salida del headset para Voicemeeter (A1), por nombre o parte del nombre:
     -AudioDevice "Sound BlasterX". Sin el, se pregunta (o se elige la mas
     probable, nunca el HDMI/DP del monitor si hay otra).
+.PARAMETER AudioDynamics
+    Compresor del canal del juego: normal, o pasos (disparos y explosiones
+    mucho mas bajos, pasos muy altos). Sin el, se mantiene el ultimo elegido.
 .PARAMETER CleanAudio
     Si hay un audio personalizado anterior (Peace, FxSound, Boom 3D...),
     desinstalarlo sin preguntar. Sin este parametro, en modo desatendido
@@ -89,6 +92,7 @@ param(
     [switch] $SkipDisplay,
     [switch] $CleanAudio,
     [string] $AudioDevice = '',
+    [ValidateSet('', 'normal', 'pasos')] [string] $AudioDynamics = '',
     [switch] $Update,
     [switch] $GameplayBenchOnly,
     [switch] $ControllerTestOnly,
@@ -485,7 +489,7 @@ Invoke-HLOptimization -Hardware $hw -SkipWindows:$SkipWindows -SkipNetwork:$Skip
 # --- Audio ---------------------------------------------------------------------
 if (-not $SkipAudio) {
     Write-HLStep 'Audio competitivo (pasos claros, explosiones controladas)...'
-    Invoke-HLSafely 'Audio' 'Audio' { Invoke-HLAudioSetup -Hardware $hw -HeadsetId $Headset -Mode $AudioMode -Intensity $EqIntensity -CleanAudio:$CleanAudio -OutputDevice $AudioDevice }
+    Invoke-HLSafely 'Audio' 'Audio' { Invoke-HLAudioSetup -Hardware $hw -HeadsetId $Headset -Mode $AudioMode -Intensity $EqIntensity -CleanAudio:$CleanAudio -OutputDevice $AudioDevice -Dynamics $AudioDynamics }
 }
 
 # --- Benchmark posterior ---------------------------------------------------------

@@ -70,11 +70,15 @@ function Get-HLVoicemeeterRunType {
 }
 
 function Connect-HLVoicemeeter {
-    param([Parameter(Mandatory)] [string] $Dir)
+    param([Parameter(Mandatory)] [string] $Dir, [switch] $NoLaunch)
 
     Initialize-HLVoicemeeterApi -Dir $Dir
     $r = [Hardline.VMR]::VBVMR_Login()
     if ($r -lt 0) { throw "VBVMR_Login devolvió $r" }
+    if ($r -eq 1 -and $NoLaunch) {
+        [void][Hardline.VMR]::VBVMR_Logout()
+        throw 'Voicemeeter no está abierto.'
+    }
     if ($r -eq 1) {
         # 1 = API OK pero Voicemeeter no está abierto: se abre la edición instalada.
         $type = Get-HLVoicemeeterRunType -Files @(Get-ChildItem $Dir -Filter 'voicemeeter*.exe' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
@@ -106,30 +110,98 @@ function Wait-HLVoicemeeterSync {
     Construye el script de parámetros a partir de voicemeeter_comp.xml y de los
     valores del headset. Devuelve una lista de sentencias "Param=valor;".
 #>
+# Perfiles de dinámica del canal del juego (strip 0).
+$script:HLDynamicsProfiles = [ordered]@{
+    normal = 'Normal: explosiones controladas, pasos claros'
+    pasos  = 'Pasos al máximo: disparos y explosiones mucho más bajos, pasos muy altos'
+}
+
+function Limit-HLRange { param([double]$Value, [double]$Min, [double]$Max) return [Math]::Min($Max, [Math]::Max($Min, $Value)) }
+
+<#
+    Valores de gate, compresor y limitador para el canal del juego.
+
+    PreampDb: el preamp negativo del EQ (p. ej. -20 dB). Todo llega a
+    Voicemeeter así de más bajo, así que los umbrales se desplazan lo mismo:
+    sin esto, el gate (calibrado para audio sin EQ) se cerraba con los pasos
+    lejanos y el compresor casi no actuaba. Parte de esa pérdida se recupera
+    con la ganancia de salida del compresor; el limitador evita saturar.
+
+    Rangos de Voicemeeter Potato: Gate.Threshold -60..-10, Comp.Ratio 1..8,
+    Comp.Threshold -40..-3, Comp.GainOut -24..24, Limit -40..12.
+#>
+function Get-HLDynamicsValues {
+    param([Parameter(Mandatory)] $Config, $Overrides, [ValidateSet('normal', 'pasos')] [string] $Mode = 'normal', [double] $PreampDb = 0)
+    $gate = $Config.Gate; $comp = $Config.Compressor
+    $pre = [Math]::Min(0, $PreampDb)
+    $o = @{}
+    if ($Overrides) { foreach ($k in @('gate_threshold_db', 'comp_ratio', 'comp_threshold_db', 'comp_attack_ms', 'comp_release_ms', 'comp_makeup_db')) { if ($null -ne $Overrides.$k) { $o[$k] = [double]$Overrides.$k } } }
+    $get = { param($k, $def) if ($o.ContainsKey($k)) { $o[$k] } else { [double]$def } }
+
+    if ($Mode -eq 'pasos') {
+        # Todo lo que supera el umbral (disparos, explosiones, granadas) baja 8:1 casi al
+        # instante; lo que queda por debajo (pasos, recargas, equipo) sube con la ganancia.
+        return [pscustomobject]@{
+            GateKnob = 0; GateThr = -60; GateDamping = -20; GateAttack = [double]$gate.attack_ms; GateHold = [double]$gate.hold_ms; GateRelease = [double]$gate.release_ms
+            CompKnob = 10; Ratio = 8; Threshold = (Limit-HLRange (-20 + $pre) -40 -3); Attack = 1; Release = 50; Knee = 0.3; AutoMakeup = 0
+            GainOut = (Limit-HLRange (4 - $pre) 0 24); Limit = -6
+        }
+    }
+    return [pscustomobject]@{
+        GateKnob = [double]$gate.knob; GateThr = (Limit-HLRange ((& $get 'gate_threshold_db' $gate.threshold_db) + $pre) -60 -10)
+        # Damping suave: atenúa el fondo sin borrar del todo lo que quede justo por debajo.
+        GateDamping = -20; GateAttack = [double]$gate.attack_ms; GateHold = [double]$gate.hold_ms; GateRelease = [double]$gate.release_ms
+        CompKnob = [double]$comp.knob; Ratio = (Limit-HLRange (& $get 'comp_ratio' $comp.ratio) 1 8)
+        Threshold = (Limit-HLRange ((& $get 'comp_threshold_db' $comp.threshold_db) + $pre) -40 -3)
+        Attack = (& $get 'comp_attack_ms' $comp.attack_ms); Release = (& $get 'comp_release_ms' $comp.release_ms); Knee = [double]$comp.knee; AutoMakeup = [int]$comp.auto_makeup
+        GainOut = (Limit-HLRange ((& $get 'comp_makeup_db' $comp.makeup_db) + (-$pre / 2)) 0 24); Limit = $(if ($pre -lt 0) { -3 } else { 12 })
+    }
+}
+
+# Sentencias de la Remote API para la dinámica de una strip.
+function New-HLDynamicsStatements {
+    param([Parameter(Mandatory)] $Values, [int] $Strip = 0, [int] $VoicemeeterType = 3)
+    $inv = [Globalization.CultureInfo]::InvariantCulture
+    $f = { param($v) ([double]$v).ToString('0.###', $inv) }
+    $v = $Values
+    $out = New-Object System.Collections.Generic.List[string]
+    # Knobs primero (activan el bloque), parámetros avanzados después.
+    $out.Add(('Strip[{0}].Gate={1};' -f $Strip, (& $f $v.GateKnob)))
+    $out.Add(('Strip[{0}].Comp={1};' -f $Strip, (& $f $v.CompKnob)))
+    if ($VoicemeeterType -ge 2) { $out.Add(('Strip[{0}].Limit={1};' -f $Strip, (& $f $v.Limit))) }
+    if ($VoicemeeterType -ge 3) {
+        # Parámetros avanzados: solo Potato los expone por API.
+        $out.Add(('Strip[{0}].Gate.Threshold={1};' -f $Strip, (& $f $v.GateThr)))
+        $out.Add(('Strip[{0}].Gate.Damping={1};' -f $Strip, (& $f $v.GateDamping)))
+        $out.Add(('Strip[{0}].Gate.Attack={1};' -f $Strip, (& $f $v.GateAttack)))
+        $out.Add(('Strip[{0}].Gate.Hold={1};' -f $Strip, (& $f $v.GateHold)))
+        $out.Add(('Strip[{0}].Gate.Release={1};' -f $Strip, (& $f $v.GateRelease)))
+        $out.Add(('Strip[{0}].Comp.Ratio={1};' -f $Strip, (& $f $v.Ratio)))
+        $out.Add(('Strip[{0}].Comp.Threshold={1};' -f $Strip, (& $f $v.Threshold)))
+        $out.Add(('Strip[{0}].Comp.Attack={1};' -f $Strip, (& $f $v.Attack)))
+        $out.Add(('Strip[{0}].Comp.Release={1};' -f $Strip, (& $f $v.Release)))
+        $out.Add(('Strip[{0}].Comp.Knee={1};' -f $Strip, (& $f $v.Knee)))
+        $out.Add(('Strip[{0}].Comp.MakeUp={1};' -f $Strip, $v.AutoMakeup))
+        $out.Add(('Strip[{0}].Comp.GainOut={1};' -f $Strip, (& $f $v.GainOut)))
+    }
+    return $out
+}
+
+<#
+    Construye el script de parámetros a partir de voicemeeter_comp.xml y de los
+    valores del headset. Devuelve una lista de sentencias "Param=valor;".
+#>
 function New-HLVoicemeeterScript {
     param(
         [Parameter(Mandatory)] [string] $XmlPath,
         [Parameter(Mandatory)] [string] $HeadsetDevice,
         $Overrides,
-        [int]$VoicemeeterType = 3
+        [int]$VoicemeeterType = 3,
+        [ValidateSet('normal', 'pasos')] [string] $Dynamics = 'normal',
+        [double] $PreampDb = 0
     )
     [xml]$x = Get-Content -Path $XmlPath -Raw -Encoding UTF8
     $root = $x.HardlineVoicemeeter
-    $inv = [Globalization.CultureInfo]::InvariantCulture
-    $fmt = { param($v) ([double]$v).ToString('0.###', $inv) }
-
-    $gate = $root.Gate
-    $comp = $root.Compressor
-    $gateThr = $gate.threshold_db; $ratio = $comp.ratio; $thr = $comp.threshold_db
-    $att = $comp.attack_ms; $rel = $comp.release_ms; $mk = $comp.makeup_db
-    if ($Overrides) {
-        if ($null -ne $Overrides.gate_threshold_db) { $gateThr = $Overrides.gate_threshold_db }
-        if ($null -ne $Overrides.comp_ratio)        { $ratio = $Overrides.comp_ratio }
-        if ($null -ne $Overrides.comp_threshold_db) { $thr = $Overrides.comp_threshold_db }
-        if ($null -ne $Overrides.comp_attack_ms)    { $att = $Overrides.comp_attack_ms }
-        if ($null -ne $Overrides.comp_release_ms)   { $rel = $Overrides.comp_release_ms }
-        if ($null -ne $Overrides.comp_makeup_db)    { $mk = $Overrides.comp_makeup_db }
-    }
 
     $g = [int]$root.GameStrip.index
     # Entrada virtual (VAIO) según la edición: Voicemeeter 2, Banana 3, Potato 5.
@@ -144,25 +216,8 @@ function New-HLVoicemeeterScript {
     $lines.Add(('Strip[{0}].Label="{1}";' -f $s, $root.SystemStrip.label))
     foreach ($send in $root.SystemStrip.Send) { $lines.Add(('Strip[{0}].{1}={2};' -f $s, $send.bus, $send.on)) }
 
-    # Knobs primero (activan el bloque), parámetros avanzados después.
-    $lines.Add(('Strip[{0}].Gate={1};' -f $g, (& $fmt $gate.knob)))
-    $lines.Add(('Strip[{0}].Comp={1};' -f $g, (& $fmt $comp.knob)))
-
-    if ($VoicemeeterType -ge 3) {
-        # Parámetros avanzados: solo Potato los expone por API.
-        $lines.Add(('Strip[{0}].Gate.Threshold={1};' -f $g, (& $fmt $gateThr)))
-        $lines.Add(('Strip[{0}].Gate.Damping={1};' -f $g, (& $fmt $gate.damping_db)))
-        $lines.Add(('Strip[{0}].Gate.Attack={1};' -f $g, (& $fmt $gate.attack_ms)))
-        $lines.Add(('Strip[{0}].Gate.Hold={1};' -f $g, (& $fmt $gate.hold_ms)))
-        $lines.Add(('Strip[{0}].Gate.Release={1};' -f $g, (& $fmt $gate.release_ms)))
-        $lines.Add(('Strip[{0}].Comp.Ratio={1};' -f $g, (& $fmt $ratio)))
-        $lines.Add(('Strip[{0}].Comp.Threshold={1};' -f $g, (& $fmt $thr)))
-        $lines.Add(('Strip[{0}].Comp.Attack={1};' -f $g, (& $fmt $att)))
-        $lines.Add(('Strip[{0}].Comp.Release={1};' -f $g, (& $fmt $rel)))
-        $lines.Add(('Strip[{0}].Comp.Knee={1};' -f $g, (& $fmt $comp.knee)))
-        $lines.Add(('Strip[{0}].Comp.MakeUp={1};' -f $g, $comp.auto_makeup))
-        $lines.Add(('Strip[{0}].Comp.GainOut={1};' -f $g, (& $fmt $mk)))
-    }
+    $vals = Get-HLDynamicsValues -Config $root -Overrides $Overrides -Mode $Dynamics -PreampDb $PreampDb
+    foreach ($l in (New-HLDynamicsStatements -Values $vals -Strip $g -VoicemeeterType $VoicemeeterType)) { $lines.Add($l) }
     return $lines
 }
 
@@ -170,7 +225,9 @@ function Set-HLVoicemeeterConfig {
     param(
         [Parameter(Mandatory)] [string] $XmlPath,
         [Parameter(Mandatory)] [string] $HeadsetDevice,
-        $Overrides
+        $Overrides,
+        [ValidateSet('normal', 'pasos')] [string] $Dynamics = 'normal',
+        [double] $PreampDb = 0
     )
     $dir = Get-HLVoicemeeterDir
     if (-not $dir) { throw 'Voicemeeter no está instalado.' }
@@ -178,7 +235,7 @@ function Set-HLVoicemeeterConfig {
     $type = Connect-HLVoicemeeter -Dir $dir
     try {
         if ($type -lt 3) { Write-HLWarn "Voicemeeter tipo $type (no Potato): solo se configuran los knobs, sin parámetros avanzados del compresor." }
-        $stmts = New-HLVoicemeeterScript -XmlPath $XmlPath -HeadsetDevice $HeadsetDevice -Overrides $Overrides -VoicemeeterType $type
+        $stmts = New-HLVoicemeeterScript -XmlPath $XmlPath -HeadsetDevice $HeadsetDevice -Overrides $Overrides -VoicemeeterType $type -Dynamics $Dynamics -PreampDb $PreampDb
         $failed = @()
         foreach ($stmt in $stmts) {
             $r = [Hardline.VMR]::VBVMR_SetParameters($stmt)
@@ -196,4 +253,51 @@ function Set-HLVoicemeeterConfig {
     } finally {
         Disconnect-HLVoicemeeter
     }
+}
+
+<#
+    Cambia solo la dinámica del canal del juego con Voicemeeter abierto (panel
+    del EQ). No toca dispositivos ni rutas. No necesita administrador.
+#>
+function Set-HLVoicemeeterDynamics {
+    param([Parameter(Mandatory)] [string] $XmlPath, [ValidateSet('normal', 'pasos')] [string] $Mode = 'normal', [double] $PreampDb = 0, $Overrides)
+    $dir = Get-HLVoicemeeterDir
+    if (-not $dir) { throw 'Voicemeeter no está instalado.' }
+    [xml]$x = Get-Content -Path $XmlPath -Raw -Encoding UTF8
+    $root = $x.HardlineVoicemeeter
+    $type = Connect-HLVoicemeeter -Dir $dir -NoLaunch
+    try {
+        $vals = Get-HLDynamicsValues -Config $root -Overrides $Overrides -Mode $Mode -PreampDb $PreampDb
+        $failed = 0
+        foreach ($stmt in (New-HLDynamicsStatements -Values $vals -Strip ([int]$root.GameStrip.index) -VoicemeeterType $type)) {
+            if ([Hardline.VMR]::VBVMR_SetParameters($stmt) -ne 0) { $failed++ }
+        }
+        Wait-HLVoicemeeterSync
+        return [pscustomobject]@{ Type = $type; Failed = $failed; Values = $vals }
+    } finally {
+        Disconnect-HLVoicemeeter
+    }
+}
+
+# config\audio.json: perfil de dinámica, preamp real del EQ y ajustes del headset.
+# Lo usan la fase tras reiniciar y el panel del EQ.
+function Get-HLAudioSettings {
+    param([Parameter(Mandatory)] [string] $Root)
+    $f = Join-Path $Root 'config\audio.json'
+    $d = $null
+    if (Test-Path $f) { try { $d = Get-Content $f -Raw | ConvertFrom-Json } catch { $d = $null } }
+    $dyn = if ($d -and "$($d.Dynamics)" -in @('normal', 'pasos')) { "$($d.Dynamics)" } else { 'normal' }
+    $pre = 0.0
+    if ($d -and $null -ne $d.PreampDb) { [void][double]::TryParse("$($d.PreampDb)", [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$pre) }
+    return [pscustomobject]@{ Dynamics = $dyn; PreampDb = $pre; Overrides = $(if ($d) { $d.Overrides } else { $null }); HeadsetId = $(if ($d) { "$($d.HeadsetId)" } else { '' }) }
+}
+
+function Save-HLAudioSettings {
+    param([Parameter(Mandatory)] [string] $Root, [hashtable] $Set)
+    $cur = Get-HLAudioSettings -Root $Root
+    $o = [ordered]@{ HeadsetId = $cur.HeadsetId; Dynamics = $cur.Dynamics; PreampDb = $cur.PreampDb; Overrides = $cur.Overrides }
+    foreach ($k in $Set.Keys) { $o[$k] = $Set[$k] }
+    $dir = Join-Path $Root 'config'
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    [pscustomobject]$o | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $dir 'audio.json') -Encoding UTF8
 }

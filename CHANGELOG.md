@@ -2,6 +2,17 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.10.0] - 2026-10-01
+
+### Añadido
+
+- **Perfil de compresor "Pasos al máximo"**: compresor 8:1 con ataque de 1 ms, ganancia de compensación alta, limitador y sin puerta de ruido. Lo fuerte (tus disparos, explosiones, granadas) baja casi al instante; lo flojo (pasos, recargas, equipo) sube mucho. Se elige en la interfaz (`-AudioDynamics pasos` en consola) y se cambia al momento desde el **panel del EQ**, con Voicemeeter abierto y sin reinstalar.
+- `config\audio.json` guarda el perfil, el preamp real del EQ y los ajustes del headset. Al volver a aplicar se mantiene lo elegido.
+
+### Corregido
+
+- **Pasos con poco volumen**: el EQ baja todo el audio (preamp de hasta -20 dB) para no saturar, pero el gate y el compresor de Voicemeeter estaban calibrados para audio sin EQ. El gate cortaba los pasos lejanos y el compresor casi no actuaba. Ahora los umbrales se desplazan con el preamp real, la ganancia se recupera, un limitador evita saturar y el gate atenúa en lugar de silenciar.
+
 ## [1.9.1] - 2026-10-01
 
 ### Corregido

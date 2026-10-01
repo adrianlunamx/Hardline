@@ -83,6 +83,10 @@ Discord no debe salir por `CABLE Input`. Ponlo en la salida por defecto (`Voicem
 
 No. Antes de instalar, Hardline lo detecta y lo limpia. Tu configuración de Equalizer APO se aparta a `config\antes_de_hardline\` (el rollback la devuelve). Peace, FxSound, Boom 3D, ViPER4Windows o Razer Surround se desinstalan con su propio desinstalador, preguntando uno a uno. Nahimic se desactiva. Si Equalizer APO está activo en varios dispositivos, te dice cuáles desmarcar.
 
+**Los pasos se oyen bajos y mis disparos muy altos.**
+
+Panel del EQ (Inicio > Hardline > Hardline EQ) > Compresor > **Pasos al máximo**, con Voicemeeter abierto. Baja todo lo fuerte casi al instante (8:1, ataque de 1 ms) y sube lo flojo hasta +24 dB, con un limitador para no saturar. Ningún procesador sabe qué disparo es tuyo, pero los tuyos son lo más fuerte que suena, así que son lo que más baja. Necesita Voicemeeter Potato para el ajuste completo.
+
 **¿Y Peace?**
 
 Hardline ya no lo instala. Al guardar un preset en Peace se reescribe `config.txt` y desaparece el de Hardline, que es justo la confusión que se quiere evitar. Para encender y apagar el EQ y cambiar la intensidad está el **panel del EQ** (Inicio > Hardline > Hardline EQ), y en partida `Ctrl+Alt+F10`.

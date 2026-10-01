@@ -13,7 +13,9 @@
 param([string] $Root = '')
 
 if (-not $Root) { $Root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent }
+. (Join-Path $Root 'src\core\common.ps1')
 . (Join-Path $Root 'src\audio\eqswitch.ps1')
+. (Join-Path $Root 'src\audio\voicemeeter.ps1')
 
 # Texto del estado para la ventana (sin WPF: se prueba en tests).
 function Get-HLEqPanelView {
@@ -32,7 +34,26 @@ function Show-HLEqPanel {
     [xml]$x = Get-Content (Join-Path $PSScriptRoot 'eq_panel.xaml') -Raw -Encoding UTF8
     $w = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $x))
     $c = @{}
-    foreach ($n in @('eqBadge', 'eqState', 'eqDetail', 'eqToggle', 'eqIntensity', 'eqTest', 'eqTopmost')) { $c[$n] = $w.FindName($n) }
+    foreach ($n in @('eqBadge', 'eqState', 'eqDetail', 'eqToggle', 'eqIntensity', 'eqTest', 'eqTopmost', 'eqDynamics', 'eqDynHint')) { $c[$n] = $w.FindName($n) }
+
+    # Compresor: se aplica al momento con Voicemeeter abierto y se recuerda para la próxima instalación.
+    $settings = Get-HLAudioSettings -Root $Root
+    $view0 = @{ Busy = $true }
+    foreach ($item in $c.eqDynamics.Items) { if ($item.Tag -eq $settings.Dynamics) { $c.eqDynamics.SelectedItem = $item } }
+    $view0.Busy = $false
+    $c.eqDynHint.Text = 'Bajar lo fuerte y subir lo flojo: tus disparos son lo más fuerte que suena, por eso son lo que más baja.'
+    $c.eqDynamics.Add_SelectionChanged({
+            if ($view0.Busy -or -not $c.eqDynamics.SelectedItem) { return }
+            $mode = "$($c.eqDynamics.SelectedItem.Tag)"
+            $st = Get-HLAudioSettings -Root $Root
+            try {
+                $r = Set-HLVoicemeeterDynamics -XmlPath (Join-Path $Root 'src\audio\configs\voicemeeter_comp.xml') -Mode $mode -PreampDb $st.PreampDb -Overrides $st.Overrides
+                Save-HLAudioSettings -Root $Root -Set @{ Dynamics = $mode }
+                $c.eqDynHint.Text = if ($r.Type -lt 3) { 'Aplicado en parte: tu Voicemeeter no es Potato y solo acepta los mandos básicos.' } else { "Aplicado. Umbral $($r.Values.Threshold) dB, $($r.Values.Ratio):1, ganancia +$($r.Values.GainOut) dB." }
+            } catch {
+                $c.eqDynHint.Text = "No aplicado: $($_.Exception.Message) Abre Voicemeeter y vuelve a elegirlo."
+            }
+        })
 
     $sw = Get-HLEqSwitchPath
     $view = @{ Busy = $false; Last = '' }

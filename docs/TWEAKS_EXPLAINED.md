@@ -427,6 +427,16 @@ Archivo: `src/audio/cleanup.ps1`.
 
 ### Compresor y gate (modo Completo)
 
+**Ajuste al preamp del EQ.** El EQ baja todo el audio (preamp calculado, hasta -20 dB) para que los realces no saturen. Los umbrales del gate y del compresor se desplazan lo mismo; sin esto, el gate se cerraba con los pasos lejanos. Parte de la pérdida se recupera con la ganancia de salida del compresor y un limitador evita saturar.
+
+| Perfil | Gate | Compresor | Ganancia | Limitador |
+|---|---|---|---|---|
+| Normal | -45 dB + preamp, atenúa 20 dB | 4:1 desde -25 dB + preamp, ataque 5 ms | makeup + la mitad del preamp | -3 dB |
+| Pasos al máximo | Desactivado | 8:1 desde -20 dB + preamp, ataque 1 ms, release 50 ms | 4 dB - preamp (hasta +24) | -6 dB |
+
+"Pasos al máximo" baja lo fuerte y sube lo flojo: con preamp -20, un disparo a -20 dBFS sale a unos -14 y un paso a -55 sale a unos -31, cuando antes los separaban 35 dB. Se cambia al momento desde el panel del EQ.
+
+
 Voicemeeter Potato, configurado por su [Remote API](https://github.com/vburel2018/Voicemeeter-SDK) (no se edita ningún archivo interno de Voicemeeter).
 
 | Parámetro | Valor | Por qué |
