@@ -359,7 +359,7 @@ try {
     [xml]$gx = Get-Content (Join-HLPath @($root, 'src', 'gui', 'main.xaml')) -Raw -Encoding UTF8
     Assert-True ($null -ne $gx.Window) 'main.xaml es XML válido con <Window>'
     $xns = 'http://schemas.microsoft.com/winfx/2006/xaml'
-    $xamlNames = @($gx.SelectNodes('//*[@*[local-name()="Name"]]') | ForEach-Object { $_.GetAttribute('Name', $xns) } | Where-Object { $_ })
+    $xamlNames = @($gx.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]') | ForEach-Object { $_.GetAttribute('Name', $xns) } | Where-Object { $_ })
     $appSrc = Get-Content (Join-HLPath @($root, 'src', 'gui', 'app.ps1')) -Raw
     $used = @(([regex]::Matches($appSrc, '\$ui\.(\w+)') | ForEach-Object { $_.Groups[1].Value }) +
         ([regex]::Matches($appSrc, "'((?:btn|txt|cmb|chk|prg)\w+)'") | ForEach-Object { $_.Groups[1].Value }) | Sort-Object -Unique)

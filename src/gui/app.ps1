@@ -63,7 +63,8 @@ function Show-HLGui {
     [xml]$xaml = Get-Content (Join-Path $PSScriptRoot 'main.xaml') -Raw -Encoding UTF8
     $window = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
     $ui = @{}
-    foreach ($n in ($xaml.SelectNodes('//*[@*[local-name()="Name"]]'))) {
+    # Los nombres dentro de plantillas (ControlTemplate) viven en otro ámbito: FindName no los ve.
+    foreach ($n in ($xaml.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]'))) {
         $name = $n.GetAttribute('Name', 'http://schemas.microsoft.com/winfx/2006/xaml')
         if ($name) { $ui[$name] = $window.FindName($name) }
     }
