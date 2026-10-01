@@ -21,6 +21,7 @@ foreach ($f in @(
         'modules\windows\gamesession.ps1',
         'modules\windows\latency.ps1',
         'modules\windows\experimental.ps1',
+        'modules\windows\display.ps1',
         'modules\gpu\shared.ps1',
         'modules\gpu\nvidia.ps1',
         'modules\gpu\intel.ps1',
@@ -46,6 +47,7 @@ function Invoke-HLOptimization {
         [switch] $Experimental,
         [switch] $SkipNetDiag,
         [switch] $SkipController,
+        [switch] $SkipDisplay,
         [switch] $DisableOtherPlatforms,
         [string] $Platform = '',
         [ValidateSet('', 'Yes', 'No')] [string] $GameSession = ''
@@ -67,6 +69,10 @@ function Invoke-HLOptimization {
         Invoke-HLSafely 'Timer' 'Timer resolution' { Install-HLTimerResolution -Hardware $Hardware }
         Write-HLOk 'Windows optimizado'
         Add-HLManualStep 'Windows' 'Comprueba la latencia DPC con LatencyMon (enlace en la sección Benchmark).'
+    }
+
+    if (-not $SkipDisplay) {
+        Invoke-HLSafely 'Pantalla' 'Pantalla' { Invoke-HLDisplay -Hardware $Hardware }
     }
 
     if (-not $SkipPlatforms) {
@@ -113,4 +119,6 @@ function Invoke-HLOptimization {
     if (-not $SkipController) {
         Invoke-HLSafely 'Mando' 'Mando' { Invoke-HLController -Hardware $Hardware }
     }
+
+    Add-HLManualStep 'Comprobar la diferencia' 'Tras reiniciar, usa "Medir partida" (interfaz o install.ps1 -GameplayBenchOnly) en el mismo modo y mapa que la medición anterior: compara FPS, 1% lows y tirones de tu partida real. Si no mediste antes de aplicar, la primera medición queda como referencia para los próximos cambios.'
 }

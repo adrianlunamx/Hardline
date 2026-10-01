@@ -133,6 +133,24 @@ No directamente, y nadie puede: el registro lo decide el servidor. Lo que sí af
 
 Unos 100-250 MB durante 10 s para medir el bufferbloat. Si tienes tarifa limitada, desmarca "Diagnóstico de red".
 
+## Notar la diferencia
+
+**¿Cómo sé si Hardline me ha mejorado algo?**
+
+Con **Medir partida**: mide antes de aplicar, aplica, reinicia y vuelve a medir en el mismo modo y mapa. Te da la tabla de FPS, 1% lows y tirones, y te dice si la diferencia es real o ruido entre partidas. Si ya aplicaste, la primera medición queda como referencia para el siguiente cambio que hagas.
+
+**¿Qué es lo que más se nota?**
+
+Por orden: el monitor al refresco correcto (si estaba mal), cable en vez de Wi-Fi o Bluetooth, la opción de baja latencia de la GPU en el juego (Reflex/Anti-Lag 2), quitar overlays y los 1% lows (tirones). Los tweaks de Windows por sí solos mueven poco los FPS medios: su efecto está en los tirones.
+
+**El refresco subió y la pantalla se ve en negro.**
+
+Pasa muy rara vez: el modo se prueba antes de aplicarlo. Espera 15 s; si sigue en negro, reinicia y ejecuta `rollback.ps1`, o cambia el refresco en Configuración > Pantalla > Pantalla avanzada.
+
+**¿PresentMon es seguro con el anticheat?**
+
+Sí: no se inyecta en el juego, lee los eventos que Windows ya publica. Es lo que usan CapFrameX, la app de Intel y la mayoría de reviews.
+
 ## Mando
 
 **¿Hardline quita el delay del mando?**

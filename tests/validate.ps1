@@ -230,6 +230,14 @@ try {
     # Rango sin valor válido: no se inventa nada
     $p = ConvertFrom-HLCstLine 'RendererWorkerCount@0;1;1 = 4 // 1 to 3'
     Assert-True ($null -eq (Resolve-HLCstValue -Parsed $p -Target '6')) 'valor fuera de rango: no se escribe'
+    $rx = ConvertFrom-HLCstLine 'NvidiaReflex@0;1;1 = "Disabled" // one of [Disabled, Enabled, Enabled + Boost]'
+    $ra = ConvertFrom-HLCstLine 'AMDAntiLag2@0;1;1 = false // true or false'
+    $rd = ConvertFrom-HLCstLine 'DisplayMode@0;1;1 = "Windowed" // one of [Windowed, Fullscreen Borderless Window, Fullscreen Exclusive]'
+    $rn = ConvertFrom-HLCstLine 'ReflexLowLatency@0;1;1 = 0 // 0 to 2'
+    Assert-True ((Resolve-HLCstValue -Parsed $rx -Target 'boost') -eq 'Enabled + Boost' -and (Resolve-HLCstValue -Parsed $ra -Target 'on') -eq 'true') 'latencia: Reflex + Boost y Anti-Lag 2 activados'
+    Assert-True ((Resolve-HLCstValue -Parsed $rd -Target 'exclusive') -eq 'Fullscreen Exclusive' -and $null -eq (Resolve-HLCstValue -Parsed $rn -Target 'boost')) 'pantalla completa exclusiva (no la de ventana); rango numérico sin significado claro: no se toca'
+    $nvRules = @(Get-HLWarzoneRules -PhysicalCores 6 -GpuVendor 'NVIDIA'); $amdRules = @(Get-HLWarzoneRules -PhysicalCores 6 -GpuVendor 'AMD')
+    Assert-True (@($nvRules | Where-Object { $_.Label -eq 'NVIDIA Reflex' }).Count -eq 1 -and @($nvRules | Where-Object { $_.Label -match 'Anti-Lag' }).Count -eq 0 -and @($amdRules | Where-Object { $_.Label -match 'Anti-Lag' }).Count -eq 1) 'opción de baja latencia según el fabricante de la GPU'
 
     # ---------------------------------------------------------------------------
     if ($onWindows) {
@@ -367,7 +375,7 @@ try {
     Assert-True ($missing.Count -eq 0) 'todo control usado en app.ps1 existe en main.xaml' ($missing -join ', ')
 
     . (Join-HLPath @($root, 'src', 'gui', 'app.ps1')) -Root $root
-    $state = @{ Windows = $true; Platforms = $false; Session = $true; Latency = $true; Network = $true; NetDiag = $false; Game = $true; Controller = $false
+    $state = @{ Windows = $true; Platforms = $false; Session = $true; Latency = $true; Network = $true; NetDiag = $false; Game = $true; Controller = $false; Display = $false
         Audio = $true; Bench = $false; Experimental = $true; Platform = 'steam'; DisableOthers = $true; Headset = "Kraken V3 o'brien"
         AudioMode = 'EqOnly'; Intensity = '0.7' }
     $guiArgs = @(ConvertTo-HLGuiArguments -State $state -DryRun)
@@ -375,7 +383,7 @@ try {
     $instParams = @($instAst.ParamBlock.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath })
     $unknown = @($guiArgs | Where-Object { $_ -match '^-[A-Za-z]+$' } | ForEach-Object { $_.Substring(1) } | Where-Object { $_ -notin $instParams })
     Assert-True ($unknown.Count -eq 0) 'la GUI solo pasa parámetros que install.ps1 acepta' ($unknown -join ', ')
-    Assert-True (($guiArgs -contains '-SkipPlatforms') -and ($guiArgs -contains '-SkipNetDiag') -and ($guiArgs -contains '-SkipBenchmark') -and ($guiArgs -contains '-SkipController') -and -not ($guiArgs -contains '-SkipWindows')) 'casillas desmarcadas -> -Skip* correctos'
+    Assert-True (($guiArgs -contains '-SkipPlatforms') -and ($guiArgs -contains '-SkipNetDiag') -and ($guiArgs -contains '-SkipBenchmark') -and ($guiArgs -contains '-SkipController') -and ($guiArgs -contains '-SkipDisplay') -and -not ($guiArgs -contains '-SkipWindows')) 'casillas desmarcadas -> -Skip* correctos'
     Assert-True (($guiArgs -join ' ') -match '-Unattended' -and ($guiArgs -join ' ') -match '-DryRun' -and ($guiArgs -join ' ') -match '-GameSession Yes') 'GUI: desatendido, DryRun y modo partida'
     $cmdLine = ConvertTo-HLCommandLine -Script 'C:\Users\a b\Hardline\install.ps1' -Arguments $guiArgs
     $cmdErr = $null; [void][System.Management.Automation.Language.Parser]::ParseInput($cmdLine, [ref]$null, [ref]$cmdErr)
@@ -446,6 +454,58 @@ try {
     Assert-True ($optSrc -match "modules\\input\\controller\.ps1" -and $optSrc -match 'Invoke-HLController' -and $optSrc -match 'SkipController') 'el orquestador carga y ejecuta el módulo de mando'
     Assert-True ($inst -match "Key = 'controller'" -and $inst -match 'controller_test\.ps1' -and 'SkipController' -in $instParams -and 'ControllerTestOnly' -in $instParams) 'install.ps1: menú, -SkipController y -ControllerTestOnly'
     Assert-True ($appSrc -match 'controller_test\.ps1' -and 'chkController' -in $xamlNames -and 'btnControllerTest' -in $xamlNames) 'interfaz: casilla de mando y botón de test'
+
+    # -----------------------------------------------------------------------
+    Write-Host "`n[15] Pantalla y medición de partida" -ForegroundColor Cyan
+    . (Join-HLPath @($root, 'src', 'modules', 'windows', 'display.ps1'))
+    $modes = @(
+        [pscustomobject]@{ Width = 2560; Height = 1440; Hz = 60;  Bpp = 32; Flags = 0 }
+        [pscustomobject]@{ Width = 2560; Height = 1440; Hz = 144; Bpp = 32; Flags = 0 }
+        [pscustomobject]@{ Width = 2560; Height = 1440; Hz = 165; Bpp = 32; Flags = 0 }
+        [pscustomobject]@{ Width = 2560; Height = 1440; Hz = 200; Bpp = 32; Flags = 2 }
+        [pscustomobject]@{ Width = 2560; Height = 1440; Hz = 180; Bpp = 16; Flags = 0 }
+        [pscustomobject]@{ Width = 1920; Height = 1080; Hz = 240; Bpp = 32; Flags = 0 }
+    )
+    Assert-True ((Get-HLBestRefresh -Modes $modes -Width 2560 -Height 1440) -eq 165) 'refresco máximo a la resolución actual (sin entrelazados ni 16 bits)'
+    Assert-True ((Test-HLRefreshUpgrade -CurrentHz 60 -BestHz 165) -and -not (Test-HLRefreshUpgrade -CurrentHz 59 -BestHz 60) -and -not (Test-HLRefreshUpgrade -CurrentHz 165 -BestHz 165)) 'solo se sube el refresco si la diferencia es real (59 -> 60 no)'
+    Assert-True ((Get-HLFpsCap -Hz 165) -eq 162 -and (Get-HLFpsCap -Hz 0) -eq 0) 'límite de FPS VRR: refresco - 3'
+    $dx = Merge-HLDxSettings -Current 'AutoHDREnable=1;SwapEffectUpgradeEnable=0;' -Set @{ SwapEffectUpgradeEnable = '1'; VRROptimizeEnable = '1' }
+    Assert-True ($dx -match '^AutoHDREnable=1;' -and $dx -match 'SwapEffectUpgradeEnable=1;' -and $dx -match 'VRROptimizeEnable=1;' -and $dx -notmatch 'SwapEffectUpgradeEnable=0') 'DirectXUserGlobalSettings: cambia solo lo pedido y conserva Auto HDR'
+    Assert-True ((Merge-HLDxSettings -Current $null -Set @{ VRROptimizeEnable = '1' }) -eq 'VRROptimizeEnable=1;') 'DirectXUserGlobalSettings vacío'
+    $ov = @(Get-HLOverlayMatches -ProcessNames @('explorer', 'Discord', 'discord', 'RTSS', 'wallpaper64', 'Wallpaper32'))
+    Assert-True ($ov.Count -eq 3 -and @($ov | Where-Object { $_.Name -eq 'Wallpaper Engine' }).Count -eq 1) 'overlays detectados por proceso, sin duplicados'
+    $comSrc = Get-Content (Join-HLPath @($root, 'src', 'core', 'common.ps1')) -Raw
+    $dispSrc = Get-Content (Join-HLPath @($root, 'src', 'modules', 'windows', 'display.ps1')) -Raw
+    Assert-True ($dispSrc -match "Type 'DisplayMode'" -and $comSrc -match "'DisplayMode' \{" -and $dispSrc -match 'CDS_TEST') 'cambio de refresco: probado antes de aplicar y revertible'
+
+    . (Join-HLPath @($root, 'src', 'modules', 'game', 'gameplay_bench.ps1')) -Root $root
+    $ft = [double[]]@(@(1..980 | ForEach-Object { 6.0 }) + @(1..20 | ForEach-Object { 20.0 }))
+    $gs = Get-HLFrameStats -FrameTimesMs $ft
+    Assert-True ($gs.Frames -eq 1000 -and $gs.AvgFps -eq 159.2 -and $gs.Low1Fps -eq 50 -and $gs.MedianMs -eq 6 -and $gs.StutterPct -eq 2) 'estadística de frames: FPS medios por tiempo, 1% lows, tirones'
+    Assert-True ($null -eq (Get-HLFrameStats -FrameTimesMs @(5, 6, 7))) 'muy pocos frames: sin resultado'
+    $gs2 = Get-HLFrameStats -FrameTimesMs ([double[]]@(1..1000 | ForEach-Object { 6.0 }))
+    $cmp = @(Compare-HLFrameStats -Before $gs -After $gs2)
+    $c1 = $cmp | Where-Object { $_.Label -eq '1% lows' }; $cAvg = $cmp | Where-Object { $_.Label -eq 'FPS medios' }; $cSt = $cmp | Where-Object { $_.Label -eq 'Tirones (%)' }
+    Assert-True ($c1.Better -eq 1 -and $cAvg.Better -eq 1 -and $cSt.Better -eq 1 -and $cmp.Count -eq 4) 'comparación: mejoras marcadas; sin latencia no hay fila de latencia'
+    Assert-True ((Get-HLGameplayVerdict -Rows $cmp) -match '^Mejora real' -and (Get-HLGameplayVerdict -Rows @(Compare-HLFrameStats -Before $gs2 -After $gs)) -match '^Peor') 'veredicto antes/después'
+    $same = @(Compare-HLFrameStats -Before $gs2 -After $gs2)
+    Assert-True ((Get-HLGameplayVerdict -Rows $same) -match '^Sin diferencia' -and @($same | Where-Object { $_.Better -ne 0 }).Count -eq 0) 'misma partida: dentro del ruido'
+    $pmRows = @(
+        [pscustomobject]@{ Application = 'cod.exe'; FrameTime = '6.5'; DisplayLatency = '18.2' }
+        [pscustomobject]@{ Application = 'Discord.exe'; FrameTime = '16.6'; DisplayLatency = '30' }
+        [pscustomobject]@{ Application = 'cod.exe'; FrameTime = 'NA'; DisplayLatency = '17.8' }
+    )
+    $pm = ConvertFrom-HLPresentMonRows -Rows $pmRows
+    $pm1 = ConvertFrom-HLPresentMonRows -Rows @([pscustomobject]@{ Application = 'cod.exe'; MsBetweenPresents = '7.25' })
+    Assert-True ($pm.FrameTimes.Count -eq 1 -and $pm.FrameTimes[0] -eq 6.5 -and $pm.Latency.Count -eq 2 -and $pm1.FrameTimes[0] -eq 7.25) 'CSV de PresentMon 2.x y 1.x, solo cod.exe, valores no numéricos fuera'
+    $assets = @([pscustomobject]@{ name = 'PresentMon-2.3.0-x64-DLSS4.exe' }, [pscustomobject]@{ name = 'PresentMon-2.3.0.msi' }, [pscustomobject]@{ name = 'PresentMon-2.3.0-x64.exe' })
+    Assert-True ((Select-HLPresentMonAsset -Assets $assets)[0].name -eq 'PresentMon-2.3.0-x64.exe') 'PresentMon: se elige el ejecutable de consola x64'
+    $a2 = Get-HLPresentMonArgs -Csv 'C:\t\a b.csv' -Seconds 60 -Syntax 2; $a1 = Get-HLPresentMonArgs -Csv 'x.csv' -Seconds 60 -Syntax 1
+    Assert-True (($a2 -contains '--terminate_after_timed') -and ($a2 -contains '"C:\t\a b.csv"') -and ($a1 -contains '-process_name') -and ($a1 -contains '-no_top')) 'argumentos de PresentMon 2.x y 1.x'
+    $gbSrc = Get-Content (Join-HLPath @($root, 'src', 'modules', 'game', 'gameplay_bench.ps1')) -Raw
+    Assert-True ($gbSrc -match 'Get-AuthenticodeSignature' -and $gbSrc -match "'Intel'" -and $gbSrc -match 'sha256:') 'PresentMon: SHA256 de GitHub y firma de Intel antes de ejecutar'
+    Assert-True ($optSrc -match "modules\\windows\\display\.ps1" -and $optSrc -match 'Invoke-HLDisplay' -and 'SkipDisplay' -in $instParams -and 'GameplayBenchOnly' -in $instParams -and $inst -match "Key = 'display'") 'pantalla y medición integradas en orquestador e instalador'
+    Assert-True ('chkDisplay' -in $xamlNames -and 'btnGameplay' -in $xamlNames -and $appSrc -match 'gameplay_bench\.ps1') 'interfaz: casilla de pantalla y botón Medir partida'
 } finally {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 }

@@ -49,12 +49,15 @@ Dry run first, to see what it would do without changing anything:
 
 There is also a **GUI**: Start > Hardline > Hardline, or `install.ps1 -Gui`.
 
+**See the difference on your own PC**: use **Measure match** (GUI button or `install.ps1 -GameplayBenchOnly`) before applying, apply and reboot, then measure again in the same mode and map. It records 60 s of real gameplay with Intel PresentMon and compares average FPS, 1% lows and stutter, telling a real improvement apart from match-to-match noise.
+
 It downloads the **latest release** and verifies its SHA256 before running (`-Channel main` gets the latest `main` branch instead). It creates a Windows restore point first and installs to `%LOCALAPPDATA%\Hardline`. A checklist at the start lets you pick which modules to apply.
 
 ## What it does
 
 | Area | Automatic | Left in the report for you |
 |---|---|---|
+| **Display** | Monitor running below its maximum refresh rate (144 Hz stuck at 60): raised. Windowed game optimizations and VRR. Warns about overlays (Discord, RivaTuner, Overwolf, Medal...) | FreeSync/G-SYNC FPS cap computed from your refresh rate |
 | **Platforms** | Pick where you play (Battle.net, Steam, Xbox app). The others: processes closed, autostart removed, services disabled | |
 | **Game session mode** | While Warzone is running: pauses background services, lowers browser/launcher priority, switches to the max power plan. Restores everything when you quit | |
 | **Windows** | Background services, Game DVR off, Game Mode on, MMCSS, Ultimate Performance, 0.5 ms timer (Win11), widgets/Cortana off | LatencyMon if DPC spikes |
@@ -65,7 +68,7 @@ It downloads the **latest release** and verifies its SHA256 before running (`-Ch
 | **Network** | DNS 1.1.1.1, NIC power saving off, autotuning, DSCP 46 QoS for `cod.exe` | Router SQM if there is bufferbloat |
 | **Network diagnosis** | Packet loss and jitter to the router and to the Internet separately, bufferbloat under load (A+ to F), MTU | Hit registration is server-side; this measures what reaches the server and whether problems are at home or at your ISP |
 | **Controller** | Detects controller and connection; USB power saving off for the controller and its hub; warns about Bluetooth and remapping layers (DS4Windows, reWASD, Steam Input...); trigger deadzone 0, vibration off. Built-in test measures stick drift and real update rate (Hz) | Stick deadzone from the test result, wired or official adapter |
-| **Warzone** | Graphics settings in `options.*.cst`, validated against the file's own allowed values | FOV, brightness |
+| **Warzone** | Graphics settings in `options.*.cst`, validated against the file's own allowed values. Reflex + Boost, Anti-Lag 2 or XeLL for your GPU; exclusive fullscreen | FOV, brightness |
 | **Audio** | Measured headset correction (AutoEq, ~8800 models) + footsteps EQ + compressor/gate (Voicemeeter). `Ctrl+Alt+F10` toggles the EQ in-game; a built-in A/B footstep test | Per-app routing of `cod.exe` in Windows |
 
 ## Audio

@@ -13,7 +13,7 @@
 
 # Sin StrictMode: WMI/CIM devuelve propiedades opcionales según fabricante y driver.
 
-$Global:HLVersion = '1.4.0'
+$Global:HLVersion = '1.5.0'
 $Global:HLRepo = 'adrianlunamx/Hardline'
 
 # --------------------------------------------------------------------------
@@ -47,6 +47,7 @@ function Initialize-HLSession {
         BenchPre    = $null
         BenchPost   = $null
         NetDiag     = $null
+        DisplayHz   = 0
     }
 
     foreach ($d in @($HL.LogDir, $HL.ReportDir)) {
@@ -568,6 +569,13 @@ function Undo-HLManifestEntry {
         'Bcd' {
             if ($Entry.Created) { & bcdedit.exe /deletevalue '{current}' $Entry.Element | Out-Null }
             return "BCD $($Entry.Element)"
+        }
+        'DisplayMode' {
+            . $Entry.ModulePath
+            Initialize-HLDisplayApi
+            $r = [Hardline.DisplayApi]::SetRefresh($Entry.Device, [int]$Entry.Width, [int]$Entry.Height, [int]$Entry.PrevHz)
+            if ($r -ne 0) { throw "Windows rechazó volver a $($Entry.PrevHz) Hz (código $r)." }
+            return "Refresco $($Entry.Device) -> $($Entry.PrevHz) Hz"
         }
         'Info' { return $null }
         default { throw "Tipo de entrada desconocido: $($Entry.Type)" }

@@ -288,6 +288,34 @@ El juego tiene que estar cerrado: al salir reescribe el archivo.
 
 ---
 
+## Pantalla
+
+Archivo: `src/modules/windows/display.ps1`.
+
+| Ajuste | Detalle |
+|---|---|
+| **Refresco al máximo** [auto, revertible] | Compara el refresco activo con el máximo que el driver ofrece a la resolución actual (sin modos entrelazados ni de 16 bits). Si la diferencia es de 5 Hz o más, lo sube con `ChangeDisplaySettingsEx`, probando el modo antes (`CDS_TEST`). El valor anterior queda en el manifiesto. Un monitor de 144 Hz a 60 Hz es el problema más común y el que más se nota: 2,4 veces más imágenes y unos 10 ms menos entre imagen e imagen. |
+| **Solo 60 Hz disponibles** | Si el monitor es de más Hz pero el driver solo ofrece 60, el límite es el cable o el puerto: DisplayPort o HDMI 2.0/2.1 conectado a la tarjeta gráfica. |
+| **Optimizaciones para juegos en ventana** [auto, Windows 11] | `SwapEffectUpgradeEnable=1` en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences\DirectXUserGlobalSettings`. En ventana sin bordes, el juego usa el modelo de presentación flip, con la misma latencia que pantalla completa. Se conservan las demás claves de esa cadena (Auto HDR, etc.). |
+| **VRR en ventana** [auto] | `VRROptimizeEnable=1` en la misma cadena: FreeSync/G-SYNC también para juegos DX11 en ventana. |
+| **Límite de FPS** [manual] | Con FreeSync/G-SYNC: refresco - 3 (162 en 165 Hz). Así los FPS no salen del rango VRR: sin tearing y sin la latencia de V-Sync. Con Reflex activo, NVIDIA ya limita por debajo del refresco. |
+| **Overlays** [aviso] | Discord, RivaTuner, MSI Afterburner, Overwolf, Medal, overlay de NVIDIA, OBS, Game Bar, Wallpaper Engine. Se inyectan en el juego o compiten por la GPU. Se dice cómo quitar cada uno; no se cierran solos. |
+
+## Medir partida
+
+Archivo: `src/modules/game/gameplay_bench.ps1`.
+
+Mide tu partida real, no un benchmark sintético. Usa [PresentMon](https://github.com/GameTechDev/PresentMon) (Intel, MIT), que lee los eventos ETW de presentación de Windows: no se inyecta ni toca el proceso del juego. Es la misma base que usan CapFrameX y la app de Intel.
+
+1. Espera a que `cod.exe` esté abierto, deja 20 s para entrar en partida y graba 60 s.
+2. Calcula FPS medios ponderados por tiempo (frames / segundos), 1% y 0.1% lows (media de los frames más lentos), percentil 99, tirones (frames que tardan más del doble que el típico) y latencia de imagen si el driver la expone.
+3. Compara con la medición anterior. Si entre las dos se aplicó Hardline, la comparación es antes/después.
+4. Umbrales de ruido: 3 % en FPS medios, 5 % en 1% lows, 8 % en 0.1% lows, 0,3 puntos en tirones. Por debajo es "igual": dos partidas nunca dan lo mismo.
+
+La primera vez descarga PresentMon de su release oficial: comprueba el SHA256 que publica GitHub y la firma digital de Intel, y si algo no cuadra lo borra sin ejecutarlo. Necesita administrador (sesión ETW).
+
+---
+
 ## Mando
 
 Archivos: `src/modules/input/controller.ps1` y `controller_test.ps1`.

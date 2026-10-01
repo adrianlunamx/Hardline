@@ -19,9 +19,16 @@
     El juego debe estar cerrado: al salir reescribe el archivo.
 #>
 
-# Target: lowest | off | normal | <valor literal>
+# Target: lowest | off | normal | on | boost | exclusive | <valor literal>
 function Get-HLWarzoneRules {
-    param([int]$PhysicalCores)
+    param([int]$PhysicalCores, [string]$GpuVendor = '')
+    # Latencia: la opción de baja latencia del fabricante de tu GPU, desde el propio juego.
+    switch ($GpuVendor) {
+        'NVIDIA' { @{ Label = 'NVIDIA Reflex';     Target = 'boost'; Keys = @('NvidiaReflex', 'NVIDIAReflex', 'NvidiaReflexLowLatency', 'ReflexLowLatency', 'Reflex') } }
+        'AMD'    { @{ Label = 'AMD Anti-Lag 2';    Target = 'on';    Keys = @('AMDAntiLag2', 'AmdAntiLag2', 'AntiLag2', 'AMDAntiLag', 'AntiLag') } }
+        'Intel'  { @{ Label = 'Intel XeLL';        Target = 'on';    Keys = @('IntelXeLL', 'XeLL', 'XeLowLatency', 'IntelLowLatency') } }
+    }
+    @{ Label = 'Pantalla completa exclusiva'; Target = 'exclusive'; Keys = @('DisplayMode', 'WindowMode', 'FullscreenMode') }
     @(
         @{ Label = 'Texture Resolution';   Target = 'normal'; Keys = @('TextureQuality', 'TextureResolution') }
         @{ Label = 'Texture Filter';       Target = 'normal'; Keys = @('TextureFilter', 'TextureFilterQuality', 'AnisotropicFilter') }
@@ -96,6 +103,17 @@ function Resolve-HLCstValue {
             'normal' {
                 $pick = $opts | Where-Object { $_ -match '^(normal|medium)$' } | Select-Object -First 1
             }
+            'on' {
+                $pick = $opts | Where-Object { $_ -match '^(on|enabled|true)$' } | Select-Object -First 1
+            }
+            'boost' {
+                $pick = $opts | Where-Object { $_ -match 'boost' } | Select-Object -First 1
+                if (-not $pick) { $pick = $opts | Where-Object { $_ -match '^(on|enabled|true)$' } | Select-Object -First 1 }
+            }
+            'exclusive' {
+                $pick = $opts | Where-Object { $_ -match 'exclusive' -and $_ -notmatch 'borderless|window' } | Select-Object -First 1
+                if (-not $pick) { $pick = $opts | Where-Object { $_ -match '^full ?screen$' } | Select-Object -First 1 }
+            }
             default {
                 $pick = $opts | Where-Object { $_ -eq $Target } | Select-Object -First 1
             }
@@ -123,10 +141,13 @@ function Resolve-HLCstValue {
         switch ($Target) {
             'off'    { return 'false' }
             'lowest' { return 'false' }
+            'on'     { return 'true' }
+            'boost'  { return 'true' }
             default  { return $null }
         }
     }
     if ($raw -match '^[01]$' -and $Target -in @('off', 'lowest')) { return '0' }
+    if ($raw -match '^[01]$' -and $Target -in @('on', 'boost')) { return '1' }
 
     # Numérico sin rango: solo se acepta un literal explícito.
     if ($Target -match '^-?\d+(\.\d+)?$' -and $raw -match '^-?\d+(\.\d+)?$') { return $Target }
@@ -224,7 +245,7 @@ function Invoke-HLWarzone {
     # El juego actual escribe el .cst más reciente; los de temporadas anteriores se ignoran.
     $cst = Get-ChildItem -Path $dir -Filter 'options*.cst' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($cst) {
-        $res = Update-HLCstFile -Path $cst.FullName -Rules (Get-HLWarzoneRules -PhysicalCores $cores)
+        $res = Update-HLCstFile -Path $cst.FullName -Rules (Get-HLWarzoneRules -PhysicalCores $cores -GpuVendor $(if ($Hardware.GPU.Primary) { $Hardware.GPU.Primary.Vendor } else { '' }))
         foreach ($c in $res.Changes) {
             Write-HLInfo ('{0,-22} {1} -> {2}' -f $c.Label, $c.From, $c.To)
             Add-HLResult -Module 'Warzone' -Item $c.Label -Status Applied -Detail "$($c.Key): $($c.From) -> $($c.To)"

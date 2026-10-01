@@ -84,13 +84,15 @@ cd Hardline
 | `-Experimental` | Aplicar también los tweaks experimentales |
 | `-SkipLatency` `-SkipNetDiag` | Omitir latencia avanzada / diagnóstico de red |
 | `-SkipController` | Omitir el módulo de mando |
+| `-SkipDisplay` | Omitir el módulo de pantalla |
+| `-GameplayBenchOnly` | Solo medir una partida real (FPS, 1% lows, tirones) y comparar |
 | `-ControllerTestOnly` | Solo el test de mando (drift, zona muerta, Hz) |
 
 </details>
 
 ### Interfaz gráfica
 
-Tras la primera instalación aparece **Inicio > Hardline > Hardline**: una ventana con los módulos en casillas, opciones (plataforma, headset, modo de audio, intensidad) y botones para **Simular**, **Aplicar**, **Revertir**, **Diagnóstico de red**, **Benchmark**, **Test de pasos** y **Test de mando**, con la salida en directo. También con `install.ps1 -Gui`. Ejecuta exactamente el mismo código que la consola.
+Tras la primera instalación aparece **Inicio > Hardline > Hardline**: una ventana con los módulos en casillas, opciones (plataforma, headset, modo de audio, intensidad) y botones para **Simular**, **Aplicar**, **Medir partida**, **Revertir**, **Diagnóstico de red**, **Benchmark**, **Test de pasos** y **Test de mando**, con la salida en directo. También con `install.ps1 -Gui`. Ejecuta exactamente el mismo código que la consola.
 
 ### Qué pasa al ejecutarlo
 
@@ -109,6 +111,7 @@ flowchart LR
 
 | Área | Automático | Te lo deja en el reporte |
 |---|---|---|
+| **Pantalla** | Monitor por debajo de su refresco máximo (144 Hz funcionando a 60): se sube. Optimizaciones para juegos en ventana y VRR. Aviso de overlays (Discord, RivaTuner, Overwolf, Medal...) | Límite de FPS para FreeSync/G-SYNC calculado con tu refresco |
 | **Plataformas** | Eliges desde dónde juegas (Battle.net, Steam, Xbox app). Las que no usas: procesos cerrados, sin arranque automático, servicios deshabilitados | |
 | **Modo partida** | Solo con Warzone abierto: pausa servicios de fondo, baja la prioridad de navegadores y launchers, activa el plan de energía máximo. Al cerrar el juego, todo vuelve | |
 | **Windows** | Servicios de fondo, Game DVR off, Game Mode on, MMCSS, Ultimate Performance, timer 0.5 ms, widgets/Cortana fuera | LatencyMon si hay picos DPC |
@@ -120,7 +123,7 @@ flowchart LR
 | **Red** | DNS 1.1.1.1, EEE/Green Ethernet off, autotuning, QoS DSCP 46 para `cod.exe` | SQM en el router si hay bufferbloat |
 | **Diagnóstico de red** | Pérdida y jitter al router y a Internet por separado, bufferbloat bajo carga (nota A+ a F), MTU | Qué falla y dónde: casa o proveedor |
 | **Mando** | Detecta mando y conexión; ahorro de energía USB off en el mando y su hub; avisa de Bluetooth y de capas de remapeo (DS4Windows, reWASD, Steam Input...); zona muerta de gatillos 0, vibración off. Test de drift y Hz | Zona muerta de sticks según el test, cable o adaptador oficial |
-| **Warzone** | Ajustes gráficos en `options.*.cst` / `adv_options.ini`, validados contra el propio archivo | FOV, brillo, Anti-Lag 2 |
+| **Warzone** | Ajustes gráficos en `options.*.cst` / `adv_options.ini`, validados contra el propio archivo. Reflex + Boost, Anti-Lag 2 o XeLL según tu GPU; pantalla completa exclusiva | FOV, brillo, Anti-Lag 2 |
 | **Audio** | Corrección medida de tu headset + EQ de pasos + compresor/gate. `Ctrl+Alt+F10` enciende/apaga el EQ en partida y hay un test de pasos A/B | Enrutado de `cod.exe` en Windows |
 
 Lo que Hardline **no** hace, y por qué: [Lo que Hardline NO hace](docs/TWEAKS_EXPLAINED.md#lo-que-hardline-no-hace).
@@ -136,7 +139,13 @@ Referencia: Ryzen 5 7600X + RX 6650 XT, Warzone 1080p.
 | **Input lag** | Anti-Lag 2 en el juego, HAGS off, sin limitadores por software. |
 | **Audio** | Pasos a más distancia, explosiones que no lo tapan todo. |
 
-Hardline no publica cifras que no haya medido en tu equipo. Para medirlo: instala [CapFrameX](https://www.capframex.com/), graba 60 s en el mismo recorrido antes y después, y Hardline compara las capturas en el reporte.
+| **Fluidez visible** | Refresco del monitor al máximo: si estaba a 60 Hz en un monitor de 144, es el cambio más grande que vas a notar. |
+
+Hardline no publica cifras que no haya medido en tu equipo. Para verlo en el tuyo:
+
+1. **Medir partida** antes de aplicar (60 s jugando, en el campo de tiro o en un modo concreto).
+2. **Aplicar**, reiniciar.
+3. **Medir partida** otra vez en el mismo sitio. Sale la tabla antes/después de FPS, 1% lows y tirones, y si la diferencia es real o ruido entre partidas.
 
 ## Audio: pasos claros, explosiones controladas
 

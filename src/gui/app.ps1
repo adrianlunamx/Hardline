@@ -30,7 +30,7 @@ function ConvertTo-HLGuiArguments {
     $a = New-Object System.Collections.Generic.List[string]
     $a.Add('-Unattended')
     if ($DryRun) { $a.Add('-DryRun') }
-    $map = [ordered]@{ Windows = '-SkipWindows'; Platforms = '-SkipPlatforms'; Latency = '-SkipLatency'; Network = '-SkipNetwork'
+    $map = [ordered]@{ Windows = '-SkipWindows'; Display = '-SkipDisplay'; Platforms = '-SkipPlatforms'; Latency = '-SkipLatency'; Network = '-SkipNetwork'
         NetDiag = '-SkipNetDiag'; Game = '-SkipGame'; Controller = '-SkipController'; Audio = '-SkipAudio'; Bench = '-SkipBenchmark' }
     foreach ($k in $map.Keys) { if (-not $State[$k]) { $a.Add($map[$k]) } }
     $a.Add('-GameSession'); $a.Add($(if ($State.Session) { 'Yes' } else { 'No' }))
@@ -71,7 +71,7 @@ function Show-HLGui {
     $ui.txtVersion.Text = "v$HLVersion  ·  $Root"
 
     $script:job = $null      # @{ Process; LogPath; Position; OnExit }
-    $buttons = @('btnApply', 'btnDryRun', 'btnRollback', 'btnNetDiag', 'btnBench', 'btnFootstep', 'btnControllerTest')
+    $buttons = @('btnApply', 'btnDryRun', 'btnRollback', 'btnNetDiag', 'btnBench', 'btnFootstep', 'btnControllerTest', 'btnGameplay')
 
     $setBusy = {
         param([bool]$busy, [string]$status)
@@ -86,7 +86,7 @@ function Show-HLGui {
     }
     $getState = {
         @{
-            Windows = [bool]$ui.chkWindows.IsChecked; Platforms = [bool]$ui.chkPlatforms.IsChecked
+            Windows = [bool]$ui.chkWindows.IsChecked; Display = [bool]$ui.chkDisplay.IsChecked; Platforms = [bool]$ui.chkPlatforms.IsChecked
             Session = [bool]$ui.chkSession.IsChecked; Latency = [bool]$ui.chkLatency.IsChecked
             Network = [bool]$ui.chkNetwork.IsChecked; NetDiag = [bool]$ui.chkNetDiag.IsChecked
             Game = [bool]$ui.chkGame.IsChecked; Controller = [bool]$ui.chkController.IsChecked
@@ -168,6 +168,11 @@ function Show-HLGui {
     $ui.btnNetDiag.Add_Click({ & $startJob 'Diagnóstico de red' $install @('-NetDiagOnly') { & $openLatestReport } })
     $ui.btnBench.Add_Click({ & $startJob 'Benchmark' $install @('-BenchmarkOnly') $null })
     $ui.btnFootstep.Add_Click({ & $startJob 'Test de pasos' (Join-Path $Root 'src\audio\footstep_test.ps1') @() $null })
+    $ui.btnGameplay.Add_Click({
+            $msg = "Medir partida (60 s de juego real):`n`n1. Abre Warzone y entra en partida o en el campo de tiro.`n2. La medición empieza 20 s después de abrir el juego (suena un aviso) y dura 60 s.`n3. Juega con normalidad hasta el segundo aviso.`n`nPara comparar, mide antes y después de aplicar, en el mismo modo y mapa."
+            if ([System.Windows.MessageBox]::Show($msg, 'Hardline', 'OKCancel', 'Information') -ne 'OK') { return }
+            & $startJob 'Medir partida' (Join-Path $Root 'src\modules\game\gameplay_bench.ps1') @('-Root', $Root, '-NoOpen') { & $openLatestReport }
+        })
     $ui.btnControllerTest.Add_Click({
             [System.Windows.MessageBox]::Show("Test de mando (~15 s):`n`n1. Al empezar, suelta el mando y no lo toques (5 s).`n2. Cuando lo indique la salida, gira los dos sticks sin parar (5 s).`n`nLos resultados aparecen en el panel de salida.", 'Hardline') | Out-Null
             & $startJob 'Test de mando' (Join-Path $Root 'src\modules\input\controller_test.ps1') @() $null

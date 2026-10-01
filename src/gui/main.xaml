@@ -87,6 +87,7 @@
             <StackPanel>
               <TextBlock Text="MÓDULOS" Style="{StaticResource Section}"/>
               <CheckBox x:Name="chkWindows" IsChecked="True" Content="Windows: servicios, registro, energía, timer"/>
+              <CheckBox x:Name="chkDisplay" IsChecked="True" Content="Pantalla: refresco máximo, ventana, overlays"/>
               <CheckBox x:Name="chkPlatforms" IsChecked="True" Content="Plataformas de juego"/>
               <CheckBox x:Name="chkSession" IsChecked="True" Content="Modo partida"/>
               <CheckBox x:Name="chkLatency" IsChecked="True" Content="Latencia avanzada: modo MSI, NIC"/>
@@ -141,6 +142,7 @@
     <DockPanel Grid.Column="2">
       <WrapPanel DockPanel.Dock="Top">
         <Button x:Name="btnApply" Content="Aplicar" Style="{StaticResource Primary}"/>
+        <Button x:Name="btnGameplay" Content="Medir partida"/>
         <Button x:Name="btnDryRun" Content="Simular (DryRun)"/>
         <Button x:Name="btnRollback" Content="Revertir última sesión"/>
         <Button x:Name="btnNetDiag" Content="Diagnóstico de red"/>

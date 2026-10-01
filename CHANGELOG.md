@@ -2,6 +2,17 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.5.0] - 2026-10-01
+
+Enfocada en lo que se nota al jugar y en poder demostrarlo.
+
+### Añadido
+
+- **Medir partida**: mide 60 s de tu partida real de Warzone con PresentMon (Intel): FPS medios, 1% y 0.1% lows, tirones y latencia de imagen si el driver la da. Cada medición se compara con la anterior; si entre medio aplicaste Hardline, es antes/después, con veredicto que separa una mejora real del ruido entre partidas. Reporte HTML. PresentMon se descarga de su release oficial y se comprueban el SHA256 de GitHub y la firma de Intel antes de ejecutarlo. Botón en la interfaz y `-GameplayBenchOnly`.
+- **Pantalla**: detecta monitores funcionando por debajo de su refresco máximo (el típico 144 Hz a 60 Hz) y los sube, probando el modo antes de aplicarlo; revertible. Optimizaciones para juegos en ventana (Windows 11) y VRR en ventana. Límite de FPS recomendado para FreeSync/G-SYNC calculado con tu refresco. `-SkipDisplay`.
+- **Overlays**: avisa de Discord, RivaTuner, MSI Afterburner, Overwolf, Medal, overlay de NVIDIA, OBS, Game Bar y Wallpaper Engine en ejecución, con cómo quitar cada uno.
+- **Warzone**: la opción de baja latencia de tu GPU en el propio juego (NVIDIA Reflex + Boost, AMD Anti-Lag 2 o Intel XeLL) y pantalla completa exclusiva, si tu archivo de configuración las tiene.
+
 ## [1.4.0] - 2026-10-01
 
 ### Añadido

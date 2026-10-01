@@ -45,6 +45,11 @@
     Aplica tambien los tweaks experimentales (desactivados por defecto).
 .PARAMETER NetDiagOnly
     Solo ejecuta el diagnostico de red (perdida, jitter, bufferbloat, MTU).
+.PARAMETER SkipDisplay
+    No toca la pantalla (refresco, optimizaciones de ventana, overlays).
+.PARAMETER GameplayBenchOnly
+    Solo mide una partida real de Warzone con PresentMon (FPS, 1% lows,
+    tirones) y la compara con la medicion anterior.
 .PARAMETER SkipController
     No toca nada del mando (energia USB, ajustes de mando de Warzone).
 .PARAMETER ControllerTestOnly
@@ -69,6 +74,8 @@ param(
     [switch] $Experimental,
     [switch] $NetDiagOnly,
     [switch] $SkipController,
+    [switch] $SkipDisplay,
+    [switch] $GameplayBenchOnly,
     [switch] $ControllerTestOnly,
     [switch] $Gui,
     [switch] $DisableOtherPlatforms,
@@ -244,7 +251,7 @@ if (-not $localRoot) {
 
     if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null }
     # Se conserva lo generado en ejecuciones anteriores (backups, reports, logs, headsets, config).
-    $keep = @('backups', 'reports', 'logs', 'headsets', 'config')
+    $keep = @('backups', 'reports', 'logs', 'headsets', 'config', 'tools')
     Get-ChildItem $extracted.FullName -Force | Where-Object { $_.Name -notin $keep } | ForEach-Object {
         Copy-Item -Path $_.FullName -Destination $InstallDir -Recurse -Force
     }
@@ -282,6 +289,12 @@ $ErrorActionPreference = 'Continue'
 if ($Gui) {
     Install-HLAppShortcut -Root $HLRoot | Out-Null
     & (Join-Path $HLRoot 'src\gui\app.ps1') -Root $HLRoot
+    return
+}
+
+if ($GameplayBenchOnly) {
+    & (Join-Path $HLRoot 'src\modules\game\gameplay_bench.ps1') -Root $HLRoot
+    if (-not $Unattended) { Read-Host 'Pulsa Enter para cerrar' | Out-Null }
     return
 }
 
@@ -371,6 +384,7 @@ $explicit = $PSBoundParameters.Keys | Where-Object { $_ -like 'Skip*' -or $_ -in
 if (-not $explicit) {
     $menu = Read-HLChecklist -Title 'Que quieres aplicar' -Items @(
         [pscustomobject]@{ Key = 'windows';   Label = 'Windows: servicios, registro, plan de energia, timer'; Default = $true }
+        [pscustomobject]@{ Key = 'display';   Label = 'Pantalla: refresco maximo del monitor, optimizaciones de ventana, overlays'; Default = $true }
         [pscustomobject]@{ Key = 'platforms'; Label = 'Plataformas: cerrar las que no usas (Battle.net, Steam, Xbox)'; Default = $true }
         [pscustomobject]@{ Key = 'session';   Label = 'Modo partida: pausar lo innecesario solo con Warzone abierto'; Default = $true }
         [pscustomobject]@{ Key = 'latency';   Label = 'Latencia avanzada: modo MSI (GPU, red, USB), interrupciones de la NIC'; Default = $true }
@@ -384,6 +398,7 @@ if (-not $explicit) {
     )
     $SkipWindows = -not $menu['windows']
     $SkipPlatforms = -not $menu['platforms']
+    $SkipDisplay = -not $menu['display']
     $GameSession = if ($menu['session']) { 'Yes' } else { 'No' }
     $SkipNetwork = -not $menu['network']
     $SkipLatency = -not $menu['latency']
@@ -431,7 +446,7 @@ if (-not $SkipBenchmark) {
 
 # --- Optimizaciones --------------------------------------------------------------
 Invoke-HLOptimization -Hardware $hw -SkipWindows:$SkipWindows -SkipNetwork:$SkipNetwork -SkipGame:$SkipGame `
-    -SkipPlatforms:$SkipPlatforms -SkipLatency:$SkipLatency -Experimental:$Experimental -SkipNetDiag:$SkipNetDiag -SkipController:$SkipController `
+    -SkipPlatforms:$SkipPlatforms -SkipLatency:$SkipLatency -Experimental:$Experimental -SkipNetDiag:$SkipNetDiag -SkipController:$SkipController -SkipDisplay:$SkipDisplay `
     -DisableOtherPlatforms:$DisableOtherPlatforms -Platform $Platform -GameSession $GameSession
 
 # --- Audio ---------------------------------------------------------------------
