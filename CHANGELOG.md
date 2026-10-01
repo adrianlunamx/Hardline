@@ -2,6 +2,13 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.10.1] - 2026-10-01
+
+### Cambiado
+
+- **Actualizar sin cerrar la interfaz**: el botón descarga y verifica la versión nueva en segundo plano, con el progreso en el panel de salida. Las acciones (Aplicar, Benchmark, Medir partida...) usan la versión nueva al momento; la ventana se renueva la próxima vez que se abra. `install.ps1 -UpdateOnly` hace lo mismo en consola.
+- La interfaz vuelve a comprobar si hay versión nueva cada 30 minutos mientras está abierta.
+
 ## [1.10.0] - 2026-10-01
 
 ### Añadido

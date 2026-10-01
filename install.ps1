@@ -56,6 +56,9 @@
 .PARAMETER AudioDynamics
     Compresor del canal del juego: normal, o pasos (disparos y explosiones
     mucho mas bajos, pasos muy altos). Sin el, se mantiene el ultimo elegido.
+.PARAMETER UpdateOnly
+    Como -Update, pero solo actualiza los archivos y termina (lo usa el boton
+    Actualizar de la interfaz sin cerrarla).
 .PARAMETER CleanAudio
     Si hay un audio personalizado anterior (Peace, FxSound, Boom 3D...),
     desinstalarlo sin preguntar. Sin este parametro, en modo desatendido
@@ -94,6 +97,7 @@ param(
     [string] $AudioDevice = '',
     [ValidateSet('', 'normal', 'pasos')] [string] $AudioDynamics = '',
     [switch] $Update,
+    [switch] $UpdateOnly,
     [switch] $GameplayBenchOnly,
     [switch] $ControllerTestOnly,
     [switch] $Gui,
@@ -205,7 +209,7 @@ if (-not $isAdmin) {
 
 # -Update desde la copia local: mismo camino que "irm | iex", sobre esta carpeta.
 # Se quita de los parametros reenviados para que el install.ps1 nuevo no vuelva a actualizar.
-if ($Update) {
+if ($Update -or $UpdateOnly) {
     if ($localRoot) {
         if (-not $InstallDir) { $InstallDir = $localRoot }
         $localRoot = $null
@@ -301,6 +305,12 @@ if (-not $localRoot) {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
     Write-Host "[+] Instalado ($source). Para revertir mas tarde: $InstallDir\rollback.ps1" -ForegroundColor Green
 
+    # Solo actualizar: los archivos nuevos ya estan; nada mas que ejecutar.
+    if ($UpdateOnly) {
+        $newVer = Select-String -Path (Join-Path $InstallDir 'src\core\common.ps1') -Pattern "HLVersion = '([^']+)'" | Select-Object -First 1
+        if ($newVer) { Write-Host ("[+] Hardline actualizado a v{0}." -f $newVer.Matches[0].Groups[1].Value) -ForegroundColor Green }
+        return
+    }
     & (Join-Path $InstallDir 'install.ps1') @bound
     return
 }

@@ -653,7 +653,9 @@ try {
     Assert-True ($setupSrc -match 'Wait-Job \$job -Timeout 90' -and $setupSrc -match 'Stop-Job') 'fase tras reiniciar: tiempo límite, la ventana no se queda colgada'
     Assert-True ((Test-HLUpdateAvailable -Latest 'v1.9.0' -Current '1.8.3') -and -not (Test-HLUpdateAvailable -Latest 'v1.8.3' -Current '1.8.3') -and -not (Test-HLUpdateAvailable -Latest '' -Current '1.8.3') -and -not (Test-HLUpdateAvailable -Latest 'STAR' -Current '1.8.3') -and (Test-HLUpdateAvailable -Latest 'v1.10.0' -Current '1.9.0')) 'actualización: solo si la release es más nueva (tags raros o vacíos no)'
     $instU = Get-Content (Join-HLPath @($root, 'install.ps1')) -Raw
-    Assert-True ('Update' -in $instParams -and $instU -match "\[void\]\`$bound\.Remove\('Update'\)" -and $appSrc -match "'-Update', '-Gui'" -and 'btnUpdate' -in $xamlNames) 'botón Actualizar: install.ps1 -Update sin bucle y reapertura de la interfaz'
+    Assert-True ((Get-HLInstalledVersion -Root $root) -eq $HLVersion -and (Get-HLInstalledVersion -Root (Join-Path $tmp 'no_existe')) -eq '') 'versión instalada leída del disco'
+    Assert-True ('UpdateOnly' -in $instParams -and $instU -match 'if \(\$UpdateOnly\) \{' -and $appSrc -match "@\('-UpdateOnly'\)" -and $appSrc -notmatch '\$window\.Close\(\)\s*\r?\n\s*\}\)\s*\r?\n\s*\$ui\.btnReport' -and $appSrc -match '7200') 'actualizar sin cerrar la ventana y comprobación cada 30 min'
+    Assert-True ('Update' -in $instParams -and $instU -match "\[void\]\`$bound\.Remove\('Update'\)" -and 'btnUpdate' -in $xamlNames) 'install.ps1 -Update sin bucle (se quita de los parámetros reenviados)'
     Assert-True ($appSrc -match 'gui_error\.log' -and $appSrc -match 'La interfaz no pudo abrirse') 'interfaz: si falla al abrir, enseña el error y lo guarda'
     Assert-True ('CleanAudio' -in $instParams -and 'chkCleanAudio' -in $xamlNames -and ((ConvertTo-HLGuiArguments -State @{ Audio = $true; CleanAudio = $true }) -contains '-CleanAudio') -and -not ((ConvertTo-HLGuiArguments -State @{ Audio = $false; CleanAudio = $true }) -contains '-CleanAudio')) 'interfaz e instalador: -CleanAudio solo con audio marcado'
 } finally {

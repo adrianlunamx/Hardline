@@ -50,6 +50,16 @@ function ConvertTo-HLGuiArguments {
     return $a.ToArray()
 }
 
+# Versión instalada en disco (puede ser más nueva que la de esta ventana tras actualizar).
+function Get-HLInstalledVersion {
+    param([Parameter(Mandatory)] [string] $Root)
+    $f = Join-Path $Root 'src\core\common.ps1'
+    if (-not (Test-Path $f)) { return '' }
+    $m = Select-String -Path $f -Pattern "HLVersion = '([^']+)'" | Select-Object -First 1
+    if ($m) { return $m.Matches[0].Groups[1].Value }
+    return ''
+}
+
 # ¿La release publicada es más nueva que la instalada? Sin dato = no.
 function Test-HLUpdateAvailable {
     param([string] $Latest, [string] $Current)
@@ -232,31 +242,40 @@ function Show-HLGui {
         } catch { }
     }
 
-    # Versión nueva: se consulta en segundo plano para no retrasar la ventana.
+    # Versión nueva: se consulta en segundo plano al abrir y cada 30 minutos mientras
+    # la ventana siga abierta, sin retrasarla.
     $script:updJob = $null
     $script:updTag = ''
-    try {
-        $script:updJob = Start-Job -ArgumentList $HLRepo -ScriptBlock {
-            param($repo)
-            try {
-                [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-                (Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -TimeoutSec 8 -UseBasicParsing -Headers @{ 'User-Agent' = 'Hardline' }).tag_name
-            } catch { '' }
-        }
-    } catch { Write-HLLog DEBUG 'Sin comprobación de versión' }
+    $script:installedVersion = $HLVersion
+    $script:updTicks = 0
+    $startUpdateCheck = {
+        if ($script:updJob) { return }
+        try {
+            $script:updJob = Start-Job -ArgumentList $HLRepo -ScriptBlock {
+                param($repo)
+                try {
+                    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+                    (Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -TimeoutSec 8 -UseBasicParsing -Headers @{ 'User-Agent' = 'Hardline' }).tag_name
+                } catch { '' }
+            }
+        } catch { Write-HLLog DEBUG 'Sin comprobación de versión' }
+    }
+    & $startUpdateCheck
 
     $timer = New-Object System.Windows.Threading.DispatcherTimer
     $timer.Interval = [TimeSpan]::FromMilliseconds(250)
     $timer.Add_Tick({
+            $script:updTicks++
+            if ($script:updTicks -ge 7200) { $script:updTicks = 0; & $startUpdateCheck }   # 7200 x 250 ms = 30 min
             if ($script:updJob -and $script:updJob.State -ne 'Running') {
                 $tag = "$(Receive-Job $script:updJob -ErrorAction SilentlyContinue | Select-Object -Last 1)"
                 Remove-Job $script:updJob -Force -ErrorAction SilentlyContinue
                 $script:updJob = $null
-                if (Test-HLUpdateAvailable -Latest $tag -Current $HLVersion) {
+                if (Test-HLUpdateAvailable -Latest $tag -Current $script:installedVersion) {
                     $script:updTag = $tag
                     $ui.btnUpdate.Content = "Actualizar a $tag"
                     $ui.btnUpdate.Visibility = 'Visible'
-                    $ui.txtVersion.Text = "v$HLVersion  ·  hay una versión nueva: $tag"
+                    $ui.txtVersion.Text = "v$($script:installedVersion)  ·  hay una versión nueva: $tag"
                 }
             }
             if (-not $script:job) { return }
@@ -308,11 +327,21 @@ function Show-HLGui {
         })
     $ui.btnUpdate.Add_Click({
             if ($script:job) { [System.Windows.MessageBox]::Show('Espera a que termine la tarea en curso.', 'Hardline') | Out-Null; return }
-            $msg = "Se descarga Hardline $($script:updTag) (SHA256 verificado) encima de esta instalación. Backups, reportes, mediciones, perfiles y la guía se conservan.`n`nLa ventana se cierra y se vuelve a abrir actualizada. ¿Continuar?"
+            $msg = "Se descarga Hardline $($script:updTag) (SHA256 verificado) encima de esta instalación, sin cerrar la ventana. Backups, reportes, mediciones, perfiles y la guía se conservan.`n`n¿Continuar?"
             if ([System.Windows.MessageBox]::Show($msg, 'Hardline', 'YesNo', 'Question') -ne 'Yes') { return }
-            $ps = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-            Start-Process -FilePath $ps -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"{0}"' -f (Join-Path $Root 'install.ps1')), '-Update', '-Gui')
-            $window.Close()
+            $before = $script:installedVersion
+            & $startJob 'Actualizando' (Join-Path $Root 'install.ps1') @('-UpdateOnly') {
+                $now = Get-HLInstalledVersion -Root $Root
+                if ($now -and (Test-HLUpdateAvailable -Latest $now -Current $before)) {
+                    $script:installedVersion = $now
+                    $ui.btnUpdate.Visibility = 'Collapsed'
+                    # Las tareas (Aplicar, Benchmark...) arrancan procesos nuevos: ya usan la versión nueva.
+                    $ui.txtVersion.Text = "v$now  ·  instalada (esta ventana es de la v${HLVersion}: reábrela cuando quieras para ver los cambios de la interfaz)"
+                    $ui.txtStatus.Text = "Actualizado a v$now. Los botones ya usan la versión nueva."
+                } else {
+                    $ui.txtStatus.Text = 'No se pudo actualizar: revisa el panel de salida.'
+                }
+            }
         })
     $ui.btnReport.Add_Click({ & $openLatestReport })
     $ui.btnEqPanel.Add_Click({

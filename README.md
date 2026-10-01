@@ -92,7 +92,7 @@ cd Hardline
 
 ### Actualizar
 
-Botón **Actualizar** en la interfaz (aparece solo cuando hay versión nueva), o `install.ps1 -Update`. Descarga la última release con SHA256 verificado y conserva backups, reportes, mediciones, perfiles y el progreso de la guía.
+Botón **Actualizar** en la interfaz (aparece solo cuando hay versión nueva; se comprueba al abrir y cada 30 minutos). Actualiza sin cerrar la ventana. En consola, `install.ps1 -Update`. Descarga la última release con SHA256 verificado y conserva backups, reportes, mediciones, perfiles y el progreso de la guía.
 
 ### Interfaz gráfica
 
