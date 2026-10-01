@@ -33,5 +33,5 @@ Copia un bloque en `src/audio/profiles/headsets.json`, ajusta `match` y filtros,
 ## Publicar una versión
 
 1. Sube la versión en `src/core/common.ps1` (`$HLVersion`) y añade la entrada en `CHANGELOG.md`.
-2. `git tag vX.Y.Z && git push origin vX.Y.Z`.
+2. `git tag vX.Y.Z && git push origin vX.Y.Z`, o desde la web: Releases > *Draft a new release* > tag `vX.Y.Z` (crear al publicar) sobre `main` > *Publish*.
 3. El workflow valida, empaqueta `hardline-X.Y.Z.zip` + `.sha256` y publica la release con las notas del CHANGELOG. El instalador descarga siempre la última release y verifica su hash.
