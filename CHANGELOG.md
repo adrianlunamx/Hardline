@@ -2,6 +2,13 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.9.0] - 2026-10-01
+
+### Añadido
+
+- **Botón Actualizar** en la interfaz: al abrirla se comprueba en segundo plano si hay versión nueva; si la hay, aparece "Actualizar a vX". Descarga la release con SHA256 verificado encima de la instalación (backups, reportes, mediciones, perfiles y guía se conservan) y vuelve a abrir la interfaz.
+- `install.ps1 -Update`: lo mismo desde la consola, también ejecutado desde la copia local.
+
 ## [1.8.3] - 2026-10-01
 
 ### Añadido

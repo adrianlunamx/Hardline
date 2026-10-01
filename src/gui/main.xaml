@@ -79,6 +79,7 @@
           <TextBlock Text="HARDLINE" FontSize="22" FontWeight="Bold"/>
           <TextBlock x:Name="txtVersion" Text="v" Foreground="{StaticResource Muted}" FontSize="12"/>
         </StackPanel>
+        <Button x:Name="btnUpdate" Visibility="Collapsed" Margin="16,0,0,0" VerticalAlignment="Center" Content="Actualizar" Style="{StaticResource Primary}"/>
       </StackPanel>
 
       <ScrollViewer VerticalScrollBarVisibility="Auto">

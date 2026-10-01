@@ -90,6 +90,10 @@ cd Hardline
 
 </details>
 
+### Actualizar
+
+Botón **Actualizar** en la interfaz (aparece solo cuando hay versión nueva), o `install.ps1 -Update`. Descarga la última release con SHA256 verificado y conserva backups, reportes, mediciones, perfiles y el progreso de la guía.
+
 ### Interfaz gráfica
 
 Tras la primera instalación aparece **Inicio > Hardline > Hardline**: una ventana con los módulos en casillas, opciones (plataforma, headset, modo de audio, intensidad) y botones para **Simular**, **Aplicar**, **Medir partida**, **Guía de pasos**, **Revertir**, **Diagnóstico de red**, **Benchmark**, **Test de pasos** y **Test de mando**, con la salida en directo. También con `install.ps1 -Gui`. Ejecuta exactamente el mismo código que la consola.

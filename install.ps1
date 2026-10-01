@@ -45,6 +45,10 @@
     Aplica tambien los tweaks experimentales (desactivados por defecto).
 .PARAMETER NetDiagOnly
     Solo ejecuta el diagnostico de red (perdida, jitter, bufferbloat, MTU).
+.PARAMETER Update
+    Descarga la ultima release (SHA256 verificado) encima de esta instalacion,
+    aunque se ejecute desde la copia local. Conserva backups, reportes y
+    configuracion. Con -Gui vuelve a abrir la interfaz al terminar.
 .PARAMETER CleanAudio
     Si hay un audio personalizado anterior (Peace, FxSound, Boom 3D...),
     desinstalarlo sin preguntar. Sin este parametro, en modo desatendido
@@ -80,6 +84,7 @@ param(
     [switch] $SkipController,
     [switch] $SkipDisplay,
     [switch] $CleanAudio,
+    [switch] $Update,
     [switch] $GameplayBenchOnly,
     [switch] $ControllerTestOnly,
     [switch] $Gui,
@@ -187,6 +192,16 @@ if (-not $isAdmin) {
         Write-Host '[x] Elevacion cancelada. Abre PowerShell como administrador y vuelve a ejecutar el comando.' -ForegroundColor Red
     }
     return
+}
+
+# -Update desde la copia local: mismo camino que "irm | iex", sobre esta carpeta.
+# Se quita de los parametros reenviados para que el install.ps1 nuevo no vuelva a actualizar.
+if ($Update) {
+    if ($localRoot) {
+        if (-not $InstallDir) { $InstallDir = $localRoot }
+        $localRoot = $null
+    }
+    [void]$bound.Remove('Update')
 }
 
 # ---------------------------------------------------------------------------

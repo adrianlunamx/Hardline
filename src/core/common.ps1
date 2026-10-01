@@ -13,7 +13,7 @@
 
 # Sin StrictMode: WMI/CIM devuelve propiedades opcionales según fabricante y driver.
 
-$Global:HLVersion = '1.8.3'
+$Global:HLVersion = '1.9.0'
 $Global:HLRepo = 'adrianlunamx/Hardline'
 
 # --------------------------------------------------------------------------
@@ -478,7 +478,7 @@ function Show-HLUpdateNotice {
     try {
         if ((Compare-HLVersion $latest.Tag $HLVersion) -gt 0) {
             Write-HLWarn "Hay una versión nueva: $($latest.Tag) (tienes $HLVersion). Notas: $($latest.Url)"
-            Write-HLInfo 'Actualizar: vuelve a ejecutar el comando de instalación (irm ... | iex). Tus backups y perfiles se conservan.'
+            Write-HLInfo 'Actualizar: botón "Actualizar" de la interfaz, o install.ps1 -Update. Tus backups y perfiles se conservan.'
         }
     } catch { Write-HLLog DEBUG "Versión no comparable: $($latest.Tag)" }
 }

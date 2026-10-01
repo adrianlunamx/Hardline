@@ -30,6 +30,12 @@ Porque faltaban permisos de administrador (se abre con UAC) o porque lo lanzaste
 
 Sí. Lo que ya tiene el valor objetivo se omite y no se registra. Cada ejecución crea su propia sesión en `backups/`. Para revertir todo, revierte de la más nueva a la más antigua (`rollback.ps1` sin parámetros coge siempre la más nueva pendiente).
 
+## Actualizar
+
+**¿Cómo actualizo Hardline?**
+
+Con el botón **Actualizar** de la interfaz: aparece arriba, junto a la versión, cuando hay una nueva. También `install.ps1 -Update` desde la carpeta de Hardline, o el comando de instalación de siempre. Todo lo tuyo (backups, reportes, mediciones, perfiles de headset, progreso de la guía) se conserva.
+
 ## Rollback
 
 **¿Qué revierte exactamente?**

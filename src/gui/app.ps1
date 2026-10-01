@@ -47,6 +47,13 @@ function ConvertTo-HLGuiArguments {
     return $a.ToArray()
 }
 
+# ¿La release publicada es más nueva que la instalada? Sin dato = no.
+function Test-HLUpdateAvailable {
+    param([string] $Latest, [string] $Current)
+    if (-not $Latest -or $Latest -notmatch '^v?\d+(\.\d+)*$') { return $false }
+    try { return ((Compare-HLVersion $Latest $Current) -gt 0) } catch { return $false }
+}
+
 # Comilla cada argumento para una línea -Command de powershell.exe.
 function ConvertTo-HLCommandLine {
     param([Parameter(Mandatory)] [string] $Script, [string[]] $Arguments)
@@ -208,9 +215,33 @@ function Show-HLGui {
         } catch { }
     }
 
+    # Versión nueva: se consulta en segundo plano para no retrasar la ventana.
+    $script:updJob = $null
+    $script:updTag = ''
+    try {
+        $script:updJob = Start-Job -ArgumentList $HLRepo -ScriptBlock {
+            param($repo)
+            try {
+                [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+                (Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -TimeoutSec 8 -UseBasicParsing -Headers @{ 'User-Agent' = 'Hardline' }).tag_name
+            } catch { '' }
+        }
+    } catch { Write-HLLog DEBUG 'Sin comprobación de versión' }
+
     $timer = New-Object System.Windows.Threading.DispatcherTimer
     $timer.Interval = [TimeSpan]::FromMilliseconds(250)
     $timer.Add_Tick({
+            if ($script:updJob -and $script:updJob.State -ne 'Running') {
+                $tag = "$(Receive-Job $script:updJob -ErrorAction SilentlyContinue | Select-Object -Last 1)"
+                Remove-Job $script:updJob -Force -ErrorAction SilentlyContinue
+                $script:updJob = $null
+                if (Test-HLUpdateAvailable -Latest $tag -Current $HLVersion) {
+                    $script:updTag = $tag
+                    $ui.btnUpdate.Content = "Actualizar a $tag"
+                    $ui.btnUpdate.Visibility = 'Visible'
+                    $ui.txtVersion.Text = "v$HLVersion  ·  hay una versión nueva: $tag"
+                }
+            }
             if (-not $script:job) { return }
             & $readNew
             if ($script:job.Process.HasExited) {
@@ -257,6 +288,14 @@ function Show-HLGui {
     $ui.btnControllerTest.Add_Click({
             [System.Windows.MessageBox]::Show("Test de mando (~15 s):`n`n1. Al empezar, suelta el mando y no lo toques (5 s).`n2. Cuando lo indique la salida, gira los dos sticks sin parar (5 s).`n`nLos resultados aparecen en el panel de salida.", 'Hardline') | Out-Null
             & $startJob 'Test de mando' (Join-Path $Root 'src\modules\input\controller_test.ps1') @() $null
+        })
+    $ui.btnUpdate.Add_Click({
+            if ($script:job) { [System.Windows.MessageBox]::Show('Espera a que termine la tarea en curso.', 'Hardline') | Out-Null; return }
+            $msg = "Se descarga Hardline $($script:updTag) (SHA256 verificado) encima de esta instalación. Backups, reportes, mediciones, perfiles y la guía se conservan.`n`nLa ventana se cierra y se vuelve a abrir actualizada. ¿Continuar?"
+            if ([System.Windows.MessageBox]::Show($msg, 'Hardline', 'YesNo', 'Question') -ne 'Yes') { return }
+            $ps = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+            Start-Process -FilePath $ps -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"{0}"' -f (Join-Path $Root 'install.ps1')), '-Update', '-Gui')
+            $window.Close()
         })
     $ui.btnReport.Add_Click({ & $openLatestReport })
     $ui.btnEqPanel.Add_Click({
