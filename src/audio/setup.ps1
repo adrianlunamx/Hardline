@@ -491,13 +491,15 @@ function Invoke-HLAudioSetup {
         }
     }
 
-    # --- Nombres de VB-CABLE ------------------------------------------------------
-    # Otros programas los renombran ("Art Tune +"): las instrucciones dejan de
-    # coincidir y Voicemeeter no encuentra "CABLE Output" por su nombre.
+    # --- Nombres e iconos de VB-CABLE y Voicemeeter --------------------------------
+    # Otros programas los renombran ("Art Tune +", "Virtual Mix"): las instrucciones
+    # dejan de coincidir y Voicemeeter no encuentra "CABLE Output" por su nombre.
     if (-not $HL.DryRun -and (Restore-HLCableNames) -gt 0) {
         # Voicemeeter lee la lista de dispositivos al arrancar: se reabre con los nombres nuevos.
         Get-Process -Name 'voicemeeter*' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     }
+    # Iconos que apuntaban a lo que la limpieza acaba de apartar (ProgramData\ArtTune).
+    [void](Restore-HLCableIcons)
 
     # --- EQ -----------------------------------------------------------------------
     $preset = Write-HLEqConfig -HeadsetProfile $hp -Intensity $Intensity

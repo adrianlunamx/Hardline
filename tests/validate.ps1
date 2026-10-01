@@ -632,6 +632,52 @@ try {
     Assert-True ((Test-Path (Join-Path $acfg 'antes_de_hardline\peace.txt')) -and (Test-Path (Join-Path $acfg 'antes_de_hardline\AutoEq\HD600.txt')) -and (Test-Path (Join-Path $acfg 'antes_de_hardline\config.txt'))) 'limpieza: copia visible en config\antes_de_hardline (config.txt incluido)'
     foreach ($e in @($HL.Manifest | Sort-Object { [int]$_.Seq } -Descending)) { [void](Undo-HLManifestEntry -Entry $e) }
     Assert-True (((Get-Content (Join-Path $acfg 'peace.txt') -Raw) -eq 'Preamp: -3 dB') -and (Test-Path (Join-Path $acfg 'AutoEq\HD600.txt')) -and (Test-Path (Join-Path $acfg 'hardline\warzone_footsteps_generic.txt'))) 'rollback devuelve el audio anterior a su sitio'
+
+    # Art Tune / HeSuVi: rastro detectado y apartado entero, y el rollback lo devuelve.
+    $at = Join-Path $tmp 'arttune'
+    $atCfg = Join-Path $at 'EqualizerAPO\config'; $atPd = Join-Path $at 'ProgramData'; $atPf = Join-Path $at 'ProgramFiles'; $atLa = Join-Path $at 'LocalAppData'
+    $atDesk = Join-Path $at 'Desktop'; $atDocs = Join-Path $at 'Documents'
+    foreach ($d in @("$atCfg\ArtTuneDB\library\BO7", "$atCfg\HeSuVi\hrir", "$atCfg\_backup_20260811", "$atCfg\AutoEq", "$atPd\ArtTune\icons", "$atPf\VSTPlugins\ArtTuneKit", "$atPf\VSTPlugins\ReaPlugs", "$atLa\Programs\LEQControlPanel", $atDesk, "$atDocs\Art Tune Backups", "$atDocs\Facturas")) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+    [IO.File]::WriteAllText("$atCfg\ArtTuneDB\boost.txt", 'Preamp: 0 dB'); [IO.File]::WriteAllText("$atCfg\HeSuVi\hesuvi.txt", 'Convolution: x'); [IO.File]::WriteAllText("$atPd\ArtTune\icons\ArtTuneCable.ico", 'x')
+    if ($onWindows) {
+        $wsh = New-Object -ComObject WScript.Shell
+        $l1 = $wsh.CreateShortcut("$atDesk\ArtTuneDB.lnk"); $l1.TargetPath = "$atCfg\ArtTuneDB"; $l1.Save()
+        $l2 = $wsh.CreateShortcut("$atDesk\Notas.lnk"); $l2.TargetPath = "$atDocs\Facturas"; $l2.Save()
+    }
+    $fpr = Get-HLArtTuneFootprint -ConfigDir $atCfg -ProgramData $atPd -ProgramFiles @($atPf) -LocalAppData $atLa -LinkDirs @($atDesk) -UserDirs @($atDocs)
+    $fpPaths = @($fpr.Items | ForEach-Object { $_.Path.Substring($at.Length + 1) } | Sort-Object)
+    $fpWant = @('EqualizerAPO\config\ArtTuneDB', 'EqualizerAPO\config\HeSuVi', 'EqualizerAPO\config\_backup_20260811', 'LocalAppData\Programs\LEQControlPanel', 'ProgramData\ArtTune', 'ProgramFiles\VSTPlugins\ArtTuneKit')
+    if ($onWindows) { $fpWant += 'Desktop\ArtTuneDB.lnk' }
+    Assert-True ($fpr.ArtTune -and (($fpPaths -join '|') -eq (($fpWant | Sort-Object) -join '|')) -and @($fpr.UserCopies).Count -eq 1 -and $fpr.UserCopies[0] -like '*Art Tune Backups') 'Art Tune: biblioteca, HeSuVi, copias, iconos, VST, LEQ y acceso directo (no ReaPlugs ni tus otros archivos)' ($fpPaths -join '|')
+    $hsOnly = Join-Path $tmp 'hesuvi_only'
+    New-Item -ItemType Directory -Path "$hsOnly\HeSuVi", "$hsOnly\_backup_20260101" -Force | Out-Null
+    $fph = Get-HLArtTuneFootprint -ConfigDir $hsOnly -ProgramData (Join-Path $tmp 'nada') -ProgramFiles @() -LocalAppData $atLa
+    Assert-True (-not $fph.ArtTune -and @($fph.Items).Count -eq 1 -and $fph.Items[0].Path -like '*\HeSuVi') 'HeSuVi sin Art Tune: solo HeSuVi (sin LEQ ni copias de otros)'
+    $invAt = [pscustomobject]@{ ConfigDir = $atCfg; ForeignConfig = $false; ForeignFiles = @(); StalePresets = @(); ApoDevices = @(); Enhancers = @(); VoicemeeterNoPotato = $false; Footprint = @($fpr.Items); UserCopies = @($fpr.UserCopies); Orphans = @() }
+    Assert-True (-not (Test-HLAudioInventoryClean -Inventory $invAt) -and (Test-HLAudioInventoryClean -Inventory ([pscustomobject]@{ ForeignConfig = $false; StalePresets = @(); ApoDevices = @(); Enhancers = @(); VoicemeeterNoPotato = $false }))) 'inventario: el rastro de Art Tune cuenta como audio anterior'
+    $HL.Manifest.Clear()
+    Invoke-HLAudioCleanup -Inventory $invAt
+    $leftAt = @($fpr.Items | Where-Object { Test-Path -LiteralPath $_.Path })
+    Assert-True ($leftAt.Count -eq 0 -and (Test-Path "$atPf\VSTPlugins\ReaPlugs") -and (Test-Path "$atDocs\Art Tune Backups") -and @($HL.Manifest | Where-Object { $_.Type -eq 'MovedPath' }).Count -eq @($fpr.Items).Count) 'limpieza: Art Tune apartado entero (ReaPlugs y tus documentos se quedan)' (($leftAt | ForEach-Object { $_.Path }) -join '; ')
+    foreach ($e in @($HL.Manifest | Sort-Object { [int]$_.Seq } -Descending)) { [void](Undo-HLManifestEntry -Entry $e) }
+    Assert-True (((Get-Content "$atCfg\ArtTuneDB\boost.txt" -Raw) -eq 'Preamp: 0 dB') -and (Test-Path "$atCfg\HeSuVi\hesuvi.txt") -and (Test-Path "$atPd\ArtTune\icons\ArtTuneCable.ico") -and (Test-Path "$atLa\Programs\LEQControlPanel")) 'rollback devuelve Art Tune / HeSuVi a su sitio'
+    $mvSrc = Join-Path $tmp 'mv_src'; New-Item -ItemType Directory -Path $mvSrc -Force | Out-Null
+    $HL.Manifest.Clear(); [void](Move-HLPathAside -Path $mvSrc); New-Item -ItemType Directory -Path $mvSrc -Force | Out-Null
+    $mvErr = $false; try { [void](Undo-HLManifestEntry -Entry $HL.Manifest[0]) } catch { $mvErr = $true }
+    Assert-True $mvErr 'rollback de algo apartado: no sobrescribe si ya hay otra cosa en su sitio'
+    . (Join-HLPath @($root, 'src', 'audio', 'endpoints.ps1'))
+    Assert-True ((Test-HLIconMissing 'C:\ProgramData\no_existe_hl\ArtTunePlusCable.ico,0') -and -not (Test-HLIconMissing '%windir%\System32\shell32.dll,-16') -and -not (Test-HLIconMissing 'G1.ico') -and -not (Test-HLIconMissing '')) 'icono de audio roto (apuntaba a ProgramData\ArtTune)'
+    if ($onWindows) {
+        $ok_ = 'HKCU:\Software\HardlineTest\Uninstall\PeaceHuerfano'
+        New-Item $ok_ -Force | Out-Null
+        New-ItemProperty -Path $ok_ -Name 'DisplayName' -Value 'Peace' -PropertyType String -Force | Out-Null
+        $HL.Manifest.Clear()
+        $rk = Remove-HLRegistryKey -Key 'HKEY_CURRENT_USER\Software\HardlineTest\Uninstall\PeaceHuerfano' -Reason 'test'
+        $gone = -not (Test-Path $ok_)
+        [void](Undo-HLManifestEntry -Entry $HL.Manifest[0])
+        Assert-True ($rk -and $gone -and ((Get-ItemProperty $ok_).DisplayName -eq 'Peace')) 'entrada huérfana de Aplicaciones: se quita con copia y el rollback la importa'
+        Remove-Item 'HKCU:\Software\HardlineTest' -Recurse -Force -ErrorAction SilentlyContinue
+    }
     $setupSrc = Get-Content (Join-HLPath @($root, 'src', 'audio', 'setup.ps1')) -Raw
     Assert-True ($setupSrc -match 'Get-HLAudioInventory' -and $setupSrc -match 'Invoke-HLAudioCleanup' -and $setupSrc -notmatch "Install-HLComponent -Name 'Peace'" -and $setupSrc -match 'Test-HLVoicemeeterPotato') 'audio: limpieza antes de instalar, sin instalar Peace, Voicemeeter Potato exigido'
     Assert-True ((@(Select-HLStalePresets -Names @('warzone_footsteps_x.txt', 'warzone_footsteps_x_70.txt', 'warzone_footsteps_y.txt') -Keep @('warzone_footsteps_x.txt', 'warzone_footsteps_x_70.txt')) -join '|') -eq 'warzone_footsteps_y.txt') 'limpieza: se conservan las dos intensidades del preset actual'
@@ -649,6 +695,11 @@ try {
     $realUn = [pscustomobject]@{ UninstallString = ('"{0}" /c' -f (Join-Path $env:SystemRoot 'System32\cmd.exe')); QuietUninstallString = '' }
     $msiUn = [pscustomobject]@{ UninstallString = 'MsiExec.exe /I{12345678-1234-1234-1234-123456789ABC}'; QuietUninstallString = '' }
     Assert-True (-not (Test-HLUninstallerPresent -Entry $orphan) -and (Test-HLUninstallerPresent -Entry $msiUn) -and (-not $onWindows -or (Test-HLUninstallerPresent -Entry $realUn))) 'desinstalador huérfano (Peace borrado a mano): no se intenta lanzar'
+    # InstallShield (Sound Blaster): RunDll32 + ruta entre comillas. Con .NET Framework IsPathRooted fallaba con las comillas y
+    # la entrada salía como huérfana: un programa instalado no se puede tomar por desaparecido.
+    $isUn = [pscustomobject]@{ UninstallString = 'RunDll32 C:\PROGRA~2\COMMON~1\InstallShield\Professional\RunTime\09\01\Intel32\Ctor.dll,LaunchSetup "C:\Program Files (x86)\InstallShield Installation Information\{181E01EF-AF4A-458D-A28C-2CB32CFF9A7F}\setup.exe" -l0x9  /remove'; QuietUninstallString = '' }
+    $odd = [pscustomobject]@{ UninstallString = '"C:\no_existe_hl"\setup.exe /x'; QuietUninstallString = '' }
+    Assert-True ((Test-HLUninstallerPresent -Entry $isUn) -and (Test-HLUninstallerPresent -Entry $odd)) 'desinstaladores raros (RunDll32, comillas): se dan por presentes, nunca por huérfanos'
     . (Join-HLPath @($root, 'src', 'audio', 'setup.ps1'))
     $oldRoot = $HL.Root; $HL.Root = $tmp
     try {
@@ -665,7 +716,7 @@ try {
     $vmPot = (New-HLVoicemeeterScript -XmlPath $vmXml -HeadsetDevice 'Speakers (Sound BlasterX G1)' -VoicemeeterType 3) -join ' '
     Assert-True ($vmStd -match 'Strip\[2\]\.Label="HL SISTEMA"' -and $vmStd -notmatch 'Strip\[5\]' -and $vmPot -match 'Strip\[5\]\.Label="HL SISTEMA"' -and $vmStd -match 'Strip\[0\]\.device\.wdm="CABLE Output \(VB-Audio Virtual Cable\)"') 'Voicemeeter: entrada virtual correcta en cada edición (básica 2, Potato 5)'
     . (Join-HLPath @($root, 'src', 'audio', 'endpoints.ps1'))
-    Assert-True ((Get-HLCableDefaultName 'VB-Audio Virtual Cable' 0) -eq 'CABLE Input' -and (Get-HLCableDefaultName 'VB-Audio Virtual Cable' 1) -eq 'CABLE Output' -and (Get-HLCableDefaultName 'VB-Audio Voicemeeter VAIO' 0) -eq '' -and (Get-HLCableDefaultName 'Sound BlasterX G1' 0) -eq '') 'nombres de fábrica de VB-CABLE (Voicemeeter y otros dispositivos no se tocan)'
+    Assert-True ((Get-HLCableDefaultName 'VB-Audio Virtual Cable' 0) -eq 'CABLE Input' -and (Get-HLCableDefaultName 'VB-Audio Virtual Cable' 1) -eq 'CABLE Output' -and (Get-HLCableDefaultName 'VB-Audio Voicemeeter VAIO' 0) -eq 'Voicemeeter Input' -and (Get-HLCableDefaultName 'VB-Audio Voicemeeter VAIO' 1) -eq 'Voicemeeter Output' -and (Get-HLCableDefaultName 'VB-Audio Voicemeeter AUX VAIO' 0) -eq '' -and (Get-HLCableDefaultName 'Sound BlasterX G1' 0) -eq '') 'nombres de fábrica de VB-CABLE y Voicemeeter ("Virtual Mix" -> "Voicemeeter Output"; AUX y otros dispositivos no se tocan)'
     $epOk = $true; try { Initialize-HLEndpointApi } catch { $epOk = $false }
     Assert-True ($epOk -and ('Hardline.AudioEndpoints' -as [type])) 'API de nombres de audio compila'
     $devs = @('HDMI (AMD High Definition Audio Device)', 'DP (AMD High Definition Audio Device)', 'Speakers (Sound BlasterX G1)')
@@ -696,7 +747,9 @@ try {
     $eqPanelSrc = Get-Content (Join-HLPath @($root, 'src', 'gui', 'eq_panel.ps1')) -Raw
     Assert-True ('AudioDynamics' -in $instParams -and ($gaDyn -join '|') -match '-AudioDynamics\|pasos' -and 'cmbDynamics' -in $xamlNames -and $eqPanelSrc -match 'Set-HLVoicemeeterDynamics') 'perfil de compresor: instalador, interfaz y panel del EQ'
     Assert-True ($comSrc -match "'AudioEndpointName' \{" -and (Get-Content (Join-HLPath @($root, 'src', 'audio', 'endpoints.ps1')) -Raw) -match "Type 'AudioEndpointName'" -and $setupSrc -match 'Restore-HLCableNames') 'nombres de VB-CABLE: se restauran al instalar y el rollback los devuelve'
-    Assert-True (@($script:HLAudioEnhancers | Where-Object { $_.Name -eq 'Art Tune' -and $_.Endpoint -eq 'Art Tune' -and $_.Kind -eq 'Uninstall' }).Count -eq 1 -and @($script:HLAudioEnhancers | Where-Object { $_.Name -match 'Sound Blaster' -and $_.Kind -eq 'Manual' }).Count -eq 1) 'Art Tune (desinstalable) y Sound Blaster (solo aviso) detectados como audio anterior'
+    # Art Tune por su rastro (Get-HLArtTuneFootprint), no por los nombres de los cables: esos los arregla Restore-HLCableNames
+    # y un "Art Tune está en ejecución: ciérralo" sin proceso confundía.
+    Assert-True (@($script:HLAudioEnhancers | Where-Object { $_.Name -eq 'Art Tune' -and -not $_.Endpoint -and $_.Kind -eq 'Uninstall' }).Count -eq 1 -and @($script:HLAudioEnhancers | Where-Object { $_.Name -match 'Sound Blaster' -and $_.Kind -eq 'Manual' }).Count -eq 1 -and $setupSrc -match 'Restore-HLCableIcons') 'Art Tune (rastro + desinstalador si lo hay), iconos de VB-CABLE y Sound Blaster (solo aviso)'
     Assert-True ($setupSrc -match 'Wait-Job \$job -Timeout 90' -and $setupSrc -match 'Stop-Job') 'fase tras reiniciar: tiempo límite, la ventana no se queda colgada'
     Assert-True ((Test-HLUpdateAvailable -Latest 'v1.9.0' -Current '1.8.3') -and -not (Test-HLUpdateAvailable -Latest 'v1.8.3' -Current '1.8.3') -and -not (Test-HLUpdateAvailable -Latest '' -Current '1.8.3') -and -not (Test-HLUpdateAvailable -Latest 'STAR' -Current '1.8.3') -and (Test-HLUpdateAvailable -Latest 'v1.10.0' -Current '1.9.0')) 'actualización: solo si la release es más nueva (tags raros o vacíos no)'
     $instU = Get-Content (Join-HLPath @($root, 'install.ps1')) -Raw

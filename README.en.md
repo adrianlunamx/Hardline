@@ -99,7 +99,7 @@ flowchart LR
 
 Restores the exact previous value of every change (registry, services, power plan, DNS, NIC, QoS, scheduled tasks, files). Installed software (Voicemeeter, VB-CABLE, Equalizer APO) is removed from Settings > Apps.
 
-**Existing custom audio**: before installing, Hardline looks for a previous setup (own Equalizer APO config, Peace, FxSound, Boom 3D, ViPER4Windows, Razer Surround, Nahimic, Sonar, Voicemeeter Banana) and cleans it first: old Equalizer APO files are moved to `config\antes_de_hardline\` (restored by rollback), stacking audio apps are removed with their own uninstaller (asked one by one), and you are told which devices to untick if Equalizer APO is active on more than one.
+**Existing custom audio**: before installing, Hardline looks for a previous setup (own Equalizer APO config, Art Tune, HeSuVi, Peace, FxSound, Boom 3D, ViPER4Windows, Razer Surround, Nahimic, Sonar, Voicemeeter Banana) and cleans it first: old Equalizer APO files are moved to `config\antes_de_hardline\` (restored by rollback), Art Tune and HeSuVi are moved aside whole (library, VST, icons, LEQ Control Panel, shortcuts) and VB-CABLE / Voicemeeter get their factory names and icons back, stacking audio apps are removed with their own uninstaller (asked one by one), and you are told which devices to untick if Equalizer APO is active on more than one.
 
 ## Anti-cheat
 

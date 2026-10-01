@@ -6,6 +6,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 
 ### Añadido
 
+- **Limpieza completa de Art Tune y HeSuVi** antes de instalar el audio. Art Tune no se registra en Aplicaciones, así que se busca su rastro y se aparta entero a `backups\<sesión>\apartado\` (el rollback lo devuelve): la biblioteca `ArtTuneDB` y sus copias `_backup_*` en Equalizer APO, HeSuVi (virtualizador surround que se apila con el HRTF de Warzone), el VST `ArtTuneKit`, los iconos de `ProgramData\ArtTune`, LEQ Control Panel y los accesos directos. ReaPlugs se ofrece desinstalar si hay rastro de Art Tune. Las copias que Art Tune dejó en Documentos y Descargas solo se listan.
+- Si algo de eso está en uso (un VST cargado por Equalizer APO), se deja `config.txt` neutro, se reinicia el audio de Windows y se reintenta.
+- **Nombres e iconos de fábrica**: además de VB-CABLE, la entrada de Voicemeeter vuelve a llamarse "Voicemeeter Input" / "Voicemeeter Output" ("Normal Audio" / "Virtual Mix" con Art Tune), y los cables recuperan el icono de su driver si apuntaba a algo que ya no existe. Revertible.
+- **Entradas huérfanas de Aplicaciones** (p. ej. Peace borrado a mano): se quitan de la lista con copia (`reg export`); el rollback la importa.
+
 - **`rollback.ps1 -All`**: revierte todas las sesiones pendientes, de la más nueva a la más antigua. Cada aplicación crea su propia sesión y revertir solo la última dejaba puestos servicios, registro, DNS y QoS de las anteriores. El botón de la interfaz pasa a ser **"Revertir todo"** e indica cuántas sesiones hay.
 
 ### Corregido

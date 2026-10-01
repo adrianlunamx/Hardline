@@ -81,7 +81,7 @@ Discord no debe salir por `CABLE Input`. Ponlo en la salida por defecto (`Voicem
 
 **Ya tenía un EQ o un audio personalizado. ¿Se mezcla con el de Hardline?**
 
-No. Antes de instalar, Hardline lo detecta y lo limpia. Tu configuración de Equalizer APO se aparta a `config\antes_de_hardline\` (el rollback la devuelve). Peace, FxSound, Boom 3D, ViPER4Windows o Razer Surround se desinstalan con su propio desinstalador, preguntando uno a uno. Nahimic se desactiva. Si Equalizer APO está activo en varios dispositivos, te dice cuáles desmarcar.
+No. Antes de instalar, Hardline lo detecta y lo limpia. Tu configuración de Equalizer APO se aparta a `config\antes_de_hardline\` (el rollback la devuelve). Art Tune y HeSuVi se apartan enteros y los dispositivos que Art Tune renombró ("Art Tune +", "Virtual Mix") recuperan su nombre e icono. Peace, FxSound, Boom 3D, ViPER4Windows o Razer Surround se desinstalan con su propio desinstalador, preguntando uno a uno. Nahimic se desactiva. Si Equalizer APO está activo en varios dispositivos, te dice cuáles desmarcar.
 
 **Los pasos se oyen bajos y mis disparos muy altos.**
 

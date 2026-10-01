@@ -387,6 +387,63 @@ function Backup-HLFile {
     return $copy
 }
 
+# Move-Item no mueve carpetas entre unidades distintas: ahí se copia y se borra.
+function Move-HLPath {
+    param([Parameter(Mandatory)] [string] $From, [Parameter(Mandatory)] [string] $To)
+    if ([IO.Path]::GetPathRoot($From) -eq [IO.Path]::GetPathRoot($To)) {
+        Move-Item -LiteralPath $From -Destination $To -Force -ErrorAction Stop
+    } else {
+        Copy-Item -LiteralPath $From -Destination $To -Recurse -Force -ErrorAction Stop
+        Remove-Item -LiteralPath $From -Recurse -Force -ErrorAction Stop
+    }
+}
+
+<#
+    Aparta un archivo o una carpeta entera a backups\<sesión>\apartado\: deja
+    de estar donde el programa lo carga, no se borra y el rollback lo devuelve
+    a su sitio. Para carpetas de cientos de archivos (HeSuVi, Art Tune), en
+    lugar de Backup-HLFile archivo a archivo. Lanza excepción si no se puede
+    mover (archivo en uso); en ese caso no queda nada en el manifiesto.
+#>
+function Move-HLPathAside {
+    param([Parameter(Mandatory)] [string] $Path, [string] $Reason = '')
+    if (-not (Test-Path -LiteralPath $Path)) { return $null }
+    if ($HL.DryRun) { return $Path }
+    $dir = Join-Path $HL.BackupDir 'apartado'
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    $dest = Join-Path $dir ('{0:D3}_{1}' -f $HL.Manifest.Count, (Split-Path $Path -Leaf))
+    Move-HLPath -From $Path -To $dest
+    Add-HLManifestEntry -Type 'MovedPath' -Data @{ Path = $Path; MovedTo = $dest; Reason = $Reason }
+    return $dest
+}
+
+# reg.exe escribe "La operación se completó correctamente" en stderr, que con
+# $ErrorActionPreference = 'Stop' se convierte en excepción: se lanza aparte.
+function Invoke-HLReg {
+    param([Parameter(Mandatory)] [string[]] $Arguments)
+    $p = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\reg.exe') -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
+    return $p.ExitCode
+}
+
+<#
+    Borra una clave de registro entera (p. ej. una entrada de Aplicaciones
+    huérfana) guardando antes una copia con reg.exe export; el rollback la
+    importa. $Key en formato de reg.exe: HKEY_LOCAL_MACHINE\SOFTWARE\...
+#>
+function Remove-HLRegistryKey {
+    param([Parameter(Mandatory)] [string] $Key, [string] $Reason = '')
+    $psPath = "Registry::$Key"
+    if (-not (Test-Path -LiteralPath $psPath)) { return $false }
+    if ($HL.DryRun) { return $true }
+    $dir = Join-Path $HL.BackupDir 'files'
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    $file = Join-Path $dir ('{0:D3}_{1}.reg' -f $HL.Manifest.Count, ((($Key -split '\\')[-1]) -replace '[^\w.-]', '_'))
+    if ((Invoke-HLReg @('export', "`"$Key`"", "`"$file`"", '/y')) -ne 0 -or -not (Test-Path $file)) { throw "No se pudo copiar $Key antes de borrarla." }
+    Add-HLManifestEntry -Type 'RegistryKey' -Data @{ Key = $Key; BackupFile = $file; Reason = $Reason }
+    Remove-Item -LiteralPath $psPath -Recurse -Force -ErrorAction Stop
+    return $true
+}
+
 # --------------------------------------------------------------------------
 # Descargas
 # --------------------------------------------------------------------------
@@ -550,6 +607,27 @@ function Undo-HLManifestEntry {
                 Remove-Item -LiteralPath $Entry.Path -Force -ErrorAction SilentlyContinue
             }
             return "Archivo $($Entry.Path)"
+        }
+        'MovedPath' {
+            if ((Test-Path -LiteralPath $Entry.MovedTo) -and -not (Test-Path -LiteralPath $Entry.Path)) {
+                $parent = Split-Path $Entry.Path -Parent
+                if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
+                Move-HLPath -From $Entry.MovedTo -To $Entry.Path
+            } elseif ((Test-Path -LiteralPath $Entry.MovedTo) -and (Test-Path -LiteralPath $Entry.Path)) {
+                throw "Ya existe $($Entry.Path): no se sobrescribe. Lo apartado sigue en $($Entry.MovedTo)."
+            }
+            return "Devuelto $($Entry.Path)"
+        }
+        'RegistryKey' {
+            if ((Invoke-HLReg @('import', "`"$($Entry.BackupFile)`"")) -ne 0) { throw "reg import falló para $($Entry.Key)." }
+            return "Clave $($Entry.Key)"
+        }
+        'AudioEndpointIcon' {
+            . $Entry.ModulePath
+            Initialize-HLEndpointApi
+            $hr = [Hardline.AudioEndpoints]::SetIcon($Entry.Id, $Entry.PrevIcon)
+            if ($hr -ne 0) { throw ("Windows no dejó devolver el icono (0x{0:X8})." -f $hr) }
+            return "Icono de audio -> $($Entry.PrevIcon)"
         }
         'PowerScheme' {
             if ($Entry.PrevActive) { & powercfg.exe /setactive $Entry.PrevActive | Out-Null }
