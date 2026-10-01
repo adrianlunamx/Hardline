@@ -54,6 +54,21 @@ namespace Hardline {
     if ($h -eq [IntPtr]::Zero) { throw "No se pudo cargar $dll desde $Dir" }
 }
 
+<#
+    Edición instalada, para VBVMR_RunVoicemeeter: 1/4 = Voicemeeter, 2/5 =
+    Banana, 3/6 = Potato (4-6 = x64). La mejor disponible; 0 si no hay ninguna.
+    Abrir una edición que no está instalada deja al programa esperando.
+#>
+function Get-HLVoicemeeterRunType {
+    param([string[]] $Files)
+    $f = @($Files | ForEach-Object { "$_".ToLowerInvariant() })
+    foreach ($c in @(@{ Exe = 'voicemeeter8x64.exe'; T = 6 }, @{ Exe = 'voicemeeter8.exe'; T = 3 }, @{ Exe = 'voicemeeterpro_x64.exe'; T = 5 },
+            @{ Exe = 'voicemeeterpro.exe'; T = 2 }, @{ Exe = 'voicemeeter_x64.exe'; T = 4 }, @{ Exe = 'voicemeeter.exe'; T = 1 })) {
+        if ($c.Exe -in $f) { return $c.T }
+    }
+    return 0
+}
+
 function Connect-HLVoicemeeter {
     param([Parameter(Mandatory)] [string] $Dir)
 
@@ -61,8 +76,9 @@ function Connect-HLVoicemeeter {
     $r = [Hardline.VMR]::VBVMR_Login()
     if ($r -lt 0) { throw "VBVMR_Login devolvió $r" }
     if ($r -eq 1) {
-        # 1 = API OK pero Voicemeeter no está abierto. Tipo 6 = Potato x64, 3 = Potato.
-        $type = if ([Environment]::Is64BitOperatingSystem) { 6 } else { 3 }
+        # 1 = API OK pero Voicemeeter no está abierto: se abre la edición instalada.
+        $type = Get-HLVoicemeeterRunType -Files @(Get-ChildItem $Dir -Filter 'voicemeeter*.exe' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
+        if ($type -eq 0) { throw 'No se encontró el ejecutable de Voicemeeter.' }
         [void][Hardline.VMR]::VBVMR_RunVoicemeeter($type)
         Start-Sleep -Seconds 3
     }

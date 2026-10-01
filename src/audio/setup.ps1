@@ -527,16 +527,48 @@ if ($MyInvocation.InvocationName -ne '.') {
         Initialize-HLSession -Root $script:AudioRoot -NoBackup
         $db = Get-HLHeadsetProfiles -Root $script:AudioRoot
         $hp = Resolve-HLHeadsetProfile -Database $db -Id $HeadsetId
-        Write-HLStep 'Hardline: configurando Voicemeeter...'
+        Write-HLStep 'Hardline: configurando Voicemeeter (una sola vez, tras reiniciar)...'
+        Write-HLInfo 'Esperando a que Windows cargue VB-CABLE...'
         for ($i = 0; $i -lt 10 -and -not (Test-HLVBCable); $i++) { Start-Sleep -Seconds 3 }
-        try {
-            $r = Set-HLVoicemeeterConfig -XmlPath (Join-Path $script:AudioRoot 'src\audio\configs\voicemeeter_comp.xml') -HeadsetDevice $HeadsetDevice -Overrides $hp.voicemeeter
-            Write-HLOk "Voicemeeter configurado ($($r.Statements) parámetros, A1 = $HeadsetDevice)."
-        } catch {
-            Write-HLErr "No se pudo configurar Voicemeeter: $($_.Exception.Message)"
-            Write-HLInfo 'Vuelve a lanzar este mismo comando cuando Voicemeeter esté abierto.'
+        $vmDir = Get-HLVoicemeeterDir
+        if (-not $vmDir) {
+            Write-HLErr 'Voicemeeter no está instalado. Abre Hardline y aplica el audio otra vez.'
+            Start-Sleep -Seconds 15
+            return
         }
-        Start-Sleep -Seconds 5
+        # La configuración va en un proceso aparte con tiempo límite: si Voicemeeter
+        # no responde, esta ventana no se queda abierta para siempre.
+        Write-HLInfo 'Abriendo Voicemeeter y aplicando el compresor (máximo 90 s)...'
+        $job = Start-Job -ArgumentList $script:AudioRoot, $HeadsetDevice, $HeadsetId -ScriptBlock {
+            param($root, $device, $id)
+            . (Join-Path $root 'src\core\common.ps1')
+            . (Join-Path $root 'src\audio\setup.ps1')
+            Initialize-HLSession -Root $root -NoBackup -Unattended
+            $db = Get-HLHeadsetProfiles -Root $root
+            $p = Resolve-HLHeadsetProfile -Database $db -Id $id
+            $r = Set-HLVoicemeeterConfig -XmlPath (Join-Path $root 'src\audio\configs\voicemeeter_comp.xml') -HeadsetDevice $device -Overrides $p.voicemeeter
+            [pscustomobject]@{ Type = $r.Type; Statements = $r.Statements; Failed = @($r.Failed) }
+        }
+        $done = Wait-Job $job -Timeout 90
+        if (-not $done) {
+            Stop-Job $job -ErrorAction SilentlyContinue
+            Write-HLErr 'Voicemeeter no respondió en 90 s.'
+            Write-HLInfo 'Abre Voicemeeter a mano y aplica el audio desde Hardline: se configura en ese momento.'
+        } else {
+            try {
+                $r = Receive-Job $job -ErrorAction Stop | Select-Object -Last 1
+                if (-not $r) { throw 'sin resultado' }
+                $ed = switch ($r.Type) { 1 { 'Voicemeeter' } 2 { 'Banana' } 3 { 'Potato' } default { "tipo $($r.Type)" } }
+                Write-HLOk "Voicemeeter $ed configurado: $($r.Statements) parámetros, A1 = $HeadsetDevice."
+                if (@($r.Failed).Count) { Write-HLWarn "Parámetros que Voicemeeter no aceptó: $(@($r.Failed).Count) (normal si no es Potato)." }
+            } catch {
+                Write-HLErr "No se pudo configurar Voicemeeter: $($_.Exception.Message)"
+                Write-HLInfo 'Abre Voicemeeter a mano y aplica el audio desde Hardline.'
+            }
+        }
+        Remove-Job $job -Force -ErrorAction SilentlyContinue
+        Write-HLInfo 'Esta ventana se cierra sola en 10 s.'
+        Start-Sleep -Seconds 10
         return
     }
 

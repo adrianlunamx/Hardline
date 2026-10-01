@@ -611,6 +611,9 @@ try {
     Assert-True ((@(Select-HLStalePresets -Names @('warzone_footsteps_x.txt', 'warzone_footsteps_x_70.txt', 'warzone_footsteps_y.txt') -Keep @('warzone_footsteps_x.txt', 'warzone_footsteps_x_70.txt')) -join '|') -eq 'warzone_footsteps_y.txt') 'limpieza: se conservan las dos intensidades del preset actual'
     Assert-True ($setupSrc -match "Name 'Hardline EQ'" -and $setupSrc -match 'eq_panel\.ps1' -and $setupSrc -match '_70\.txt' -and 'btnEqPanel' -in $xamlNames) 'panel del EQ: acceso directo, botón en la interfaz y preset moderado instalado'
     Assert-True ($setupSrc -match "Stop-Process" -and $setupSrc -match 'VB-Audio\.Voicemeeter\.Potato' -and $setupSrc -match 'Test-HLVoicemeeterPotato\) \{ return \$true \}') 'Voicemeeter: se cierra antes de instalar, alternativa winget, éxito = Potato presente'
+    . (Join-HLPath @($root, 'src', 'audio', 'voicemeeter.ps1'))
+    Assert-True ((Get-HLVoicemeeterRunType @('voicemeeterpro_x64.exe', 'voicemeeter8x64.exe')) -eq 6 -and (Get-HLVoicemeeterRunType @('VoicemeeterPro_x64.exe', 'voicemeeter_x64.exe')) -eq 5 -and (Get-HLVoicemeeterRunType @('otro.exe')) -eq 0) 'Voicemeeter: se abre la mejor edición instalada (no siempre Potato)'
+    Assert-True ($setupSrc -match 'Wait-Job \$job -Timeout 90' -and $setupSrc -match 'Stop-Job') 'fase tras reiniciar: tiempo límite, la ventana no se queda colgada'
     Assert-True ($appSrc -match 'gui_error\.log' -and $appSrc -match 'La interfaz no pudo abrirse') 'interfaz: si falla al abrir, enseña el error y lo guarda'
     Assert-True ('CleanAudio' -in $instParams -and 'chkCleanAudio' -in $xamlNames -and ((ConvertTo-HLGuiArguments -State @{ Audio = $true; CleanAudio = $true }) -contains '-CleanAudio') -and -not ((ConvertTo-HLGuiArguments -State @{ Audio = $false; CleanAudio = $true }) -contains '-CleanAudio')) 'interfaz e instalador: -CleanAudio solo con audio marcado'
 } finally {

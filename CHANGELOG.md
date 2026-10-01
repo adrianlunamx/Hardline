@@ -2,6 +2,12 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.8.2] - 2026-10-01
+
+### Corregido
+
+- **Ventana "Hardline: configurando Voicemeeter..." colgada al iniciar Windows**: intentaba abrir siempre Voicemeeter Potato aunque la edición instalada fuera otra, y las llamadas a Voicemeeter no tenían tiempo límite. Ahora abre la edición que tengas, la configuración va en un proceso aparte con 90 s como máximo, la ventana dice qué está haciendo y se cierra sola.
+
 ## [1.8.1] - 2026-10-01
 
 ### Corregido
