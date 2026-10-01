@@ -79,8 +79,16 @@ cd Hardline
 | `-AudioMode Full\|EqOnly` | EQ + compresor, o solo EQ (sin latencia añadida) |
 | `-SkipWindows` `-SkipPlatforms` `-SkipNetwork` `-SkipGame` `-SkipAudio` `-SkipBenchmark` | Omitir módulos sin pasar por el menú |
 | `-BenchmarkOnly` | Medir otra vez y comparar con el benchmark previo (tras reiniciar) |
+| `-Gui` | Abrir la interfaz gráfica |
+| `-NetDiagOnly` | Solo el diagnóstico de red |
+| `-Experimental` | Aplicar también los tweaks experimentales |
+| `-SkipLatency` `-SkipNetDiag` | Omitir latencia avanzada / diagnóstico de red |
 
 </details>
+
+### Interfaz gráfica
+
+Tras la primera instalación aparece **Inicio > Hardline > Hardline**: una ventana con los módulos en casillas, opciones (plataforma, headset, modo de audio, intensidad) y botones para **Simular**, **Aplicar**, **Revertir**, **Diagnóstico de red**, **Benchmark** y **Test de pasos**, con la salida en directo. También con `install.ps1 -Gui`. Ejecuta exactamente el mismo código que la consola.
 
 ### Qué pasa al ejecutarlo
 
@@ -102,10 +110,13 @@ flowchart LR
 | **Plataformas** | Eliges desde dónde juegas (Battle.net, Steam, Xbox app). Las que no usas: procesos cerrados, sin arranque automático, servicios deshabilitados | |
 | **Modo partida** | Solo con Warzone abierto: pausa servicios de fondo, baja la prioridad de navegadores y launchers, activa el plan de energía máximo. Al cerrar el juego, todo vuelve | |
 | **Windows** | Servicios de fondo, Game DVR off, Game Mode on, MMCSS, Ultimate Performance, timer 0.5 ms, widgets/Cortana fuera | LatencyMon si hay picos DPC |
+| **Latencia avanzada** | Modo MSI de interrupciones en GPU, red y USB (solo si el hardware lo soporta); Interrupt Moderation off y RSS on en la NIC | Verificar con LatencyMon |
+| **Experimental** *(desmarcado)* | `disabledynamictick`, colas de ratón/teclado, `Win32PrioritySeparation`. Evidencia débil: mide y revierte si no notas nada | |
 | **CPU Ryzen** | Familia, SMT, chipset driver | PBO, Curve Optimizer -20, validación con Prime95/CoreCycler |
 | **GPU** | Radeon, GeForce y Arc: driver, estado real de ReBAR/SAM, crashes TDR recientes. HAGS off solo en Radeon | Anti-Lag / Reflex / XeLL, panel del driver, undervolt |
 | **RAM** | Velocidad y si EXPO/XMP está activo | tRFC con ZenTimings |
-| **Red** | DNS 1.1.1.1, EEE/Green Ethernet off, autotuning, QoS DSCP 46 para `cod.exe` | Test de bufferbloat, SQM en el router |
+| **Red** | DNS 1.1.1.1, EEE/Green Ethernet off, autotuning, QoS DSCP 46 para `cod.exe` | SQM en el router si hay bufferbloat |
+| **Diagnóstico de red** | Pérdida y jitter al router y a Internet por separado, bufferbloat bajo carga (nota A+ a F), MTU | Qué falla y dónde: casa o proveedor |
 | **Warzone** | Ajustes gráficos en `options.*.cst` / `adv_options.ini`, validados contra el propio archivo | FOV, brillo, Anti-Lag 2 |
 | **Audio** | Corrección medida de tu headset + EQ de pasos + compresor/gate. `Ctrl+Alt+F10` enciende/apaga el EQ en partida y hay un test de pasos A/B | Enrutado de `cod.exe` en Windows |
 

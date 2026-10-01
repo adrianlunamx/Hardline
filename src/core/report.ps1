@@ -74,6 +74,17 @@ function Write-HLReport {
         L ''
     }
 
+    if ($HL.NetDiag) {
+        $d = $HL.NetDiag
+        L 'DIAGNÓSTICO DE RED'
+        if ($d.Gateway) { L ('  Router     {0} ms, jitter {1} ms, pérdida {2}%' -f $d.Gateway.AvgMs, $d.Gateway.JitterMs, $d.Gateway.LossPct) }
+        if ($d.Internet) { L ('  Internet   {0} ms, jitter {1} ms, pérdida {2}%' -f $d.Internet.AvgMs, $d.Internet.JitterMs, $d.Internet.LossPct) }
+        if ($d.Bufferbloat -and $d.Bufferbloat.Grade) { L ('  Bufferbloat nota {0} (+{1} ms bajo carga)' -f $d.Bufferbloat.Grade, $d.Bufferbloat.AddedMs) }
+        if ($d.Mtu) { L "  MTU        $($d.Mtu)" }
+        foreach ($x in $d.Findings) { L ('  [{0}] {1}: {2}' -f $x.Severity, $x.Title, $x.Text) }
+        L ''
+    }
+
     L 'REVERTIR'
     L "  Todo lo de esta sesión:   .\rollback.ps1 -Stamp $($HL.Stamp)"
     L '  Última sesión:            .\rollback.ps1'
@@ -180,6 +191,27 @@ a{color:var(--acc)}code{background:var(--panel);border:1px solid var(--line);bor
             Add-HtmlLine ("<tr><td>{0}</td><td>{1}</td><td>{2}</td><td class=""{3}"">{4}</td></tr>" -f (& $enc $b.Metric), $b.Pre, $b.Post, $cls, $delta)
         }
         Add-HtmlLine '</table><p class="sub">Timer, HAGS y servicios se aplican del todo tras reiniciar. Para medir de nuevo: <code>.\install.ps1 -BenchmarkOnly</code></p>'
+    }
+
+    if ($HL.NetDiag) {
+        $d = $HL.NetDiag
+        Add-HtmlLine '<h2>Diagnóstico de red</h2><div class="grid">'
+        $tile = { param($val, $label, $cls) Add-HtmlLine ("<div class=""tile""><b class=""{2}"">{0}</b><small>{1}</small></div>" -f (& $enc $val), (& $enc $label), $cls) }
+        if ($d.Internet) {
+            & $tile ("{0}%" -f $d.Internet.LossPct) 'pérdida (Internet)' $(if ($d.Internet.LossPct -gt 0.5) { 'Failed' } else { 'Applied' })
+            & $tile ("{0} ms" -f $d.Internet.JitterMs) 'jitter' $(if ($d.Internet.JitterMs -gt 8) { 'Failed' } elseif ($d.Internet.JitterMs -gt 4) { 'Manual' } else { 'Applied' })
+        }
+        if ($d.Bufferbloat -and $d.Bufferbloat.Grade) {
+            $g = $d.Bufferbloat.Grade
+            & $tile $g ("bufferbloat (+{0} ms)" -f $d.Bufferbloat.AddedMs) $(if ($g -in 'A+', 'A') { 'Applied' } elseif ($g -eq 'B') { 'Manual' } else { 'Failed' })
+        }
+        if ($d.Mtu) { & $tile $d.Mtu 'MTU' '' }
+        Add-HtmlLine '</div><ol>'
+        foreach ($x in $d.Findings) {
+            $cls = switch ($x.Severity) { 'bad' { 'Failed' } 'warn' { 'Manual' } default { 'Applied' } }
+            Add-HtmlLine ("<li><b class=""{0}"">{1}</b>: {2}</li>" -f $cls, (& $enc $x.Title), (& $enc $x.Text))
+        }
+        Add-HtmlLine '</ol><p class="sub">El registro de balas lo decide el servidor; lo que sí depende de ti es que tus paquetes lleguen completos, a tiempo y con ping estable.</p>'
     }
 
     if ($HL.Manual.Count -gt 0) {

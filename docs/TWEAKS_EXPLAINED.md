@@ -109,6 +109,30 @@ Referencia: [timeBeginPeriod](https://learn.microsoft.com/windows/win32/api/time
 
 Ningún tweak de Windows arregla un driver con rutinas DPC lentas. [LatencyMon](https://www.resplendence.com/latencymon) 5 minutos en reposo: si "highest DPC routine execution time" pasa de ~500 µs, la pestaña Drivers dice cuál (típicos: red, audio USB, `amdkmdag.sys`). Se arregla actualizando o cambiando ese driver.
 
+### Latencia avanzada [auto]
+
+Archivo: `src/modules/windows/latency.ps1`. Es la parte de "advanced latency" que venden los servicios de optimización de pago, limitada a lo que tiene efecto medible.
+
+| Cambio | Dónde | Por qué |
+|---|---|---|
+| **Modo MSI** (Message Signaled Interrupts) | GPU dedicada, tarjetas de red PCIe y controladores USB (xHCI: ratón, teclado, headset USB). Registro: `Enum\<dispositivo>\Device Parameters\Interrupt Management\MessageSignaledInterruptProperties\MSISupported=1` | Con interrupciones por línea (INTx) los dispositivos pueden compartir línea y el driver tiene que averiguar quién interrumpió. Con MSI cada uno escribe la suya: menos latencia ISR/DPC y menos picos. Muchos drivers ya lo activan; Hardline solo lo hace donde el hardware **declara soporte MSI/MSI-X** (`DEVPKEY_PciDevice_InterruptSupport`) y no está ya activo. Requiere reinicio. [Microsoft](https://learn.microsoft.com/windows-hardware/drivers/kernel/enabling-message-signaled-interrupts-in-the-registry) |
+| **Interrupt Moderation OFF** | Tarjeta de red Ethernet (`*InterruptModeration=0`) | La moderación agrupa paquetes para generar menos interrupciones: ahorra CPU retrasando cada paquete. En juego interesa entregarlos en cuanto llegan. Coste: algo más de uso de CPU en descargas grandes. |
+| **RSS ON** | Tarjeta de red (`*RSS=1`) | Reparte el procesamiento de red entre núcleos en lugar de cargarlo todo en uno. |
+
+No se tocan la afinidad ni la prioridad de interrupciones por dispositivo: el efecto es inconsistente entre equipos y un mal ajuste (todo al núcleo 0, que ya atiende la mayoría del sistema) empeora las cosas. Verificación: LatencyMon antes y después del reinicio.
+
+### Experimental [auto, desactivado por defecto]
+
+Archivo: `src/modules/windows/experimental.ps1`. Aparecen en casi todas las guías y packs de pago, pero la evidencia es **débil o mixta**. Hardline los ofrece porque mucha gente los pide, desmarcados por defecto y revertibles. Mide con `-BenchmarkOnly` y LatencyMon; si no notas nada, revierte.
+
+| Tweak | Valor | Qué hace y por qué es dudoso |
+|---|---|---|
+| `bcdedit disabledynamictick yes` | yes | El kernel deja de saltarse ticks del timer en reposo (ahorro de batería). En escritorio puede dar un timer algo más regular; en muchos equipos no cambia nada medible. **Se salta si hay BitLocker**: cambiar el BCD puede pedir la clave de recuperación al arrancar. |
+| `MouseDataQueueSize` / `KeyboardDataQueueSize` | 50 (por defecto 100) | Tamaño del búfer de eventos. Las guías bajan a 16-20 alegando menos input lag; no hay medición fiable de mejora y con ratones de 4000-8000 Hz un búfer tan pequeño puede **perder** eventos. 50 deja margen. |
+| `Win32PrioritySeparation` | 0x26 | Quantum corto y variable con boost al primer plano. Es prácticamente lo que Windows cliente ya hace por defecto; se incluye para quien quiera fijarlo explícitamente. |
+
+Lo que Hardline **no** incluye ni como experimental: `useplatformclock` / forzar HPET (empeora la latencia del timer en CPUs modernas), `useplatformtick` (relacionado con más input lag en Win10/11) y desactivar mitigaciones de CPU.
+
 ---
 
 ## CPU Ryzen [manual]
@@ -219,6 +243,21 @@ Warzone usa **UDP** para el tráfico de juego.
 | TCP autotuning `normal` | auto | Solo se corrige si un tweak antiguo lo dejó en `disabled`. Afecta a descargas, no al ping. |
 | QoS DSCP 46 para `cod.exe` | auto | Marca los paquetes del juego como tráfico prioritario (EF). Solo sirve si el router respeta DSCP. Requiere `Do not use NLA=1` en equipos fuera de dominio. |
 | Bufferbloat | manual | [Test](https://www.waveform.com/tools/bufferbloat). Nota B o peor: activa SQM (fq_codel/cake) en el router y limita al ~90% del ancho de banda contratado. Es la causa principal de picos de ping cuando otro usa la red. |
+
+### Diagnóstico de red: "registro de balas" [auto, solo lectura]
+
+Archivo: `src/modules/network/diagnose.ps1`. También desde la interfaz o con `install.ps1 -NetDiagOnly`.
+
+El registro de balas lo decide el servidor de Activision: **ningún tweak de Windows lo cambia**, y quien prometa lo contrario vende placebo. Lo que sí depende de ti es lo que le llega al servidor, y eso se mide:
+
+| Medición | Cómo | Qué significa |
+|---|---|---|
+| Pérdida y jitter **al router** | 100 pings cada 20 ms a la puerta de enlace | Si ya hay pérdida aquí, el problema está en casa: cable, Wi-Fi, router o adaptador. |
+| Pérdida y jitter **a Internet** | 100 pings a 1.1.1.1 | Pérdida solo aquí (y no al router) = problema del proveedor. Jitter > ~5 ms se nota en los duelos. |
+| **Bufferbloat** | Ping en reposo y durante 10 s de descarga desde speed.cloudflare.com (~100-250 MB) | Cuánto sube el ping cuando la línea está ocupada. Nota A+ a F con la escala de waveform. B o peor: SQM en el router. |
+| **MTU** | Ping con "no fragmentar" y búsqueda binaria | 1500 normal, 1492 típico de PPPoE; mucho menos sugiere VPN o túnel. |
+
+El reporte traduce cada medición en un hallazgo con su recomendación concreta.
 
 ---
 
@@ -362,7 +401,9 @@ Archivos: `src/audio/eqswitch.ps1`, `eq_toggle.ps1`, `eq_toggle.vbs`, `footstep_
 |---|---|
 | `TcpAckFrequency`, `TCPNoDelay`, desactivar Nagle | Solo afectan a TCP. El tráfico de juego de Warzone es UDP. |
 | `NetworkThrottlingIndex=0xFFFFFFFF` | Limita paquetes no multimedia cuando hay reproducción MMCSS activa. Sin efecto medible en el ping de juego. |
-| `Win32PrioritySeparation` a valores exóticos | El valor por defecto en cliente ya da quantum corto variable con boost al primer plano. |
+| `Win32PrioritySeparation` a valores exóticos | El valor por defecto en cliente ya da quantum corto variable con boost al primer plano. (0x26 está disponible como experimental.) |
+| Prometer "mejor registro de balas" | El registro lo decide el servidor. Hardline mide y corrige lo que depende de ti: pérdida, jitter y bufferbloat. |
+| `useplatformclock` / forzar HPET, `useplatformtick` | Empeoran la latencia del timer en CPUs modernas. |
 | Desactivar Spectre/Meltdown | Hueco de seguridad real a cambio de una ganancia que en Zen 4 es mínima. |
 | Desactivar Defender o Windows Update | Seguridad. Game Mode ya frena Update durante la partida. |
 | Deshabilitar Xbox services a ciegas | Rompe Game Pass y los juegos de la Store. Hardline solo lo hace si eliges otra plataforma y confirmas que no usas la Xbox app. |

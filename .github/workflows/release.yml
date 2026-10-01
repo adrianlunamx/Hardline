@@ -60,6 +60,21 @@ jobs:
           $hw = Get-HLHardware
           Show-HLHardware -Hw $hw
 
+      # WPF solo existe en Windows: aquí se comprueba que la ventana se construye
+      # de verdad (sin mostrarla) y que todos sus controles existen.
+      - name: GUI (carga del XAML)
+        shell: powershell
+        if: matrix.shell == 'powershell'
+        run: |
+          Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+          [xml]$x = Get-Content .\src\gui\main.xaml -Raw -Encoding UTF8
+          $w = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $x))
+          $ns = 'http://schemas.microsoft.com/winfx/2006/xaml'
+          $names = $x.SelectNodes('//*[@*[local-name()="Name"]]') | ForEach-Object { $_.GetAttribute('Name', $ns) } | Where-Object { $_ }
+          $missing = @($names | Where-Object { -not $w.FindName($_) })
+          if ($missing) { throw "Controles no encontrados: $($missing -join ', ')" }
+          Write-Host "Ventana construida: $($names.Count) controles"
+
   release:
     needs: validate
     if: >-

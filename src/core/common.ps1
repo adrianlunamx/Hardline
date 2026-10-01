@@ -13,7 +13,7 @@
 
 # Sin StrictMode: WMI/CIM devuelve propiedades opcionales según fabricante y driver.
 
-$Global:HLVersion = '1.2.0'
+$Global:HLVersion = '1.3.0'
 $Global:HLRepo = 'adrianlunamx/Hardline'
 
 # --------------------------------------------------------------------------
@@ -46,6 +46,7 @@ function Initialize-HLSession {
         Hardware    = $null
         BenchPre    = $null
         BenchPost   = $null
+        NetDiag     = $null
     }
 
     foreach ($d in @($HL.LogDir, $HL.ReportDir)) {
@@ -413,6 +414,32 @@ function Invoke-HLDownload {
 }
 
 # --------------------------------------------------------------------------
+# Acceso directo a la interfaz gráfica
+# --------------------------------------------------------------------------
+
+# Inicio > Hardline > Hardline. No va al manifiesto: es el lanzador de la
+# propia herramienta, no un cambio del sistema.
+function Install-HLAppShortcut {
+    param([Parameter(Mandatory)] [string] $Root)
+    try {
+        $dir = Join-Path ([Environment]::GetFolderPath('Programs')) 'Hardline'
+        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+        $lnk = Join-Path $dir 'Hardline.lnk'
+        $sh = New-Object -ComObject WScript.Shell
+        $s = $sh.CreateShortcut($lnk)
+        $s.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $s.Arguments = ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -Gui' -f (Join-Path $Root 'install.ps1'))
+        $s.WorkingDirectory = $Root
+        $s.Description = 'Hardline: optimizaciones para Warzone'
+        $s.Save()
+        return $lnk
+    } catch {
+        Write-HLLog WARN "No se pudo crear el acceso directo: $($_.Exception.Message)"
+        return $null
+    }
+}
+
+# --------------------------------------------------------------------------
 # Actualizaciones
 # --------------------------------------------------------------------------
 
@@ -537,6 +564,10 @@ function Undo-HLManifestEntry {
                 Set-Acl -Path $Entry.Path -AclObject $acl
             }
             return "Permiso de $($Entry.Identity) en $($Entry.Path)"
+        }
+        'Bcd' {
+            if ($Entry.Created) { & bcdedit.exe /deletevalue '{current}' $Entry.Element | Out-Null }
+            return "BCD $($Entry.Element)"
         }
         'Info' { return $null }
         default { throw "Tipo de entrada desconocido: $($Entry.Type)" }

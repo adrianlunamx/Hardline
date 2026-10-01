@@ -19,12 +19,15 @@ foreach ($f in @(
         'modules\windows\timer.ps1',
         'modules\windows\platforms.ps1',
         'modules\windows\gamesession.ps1',
+        'modules\windows\latency.ps1',
+        'modules\windows\experimental.ps1',
         'modules\gpu\shared.ps1',
         'modules\gpu\nvidia.ps1',
         'modules\gpu\intel.ps1',
         'modules\amd\gpu.ps1',
         'modules\amd\ryzen.ps1',
         'modules\network\optimize.ps1',
+        'modules\network\diagnose.ps1',
         'modules\game\warzone.ps1',
         'audio\setup.ps1'
     )) {
@@ -38,6 +41,10 @@ function Invoke-HLOptimization {
         [switch] $SkipNetwork,
         [switch] $SkipGame,
         [switch] $SkipPlatforms,
+        [switch] $SkipLatency,
+        [switch] $Experimental,
+        [switch] $SkipNetDiag,
+        [switch] $DisableOtherPlatforms,
         [string] $Platform = '',
         [ValidateSet('', 'Yes', 'No')] [string] $GameSession = ''
     )
@@ -62,8 +69,11 @@ function Invoke-HLOptimization {
 
     if (-not $SkipPlatforms) {
         Write-HLStep 'Plataformas de juego...'
-        Invoke-HLSafely 'Plataformas' 'Plataformas de juego' { Invoke-HLPlatforms -Hardware $Hardware -Platform $Platform }
+        Invoke-HLSafely 'Plataformas' 'Plataformas de juego' { Invoke-HLPlatforms -Hardware $Hardware -Platform $Platform -DisableOthers:$DisableOtherPlatforms }
     }
+
+    if (-not $SkipLatency) { Invoke-HLLatency -Hardware $Hardware }
+    if ($Experimental) { Invoke-HLExperimental -Hardware $Hardware }
 
     if ($session) {
         Write-HLStep 'Modo partida...'
@@ -89,6 +99,9 @@ function Invoke-HLOptimization {
     if (-not $SkipNetwork) {
         Write-HLStep 'Optimizando red...'
         Invoke-HLSafely 'Red' 'Red' { Invoke-HLNetwork -Hardware $Hardware }
+    }
+    if (-not $SkipNetDiag) {
+        Invoke-HLSafely 'Diagnóstico de red' 'Diagnóstico de red' { Invoke-HLNetDiagnosis -Hardware $Hardware | Out-Null }
     }
 
     if (-not $SkipGame) {

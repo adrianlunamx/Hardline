@@ -52,6 +52,10 @@ foreach ($s in $scripts) {
     } elseif ($nonAscii) {
         Assert-True $hasBom "$($s.Name) tiene BOM UTF-8 (PS 5.1 lee sin BOM como ANSI)"
     }
+    # Un BOM duplicado convierte la primera línea en un comando desconocido.
+    if ($bytes.Length -ge 6 -and $bytes[3] -eq 0xEF -and $bytes[4] -eq 0xBB -and $bytes[5] -eq 0xBF) {
+        Assert-True $false "$($s.Name) sin BOM duplicado"
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -349,6 +353,57 @@ try {
     Assert-True ($html -match '<th>CPU</th><td>CPU X \(6C/12T, Zen4\)</td>') 'reporte HTML: fila de hardware completa'
     Assert-True ($html -notmatch '<script>alert' -and $html -match '&lt;script&gt;') 'reporte HTML: texto escapado'
     Assert-True ($html -match 'class="better">-97%') 'reporte HTML: mejora marcada en verde'
+
+    # -----------------------------------------------------------------------
+    Write-Host "`n[12] Interfaz gráfica" -ForegroundColor Cyan
+    [xml]$gx = Get-Content (Join-HLPath @($root, 'src', 'gui', 'main.xaml')) -Raw -Encoding UTF8
+    Assert-True ($null -ne $gx.Window) 'main.xaml es XML válido con <Window>'
+    $xns = 'http://schemas.microsoft.com/winfx/2006/xaml'
+    $xamlNames = @($gx.SelectNodes('//*[@*[local-name()="Name"]]') | ForEach-Object { $_.GetAttribute('Name', $xns) } | Where-Object { $_ })
+    $appSrc = Get-Content (Join-HLPath @($root, 'src', 'gui', 'app.ps1')) -Raw
+    $used = @(([regex]::Matches($appSrc, '\$ui\.(\w+)') | ForEach-Object { $_.Groups[1].Value }) +
+        ([regex]::Matches($appSrc, "'((?:btn|txt|cmb|chk|prg)\w+)'") | ForEach-Object { $_.Groups[1].Value }) | Sort-Object -Unique)
+    $missing = @($used | Where-Object { $_ -notin $xamlNames })
+    Assert-True ($missing.Count -eq 0) 'todo control usado en app.ps1 existe en main.xaml' ($missing -join ', ')
+
+    . (Join-HLPath @($root, 'src', 'gui', 'app.ps1')) -Root $root
+    $state = @{ Windows = $true; Platforms = $false; Session = $true; Latency = $true; Network = $true; NetDiag = $false; Game = $true
+        Audio = $true; Bench = $false; Experimental = $true; Platform = 'steam'; DisableOthers = $true; Headset = "Kraken V3 o'brien"
+        AudioMode = 'EqOnly'; Intensity = '0.7' }
+    $guiArgs = @(ConvertTo-HLGuiArguments -State $state -DryRun)
+    $instAst = [System.Management.Automation.Language.Parser]::ParseFile((Join-HLPath @($root, 'install.ps1')), [ref]$null, [ref]$null)
+    $instParams = @($instAst.ParamBlock.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath })
+    $unknown = @($guiArgs | Where-Object { $_ -match '^-[A-Za-z]+$' } | ForEach-Object { $_.Substring(1) } | Where-Object { $_ -notin $instParams })
+    Assert-True ($unknown.Count -eq 0) 'la GUI solo pasa parámetros que install.ps1 acepta' ($unknown -join ', ')
+    Assert-True (($guiArgs -contains '-SkipPlatforms') -and ($guiArgs -contains '-SkipNetDiag') -and ($guiArgs -contains '-SkipBenchmark') -and -not ($guiArgs -contains '-SkipWindows')) 'casillas desmarcadas -> -Skip* correctos'
+    Assert-True (($guiArgs -join ' ') -match '-Unattended' -and ($guiArgs -join ' ') -match '-DryRun' -and ($guiArgs -join ' ') -match '-GameSession Yes') 'GUI: desatendido, DryRun y modo partida'
+    $cmdLine = ConvertTo-HLCommandLine -Script 'C:\Users\a b\Hardline\install.ps1' -Arguments $guiArgs
+    $cmdErr = $null; [void][System.Management.Automation.Language.Parser]::ParseInput($cmdLine, [ref]$null, [ref]$cmdErr)
+    Assert-True (-not $cmdErr -and $cmdLine -match "'Kraken V3 o''brien'") 'línea de comandos de la GUI: comillas y espacios bien escapados'
+    $state.Audio = $false
+    Assert-True (-not ((ConvertTo-HLGuiArguments -State $state) -contains '-Headset')) 'sin audio no se pasan opciones de audio'
+
+    # -----------------------------------------------------------------------
+    Write-Host "`n[13] Diagnóstico de red y latencia" -ForegroundColor Cyan
+    . (Join-HLPath @($root, 'src', 'modules', 'network', 'diagnose.ps1'))
+    $st = Get-HLPingStats -Rtts @(10, 12, 11, 30, 10) -Lost 1 -Target 'x'
+    Assert-True ($st.LossPct -eq 16.7 -and $st.MedianMs -eq 11 -and $st.P95Ms -eq 30 -and $st.JitterMs -eq 10.5) 'estadísticas de ping (pérdida, mediana, p95, jitter)'
+    Assert-True ((Get-HLPingStats -Rtts @() -Lost 5).LossPct -eq 100) 'sin respuestas: 100% de pérdida'
+    Assert-True (((0, 4.9, 20, 45, 150, 300, 500 | ForEach-Object { Get-HLBufferbloatGrade $_ }) -join ',') -eq 'A+,A+,A,B,C,D,F') 'notas de bufferbloat (escala waveform)'
+    $diagBad = [pscustomobject]@{ Wireless = $true; Gateway = [pscustomobject]@{ LossPct = 0 }; Internet = [pscustomobject]@{ LossPct = 2; JitterMs = 9 }
+        Bufferbloat = [pscustomobject]@{ Grade = 'C'; AddedMs = 120 }; Mtu = 1420 }
+    $fb = @(Get-HLNetFindings -Diag $diagBad)
+    Assert-True ((@($fb | Where-Object { $_.Title -eq 'Pérdida en Internet' -and $_.Severity -eq 'bad' }).Count -eq 1)) 'pérdida solo hacia Internet: culpa del proveedor'
+    $diagLocal = [pscustomobject]@{ Wireless = $false; Gateway = [pscustomobject]@{ LossPct = 3 }; Internet = [pscustomobject]@{ LossPct = 3; JitterMs = 2 }; Bufferbloat = $null; Mtu = 1500 }
+    $fl = @(Get-HLNetFindings -Diag $diagLocal)
+    Assert-True ((@($fl | Where-Object { $_.Title -eq 'Pérdida en tu red local' }).Count -eq 1) -and (@($fl | Where-Object { $_.Title -eq 'Pérdida en Internet' }).Count -eq 0)) 'pérdida ya en el router: red local, no proveedor'
+    Assert-True ((@($fb | Where-Object { $_.Title -eq 'Wi-Fi' }).Count -eq 1) -and (@($fb | Where-Object { $_.Title -eq 'Bufferbloat' -and $_.Severity -eq 'bad' }).Count -eq 1)) 'Wi-Fi y bufferbloat C marcados'
+
+    $latSrc = Get-Content (Join-HLPath @($root, 'src', 'modules', 'windows', 'latency.ps1')) -Raw
+    Assert-True ($latSrc -match "DEVPKEY_PciDevice_InterruptSupport" -and $latSrc -match '-band 6') 'modo MSI solo si el hardware declara soporte MSI/MSI-X'
+    $expSrc = Get-Content (Join-HLPath @($root, 'src', 'modules', 'windows', 'experimental.ps1')) -Raw
+    Assert-True ($expSrc -match 'Test-HLBitLocker' -and $expSrc -match "Type 'Bcd'") 'disabledynamictick: comprueba BitLocker y queda en el manifiesto'
+    Assert-True ($inst -match "Key = 'exp';\s+Label = '[^']*';\s+Default = \`$false") 'experimental desmarcado por defecto en el menú'
 } finally {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 }

@@ -47,6 +47,8 @@ Dry run first, to see what it would do without changing anything:
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/adrianlunamx/Hardline/main/install.ps1))) -DryRun
 ```
 
+There is also a **GUI**: Start > Hardline > Hardline, or `install.ps1 -Gui`.
+
 It downloads the **latest release** and verifies its SHA256 before running (`-Channel main` gets the latest `main` branch instead). It creates a Windows restore point first and installs to `%LOCALAPPDATA%\Hardline`. A checklist at the start lets you pick which modules to apply.
 
 ## What it does
@@ -58,7 +60,10 @@ It downloads the **latest release** and verifies its SHA256 before running (`-Ch
 | **Windows** | Background services, Game DVR off, Game Mode on, MMCSS, Ultimate Performance, 0.5 ms timer (Win11), widgets/Cortana off | LatencyMon if DPC spikes |
 | **GPU** | Radeon, GeForce and Arc: driver age, real Resizable BAR state, recent driver crashes (TDR). HAGS off on Radeon only | Anti-Lag / Reflex / XeLL, control panel settings, undervolt |
 | **CPU / RAM** | Ryzen family, SMT, chipset driver, EXPO/XMP state | PBO, Curve Optimizer -20, tRFC |
-| **Network** | DNS 1.1.1.1, NIC power saving off, autotuning, DSCP 46 QoS for `cod.exe` | Bufferbloat test, router SQM |
+| **Advanced latency** | MSI interrupt mode for GPU, NIC and USB controllers (only where the hardware supports it); NIC interrupt moderation off, RSS on | Verify with LatencyMon |
+| **Experimental** *(off by default)* | `disabledynamictick`, mouse/keyboard queue size, `Win32PrioritySeparation`. Weak evidence: measure and revert if nothing changes | |
+| **Network** | DNS 1.1.1.1, NIC power saving off, autotuning, DSCP 46 QoS for `cod.exe` | Router SQM if there is bufferbloat |
+| **Network diagnosis** | Packet loss and jitter to the router and to the Internet separately, bufferbloat under load (A+ to F), MTU | Hit registration is server-side; this measures what reaches the server and whether problems are at home or at your ISP |
 | **Warzone** | Graphics settings in `options.*.cst`, validated against the file's own allowed values | FOV, brightness |
 | **Audio** | Measured headset correction (AutoEq, ~8800 models) + footsteps EQ + compressor/gate (Voicemeeter). `Ctrl+Alt+F10` toggles the EQ in-game; a built-in A/B footstep test | Per-app routing of `cod.exe` in Windows |
 

@@ -161,7 +161,7 @@ function Disable-HLPlatform {
 }
 
 function Invoke-HLPlatforms {
-    param($Hardware, [ValidateSet('', 'battlenet', 'steam', 'xbox')] [string] $Platform = '')
+    param($Hardware, [ValidateSet('', 'battlenet', 'steam', 'xbox')] [string] $Platform = '', [switch] $DisableOthers)
 
     $catalog = Get-HLPlatformCatalog
     $installed = @($catalog | Where-Object { Test-HLPlatformInstalled -Id $_.Id })
@@ -187,7 +187,9 @@ function Invoke-HLPlatforms {
     foreach ($p in ($installed | Where-Object { $_.Id -ne $Platform })) {
         # En modo desatendido se conservan: cerrar una plataforma que el usuario
         # usa para otros juegos no es algo que decidir sin preguntar.
-        $keep = Read-HLYesNo "¿Usas $($p.Name) para otros juegos? (si no, se cierran sus procesos y se quita su arranque automático)" ([bool]$HL.Unattended)
+        $keep = if ($DisableOthers) { $false } else {
+            Read-HLYesNo "¿Usas $($p.Name) para otros juegos? (si no, se cierran sus procesos y se quita su arranque automático)" ([bool]$HL.Unattended)
+        }
         if ($keep) {
             Add-HLResult -Module 'Plataformas' -Item $p.Name -Status Skipped -Detail 'El usuario la usa'
             continue

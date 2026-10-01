@@ -39,6 +39,16 @@
     cambios antes de que se publiquen).
 .PARAMETER GameSession
     Activa el modo partida (Yes) o no (No) sin preguntar.
+.PARAMETER Gui
+    Abre la interfaz grafica en lugar del modo consola.
+.PARAMETER Experimental
+    Aplica tambien los tweaks experimentales (desactivados por defecto).
+.PARAMETER NetDiagOnly
+    Solo ejecuta el diagnostico de red (perdida, jitter, bufferbloat, MTU).
+.PARAMETER EqIntensity
+    Intensidad del EQ de pasos: 1.0 (completa) o 0.7 (moderada).
+.PARAMETER DisableOtherPlatforms
+    Cierra las plataformas instaladas distintas de -Platform sin preguntar.
 #>
 [CmdletBinding()]
 param(
@@ -49,6 +59,13 @@ param(
     [switch] $SkipGame,
     [switch] $SkipAudio,
     [switch] $SkipPlatforms,
+    [switch] $SkipLatency,
+    [switch] $SkipNetDiag,
+    [switch] $Experimental,
+    [switch] $NetDiagOnly,
+    [switch] $Gui,
+    [switch] $DisableOtherPlatforms,
+    [double] $EqIntensity = 0,
     [switch] $SkipBenchmark,
     [switch] $NoRestorePoint,
     [switch] $BenchmarkOnly,
@@ -136,12 +153,14 @@ if ($PSVersionTable.PSEdition -eq 'Core') {
 $isAdmin = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
     Write-Host '[!] Hacen falta permisos de administrador. Se abre una ventana elevada (UAC)...' -ForegroundColor Yellow
+    # La interfaz grafica no necesita ventana de consola detras.
+    $winOpt = if ($Gui) { '-WindowStyle Hidden' } else { '-NoExit' }
     if ($localRoot) {
         $fwd = (Get-HLForwardArgs $bound -Style File) -join ' '
-        $argLine = "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$(Join-Path $localRoot 'install.ps1')`" $fwd"
+        $argLine = "-NoProfile -ExecutionPolicy Bypass $winOpt -File `"$(Join-Path $localRoot 'install.ps1')`" $fwd"
     } else {
         $fwd = (Get-HLForwardArgs $bound) -join ' '
-        $argLine = "-NoProfile -ExecutionPolicy Bypass -NoExit -Command `"& ([scriptblock]::Create((irm '$HLRawInstaller'))) $fwd`""
+        $argLine = "-NoProfile -ExecutionPolicy Bypass $winOpt -Command `"& ([scriptblock]::Create((irm '$HLRawInstaller'))) $fwd`""
     }
     try {
         Start-Process -FilePath 'powershell.exe' -ArgumentList $argLine -Verb RunAs | Out-Null
@@ -253,6 +272,23 @@ $HLRoot = $localRoot
 
 $ErrorActionPreference = 'Continue'
 
+if ($Gui) {
+    Install-HLAppShortcut -Root $HLRoot | Out-Null
+    & (Join-Path $HLRoot 'src\gui\app.ps1') -Root $HLRoot
+    return
+}
+
+if ($NetDiagOnly) {
+    Initialize-HLSession -Root $HLRoot -Unattended -NoBackup
+    Show-HLBanner
+    Write-HLStep 'Detectando red...'
+    $hw = Get-HLHardware
+    Invoke-HLNetDiagnosis -Hardware $hw | Out-Null
+    $report = Write-HLReportHtml -Hardware $hw
+    Write-HLOk "Reporte: $report"
+    return
+}
+
 if ($BenchmarkOnly) {
     Initialize-HLSession -Root $HLRoot -Unattended -NoBackup
     Show-HLBanner
@@ -274,6 +310,7 @@ if ($BenchmarkOnly) {
 Initialize-HLSession -Root $HLRoot -DryRun:$DryRun -Unattended:$Unattended
 Show-HLBanner
 Show-HLUpdateNotice
+if (-not $DryRun -and (Install-HLAppShortcut -Root $HLRoot)) { Write-HLInfo 'Interfaz grafica: Inicio > Hardline > Hardline (o install.ps1 -Gui).' }
 
 Write-HLStep 'Verificando permisos...'
 Write-HLOk 'Admin OK'
@@ -317,21 +354,27 @@ if ($NoRestorePoint -or $DryRun) {
 # --- Que aplicar ---------------------------------------------------------------
 # Con cualquier -Skip* o -GameSession explicito se respeta la linea de comandos;
 # si no, se muestra el menu (en modo desatendido devuelve los valores por defecto).
-$explicit = $PSBoundParameters.Keys | Where-Object { $_ -like 'Skip*' -or $_ -eq 'GameSession' }
+$explicit = $PSBoundParameters.Keys | Where-Object { $_ -like 'Skip*' -or $_ -in @('GameSession', 'Experimental') }
 if (-not $explicit) {
     $menu = Read-HLChecklist -Title 'Que quieres aplicar' -Items @(
         [pscustomobject]@{ Key = 'windows';   Label = 'Windows: servicios, registro, plan de energia, timer'; Default = $true }
         [pscustomobject]@{ Key = 'platforms'; Label = 'Plataformas: cerrar las que no usas (Battle.net, Steam, Xbox)'; Default = $true }
         [pscustomobject]@{ Key = 'session';   Label = 'Modo partida: pausar lo innecesario solo con Warzone abierto'; Default = $true }
+        [pscustomobject]@{ Key = 'latency';   Label = 'Latencia avanzada: modo MSI (GPU, red, USB), interrupciones de la NIC'; Default = $true }
         [pscustomobject]@{ Key = 'network';   Label = 'Red: DNS, ahorro de energia de la NIC, QoS'; Default = $true }
+        [pscustomobject]@{ Key = 'netdiag';   Label = 'Diagnostico de red: perdida, jitter, bufferbloat, MTU (~40 s)'; Default = $true }
         [pscustomobject]@{ Key = 'game';      Label = 'Warzone: ajustes graficos'; Default = $true }
         [pscustomobject]@{ Key = 'audio';     Label = 'Audio: EQ de pasos y compresor'; Default = $true }
         [pscustomobject]@{ Key = 'bench';     Label = 'Benchmark antes/despues (~40 s)'; Default = $true }
+        [pscustomobject]@{ Key = 'exp';       Label = 'EXPERIMENTAL: disabledynamictick, colas de raton/teclado, prioridad (evidencia debil)'; Default = $false }
     )
     $SkipWindows = -not $menu['windows']
     $SkipPlatforms = -not $menu['platforms']
     $GameSession = if ($menu['session']) { 'Yes' } else { 'No' }
     $SkipNetwork = -not $menu['network']
+    $SkipLatency = -not $menu['latency']
+    $SkipNetDiag = -not $menu['netdiag']
+    $Experimental = [bool]$menu['exp']
     $SkipGame = -not $menu['game']
     $SkipAudio = -not $menu['audio']
     $SkipBenchmark = -not $menu['bench']
@@ -373,12 +416,13 @@ if (-not $SkipBenchmark) {
 
 # --- Optimizaciones --------------------------------------------------------------
 Invoke-HLOptimization -Hardware $hw -SkipWindows:$SkipWindows -SkipNetwork:$SkipNetwork -SkipGame:$SkipGame `
-    -SkipPlatforms:$SkipPlatforms -Platform $Platform -GameSession $GameSession
+    -SkipPlatforms:$SkipPlatforms -SkipLatency:$SkipLatency -Experimental:$Experimental -SkipNetDiag:$SkipNetDiag `
+    -DisableOtherPlatforms:$DisableOtherPlatforms -Platform $Platform -GameSession $GameSession
 
 # --- Audio ---------------------------------------------------------------------
 if (-not $SkipAudio) {
     Write-HLStep 'Audio competitivo (pasos claros, explosiones controladas)...'
-    Invoke-HLSafely 'Audio' 'Audio' { Invoke-HLAudioSetup -Hardware $hw -HeadsetId $Headset -Mode $AudioMode }
+    Invoke-HLSafely 'Audio' 'Audio' { Invoke-HLAudioSetup -Hardware $hw -HeadsetId $Headset -Mode $AudioMode -Intensity $EqIntensity }
 }
 
 # --- Benchmark posterior ---------------------------------------------------------

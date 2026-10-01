@@ -2,6 +2,17 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.3.0] - 2026-10-01
+
+### Añadido
+
+- **Interfaz gráfica** (WPF, sin instalar nada): módulos en casillas, opciones de plataforma/headset/audio, botones Simular, Aplicar, Revertir, Diagnóstico de red, Benchmark y Test de pasos, salida en directo. Ejecuta el mismo `install.ps1` que la consola. Acceso directo en Inicio > Hardline y parámetro `-Gui`.
+- **Latencia avanzada**: modo MSI de interrupciones para GPU, tarjeta de red y controladores USB, solo donde el hardware declara soporte MSI/MSI-X; Interrupt Moderation off y RSS on en la NIC. `-SkipLatency`.
+- **Diagnóstico de red** ("registro de balas"): pérdida y jitter al router y a Internet por separado, bufferbloat bajo carga con nota A+ a F, MTU real; hallazgos con recomendación en el reporte. `-NetDiagOnly`, `-SkipNetDiag`.
+- **Tweaks experimentales** (desmarcados por defecto): `disabledynamictick` (se salta con BitLocker), colas de ratón/teclado, `Win32PrioritySeparation`. `-Experimental`.
+- `-EqIntensity` y `-DisableOtherPlatforms` para uso sin preguntas (los usa la interfaz).
+- CI: la ventana de la interfaz se construye en Windows real en cada push.
+
 ## [1.2.0] - 2026-10-01
 
 ### Añadido

@@ -123,6 +123,26 @@ En 6 núcleos empeora los 1% lows en Warzone. Hardline lo sugiere solo a partir 
 
 Solo en Radeon: con RDNA2 y Warzone, HAGS off da frametimes más regulares en la mayoría de versiones de Adrenalin. En NVIDIA e Intel Hardline no lo toca. Si usas Frame Generation en otros juegos necesitas HAGS on; cámbialo en Configuración > Pantalla > Gráficos > Configuración de gráficos predeterminada.
 
+## Registro de balas
+
+**¿Hardline mejora el registro de balas?**
+
+No directamente, y nadie puede: el registro lo decide el servidor. Lo que sí afecta es que tus paquetes lleguen completos, a tiempo y con ping estable. El **diagnóstico de red** mide pérdida, jitter y bufferbloat, y te dice si el problema está en casa (cable, Wi-Fi, router) o en tu proveedor. Las mejoras reales suelen ser: cable en vez de Wi-Fi, SQM en el router y no descargar mientras juegas.
+
+**El diagnóstico descarga datos.**
+
+Unos 100-250 MB durante 10 s para medir el bufferbloat. Si tienes tarifa limitada, desmarca "Diagnóstico de red".
+
+## Interfaz gráfica
+
+**No encuentro la ventana.**
+
+Inicio > Hardline > Hardline, o `%LOCALAPPDATA%\Hardline\install.ps1 -Gui`. Pide permisos de administrador (UAC).
+
+**Los instaladores de audio abren ventanas.**
+
+Equalizer APO y VB-CABLE tienen instalador propio con su ventana; termina cada uno y la interfaz sigue sola. El paso del Configurator de Equalizer APO queda en el reporte.
+
 ## Modo partida
 
 **¿Cómo sé si está funcionando?**
