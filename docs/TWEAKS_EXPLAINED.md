@@ -420,6 +420,9 @@ Archivo: `src/audio/cleanup.ps1`.
 | Peace, FxSound, Boom 3D, ViPER4Windows, Razer Surround | Sin arranque automático (revertible). Desinstalación con su propio desinstalador: silenciosa si el programa lo permite (MSI o `QuietUninstallString`), si no se abre el suyo. Se confirma programa a programa; en modo desatendido solo con `-CleanAudio`. No se puede revertir. |
 | Nahimic | Servicio `NahimicService` desactivado (revertible). |
 | SteelSeries Sonar, Dolby Atmos, DTS | Van dentro de otras apps: instrucciones en la guía de pasos. |
+| VB-CABLE renombrado por otro programa ("Art Tune +") | Vuelve a "CABLE Input" / "CABLE Output" con IMMDevice/IPropertyStore (lo mismo que Cambiar nombre en Configuración > Sonido). Revertible. Voicemeeter se reabre para leer los nombres nuevos. |
+| Art Tune | Desinstalación ofrecida: procesa el audio y renombra VB-CABLE. |
+| Sound Blaster (Acoustic Engine / Command) | Aviso: apagar SBX, Crystalizer, Smart Volume y su EQ. No se desinstala (es el software de la tarjeta). |
 | Voicemeeter Banana o Standard | Se instala Potato encima: mismo programa y desinstalador; solo Potato expone el compresor completo. |
 
 ### Compresor y gate (modo Completo)

@@ -2,6 +2,18 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.8.3] - 2026-10-01
+
+### Añadido
+
+- **Nombres de VB-CABLE restaurados**: si otro programa los renombró ("Art Tune +", "Art Tune Unified Output"), vuelven a llamarse "CABLE Input" y "CABLE Output" con la API de audio de Windows. El rollback devuelve el nombre anterior. Así coinciden las instrucciones y Voicemeeter encuentra el cable.
+- **Art Tune** detectado como audio anterior (arranque automático fuera y desinstalación ofrecida).
+- **Sound Blaster** (Acoustic Engine / Command / Connect): aviso para apagar sus efectos.
+
+### Corregido
+
+- Voicemeeter básico y Banana: la entrada virtual (sistema) estaba fijada a la de Potato y no se configuraba. Ahora se usa la de cada edición.
+
 ## [1.8.2] - 2026-10-01
 
 ### Corregido

@@ -35,12 +35,14 @@ $script:HLEqApoClsid = '{EACD2258-FCAC-4FF4-B36D-419E924A6D79}'
 $script:HLEqApoStockFiles = @('config.txt', 'example.txt', 'demo.txt', 'multichannel.txt', 'iir_lowpass.txt', 'readme.txt')
 
 $script:HLAudioEnhancers = @(
+    @{ Name = 'Art Tune';          Display = '^Art ?Tune';             Process = @('ArtTune*');              Endpoint = 'Art Tune'; Kind = 'Uninstall'; Why = 'Procesa el audio con sus propios efectos y renombra los dispositivos de VB-CABLE ("Art Tune +"), así que las instrucciones ya no coinciden.' }
     @{ Name = 'Peace';             Display = '^Peace';                 Process = @('Peace');                 Kind = 'Uninstall'; Why = 'Al guardar en Peace se reescribe config.txt y se pierde el preset de Hardline.' }
     @{ Name = 'FxSound';           Display = '^FxSound';               Process = @('FxSound');               Kind = 'Uninstall'; Why = 'Su propio EQ y "realce" se suman al de Hardline.' }
     @{ Name = 'Boom 3D';           Display = '^Boom 3D';               Process = @('Boom3D');                Kind = 'Uninstall'; Why = 'Virtualizador y EQ propios encima del de Hardline.' }
     @{ Name = 'ViPER4Windows';     Display = 'ViPER4Windows';          Process = @('ViPER4Windows');         Kind = 'Uninstall'; Why = 'Es otro APO: compite con Equalizer APO en el mismo dispositivo.' }
     @{ Name = 'Razer Surround';    Display = '^Razer Surround|THX Spatial Audio'; Process = @('RzSurround', 'THXAudioSvc'); Kind = 'Uninstall'; Why = 'Virtualizador 7.1: Warzone ya aplica su HRTF; apilarlos destruye la localización.' }
     @{ Name = 'Nahimic';           Display = '^Nahimic';               Process = @('Nahimic3', 'NahimicSvc64'); Service = 'NahimicService'; Kind = 'Service'; Why = 'Procesa el audio de todos los juegos; se desactiva su servicio (revertible).' }
+    @{ Name = 'Sound Blaster (Acoustic Engine / Command)'; Display = '^BlasterX Acoustic Engine|^Sound Blaster Command|^Sound Blaster Connect'; Process = @('BlasterX*', 'SBCommand*', 'SBConnect*'); Kind = 'Manual'; Why = 'Efectos de la tarjeta (SBX, Crystalizer, Smart Volume, EQ) encima del EQ de Hardline.'; Advice = 'Software de Sound Blaster (Acoustic Engine / Command): desactiva SBX Surround, Crystalizer, Smart Volume, Dialog Plus y su EQ para la salida del headset. Es el software de tu tarjeta: no se desinstala, solo se apagan sus efectos.' }
     @{ Name = 'SteelSeries Sonar'; Endpoint = 'SteelSeries Sonar';    Kind = 'Manual'; Why = 'Sonar crea sus propios dispositivos con EQ.'; Advice = 'SteelSeries GG > Sonar: desactívalo (o desinstala GG si no lo usas). Si lo dejas, que el juego no salga por "SteelSeries Sonar - Gaming".' }
     @{ Name = 'Dolby Atmos';       Appx = 'DolbyLaboratories.Dolby'; Kind = 'Manual'; Why = 'Audio espacial encima del HRTF del juego.'; Advice = 'Propiedades del headset > Audio espacial: Desactivado (Dolby Atmos for Headphones fuera).' }
     @{ Name = 'DTS';               Appx = 'DTSInc.';                  Kind = 'Manual'; Why = 'Audio espacial encima del HRTF del juego.'; Advice = 'DTS Sound Unbound / DTS:X: desactívalo para el headset y deja Audio espacial en Desactivado.' }
@@ -167,7 +169,7 @@ function Get-HLAudioInventory {
     if (@($script:HLAudioEnhancers | Where-Object { $_.Appx }).Count) { $appx = @(Get-AppxPackage -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) }
     $inv.Enhancers = @(foreach ($e in $script:HLAudioEnhancers) {
             $entry = if ($e.Display) { $entries | Where-Object { $_.DisplayName -match $e.Display } | Select-Object -First 1 } else { $null }
-            $running = @($e.Process | Where-Object { $_ -and $_ -in $procs }).Count -gt 0
+            $running = @(foreach ($pat in @($e.Process)) { if ($pat) { $procs | Where-Object { $_ -like $pat } } }).Count -gt 0
             $svc = if ($e.Service) { Get-Service -Name $e.Service -ErrorAction SilentlyContinue } else { $null }
             $ep = if ($e.Endpoint) { @($endpoints | Where-Object { $_ -match [regex]::Escape($e.Endpoint) }).Count -gt 0 } else { $false }
             $ax = if ($e.Appx) { @($appx | Where-Object { $_ -like "$($e.Appx)*" }).Count -gt 0 } else { $false }

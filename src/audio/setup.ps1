@@ -27,6 +27,7 @@ $script:AudioRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $PSScriptRoot 'autoeq.ps1')
 . (Join-Path $PSScriptRoot 'eqswitch.ps1')
 . (Join-Path $PSScriptRoot 'cleanup.ps1')
+. (Join-Path $PSScriptRoot 'endpoints.ps1')
 
 # Fuentes de descarga. Voicemeeter con hash fijado (mismo que el manifiesto de
 # winget VB-Audio.Voicemeeter.Potato 3.1.2.2). EQ APO viene de SourceForge
@@ -433,6 +434,14 @@ function Invoke-HLAudioSetup {
             Add-HLResult -Module 'Audio' -Item $c -Status Failed -Detail "Instalación manual: $($script:HLAudioSources[$c].Page)"
             if ($c -eq 'EqualizerAPO') { return }
         }
+    }
+
+    # --- Nombres de VB-CABLE ------------------------------------------------------
+    # Otros programas los renombran ("Art Tune +"): las instrucciones dejan de
+    # coincidir y Voicemeeter no encuentra "CABLE Output" por su nombre.
+    if (-not $HL.DryRun -and (Restore-HLCableNames) -gt 0) {
+        # Voicemeeter lee la lista de dispositivos al arrancar: se reabre con los nombres nuevos.
+        Get-Process -Name 'voicemeeter*' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     }
 
     # --- EQ -----------------------------------------------------------------------

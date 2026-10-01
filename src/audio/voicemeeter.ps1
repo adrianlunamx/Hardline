@@ -132,7 +132,8 @@ function New-HLVoicemeeterScript {
     }
 
     $g = [int]$root.GameStrip.index
-    $s = [int]$root.SystemStrip.index
+    # Entrada virtual (VAIO) según la edición: Voicemeeter 2, Banana 3, Potato 5.
+    $s = switch ($VoicemeeterType) { 1 { 2 } 2 { 3 } default { [int]$root.SystemStrip.index } }
     $b = [int]$root.OutputBus.index
     $lines = New-Object System.Collections.Generic.List[string]
 

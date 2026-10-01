@@ -613,6 +613,16 @@ try {
     Assert-True ($setupSrc -match "Stop-Process" -and $setupSrc -match 'VB-Audio\.Voicemeeter\.Potato' -and $setupSrc -match 'Test-HLVoicemeeterPotato\) \{ return \$true \}') 'Voicemeeter: se cierra antes de instalar, alternativa winget, éxito = Potato presente'
     . (Join-HLPath @($root, 'src', 'audio', 'voicemeeter.ps1'))
     Assert-True ((Get-HLVoicemeeterRunType @('voicemeeterpro_x64.exe', 'voicemeeter8x64.exe')) -eq 6 -and (Get-HLVoicemeeterRunType @('VoicemeeterPro_x64.exe', 'voicemeeter_x64.exe')) -eq 5 -and (Get-HLVoicemeeterRunType @('otro.exe')) -eq 0) 'Voicemeeter: se abre la mejor edición instalada (no siempre Potato)'
+    $vmXml = Join-HLPath @($root, 'src', 'audio', 'configs', 'voicemeeter_comp.xml')
+    $vmStd = (New-HLVoicemeeterScript -XmlPath $vmXml -HeadsetDevice 'Speakers (Sound BlasterX G1)' -VoicemeeterType 1) -join ' '
+    $vmPot = (New-HLVoicemeeterScript -XmlPath $vmXml -HeadsetDevice 'Speakers (Sound BlasterX G1)' -VoicemeeterType 3) -join ' '
+    Assert-True ($vmStd -match 'Strip\[2\]\.Label="HL SISTEMA"' -and $vmStd -notmatch 'Strip\[5\]' -and $vmPot -match 'Strip\[5\]\.Label="HL SISTEMA"' -and $vmStd -match 'Strip\[0\]\.device\.wdm="CABLE Output \(VB-Audio Virtual Cable\)"') 'Voicemeeter: entrada virtual correcta en cada edición (básica 2, Potato 5)'
+    . (Join-HLPath @($root, 'src', 'audio', 'endpoints.ps1'))
+    Assert-True ((Get-HLCableDefaultName 'VB-Audio Virtual Cable' 0) -eq 'CABLE Input' -and (Get-HLCableDefaultName 'VB-Audio Virtual Cable' 1) -eq 'CABLE Output' -and (Get-HLCableDefaultName 'VB-Audio Voicemeeter VAIO' 0) -eq '' -and (Get-HLCableDefaultName 'Sound BlasterX G1' 0) -eq '') 'nombres de fábrica de VB-CABLE (Voicemeeter y otros dispositivos no se tocan)'
+    $epOk = $true; try { Initialize-HLEndpointApi } catch { $epOk = $false }
+    Assert-True ($epOk -and ('Hardline.AudioEndpoints' -as [type])) 'API de nombres de audio compila'
+    Assert-True ($comSrc -match "'AudioEndpointName' \{" -and (Get-Content (Join-HLPath @($root, 'src', 'audio', 'endpoints.ps1')) -Raw) -match "Type 'AudioEndpointName'" -and $setupSrc -match 'Restore-HLCableNames') 'nombres de VB-CABLE: se restauran al instalar y el rollback los devuelve'
+    Assert-True (@($script:HLAudioEnhancers | Where-Object { $_.Name -eq 'Art Tune' -and $_.Endpoint -eq 'Art Tune' -and $_.Kind -eq 'Uninstall' }).Count -eq 1 -and @($script:HLAudioEnhancers | Where-Object { $_.Name -match 'Sound Blaster' -and $_.Kind -eq 'Manual' }).Count -eq 1) 'Art Tune (desinstalable) y Sound Blaster (solo aviso) detectados como audio anterior'
     Assert-True ($setupSrc -match 'Wait-Job \$job -Timeout 90' -and $setupSrc -match 'Stop-Job') 'fase tras reiniciar: tiempo límite, la ventana no se queda colgada'
     Assert-True ($appSrc -match 'gui_error\.log' -and $appSrc -match 'La interfaz no pudo abrirse') 'interfaz: si falla al abrir, enseña el error y lo guarda'
     Assert-True ('CleanAudio' -in $instParams -and 'chkCleanAudio' -in $xamlNames -and ((ConvertTo-HLGuiArguments -State @{ Audio = $true; CleanAudio = $true }) -contains '-CleanAudio') -and -not ((ConvertTo-HLGuiArguments -State @{ Audio = $false; CleanAudio = $true }) -contains '-CleanAudio')) 'interfaz e instalador: -CleanAudio solo con audio marcado'

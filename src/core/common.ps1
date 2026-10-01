@@ -13,7 +13,7 @@
 
 # Sin StrictMode: WMI/CIM devuelve propiedades opcionales según fabricante y driver.
 
-$Global:HLVersion = '1.8.2'
+$Global:HLVersion = '1.8.3'
 $Global:HLRepo = 'adrianlunamx/Hardline'
 
 # --------------------------------------------------------------------------
@@ -582,6 +582,13 @@ function Undo-HLManifestEntry {
             $r = [Hardline.DisplayApi]::SetRefresh($Entry.Device, [int]$Entry.Width, [int]$Entry.Height, [int]$Entry.PrevHz)
             if ($r -ne 0) { throw "Windows rechazó volver a $($Entry.PrevHz) Hz (código $r)." }
             return "Refresco $($Entry.Device) -> $($Entry.PrevHz) Hz"
+        }
+        'AudioEndpointName' {
+            . $Entry.ModulePath
+            Initialize-HLEndpointApi
+            $hr = [Hardline.AudioEndpoints]::Rename($Entry.Id, $Entry.PrevName)
+            if ($hr -ne 0) { throw ("Windows no dejó devolver el nombre ""{0}"" (0x{1:X8})." -f $Entry.PrevName, $hr) }
+            return "Nombre de audio -> $($Entry.PrevName)"
         }
         'Info' { return $null }
         default { throw "Tipo de entrada desconocido: $($Entry.Type)" }
