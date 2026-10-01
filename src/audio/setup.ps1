@@ -84,6 +84,33 @@ function Get-HLTempDir {
     return $d
 }
 
+<#
+    Intento fallido de instalar Potato encima de otra edición. Se guarda el
+    SHA256 del instalador: con el mismo instalador no se reintenta en cada
+    aplicación (cada intento cierra Voicemeeter y corta el audio). Si
+    Hardline trae otro instalador, se vuelve a probar.
+#>
+function Get-HLPotatoFailMarker { return (Join-Path (Join-Path $HL.Root 'config') 'voicemeeter_potato_failed.txt') }
+
+function Test-HLPotatoInstallFailed {
+    $f = Get-HLPotatoFailMarker
+    if (-not (Test-Path $f)) { return $false }
+    return ((Get-Content $f -Raw -ErrorAction SilentlyContinue).Trim() -eq $script:HLAudioSources.Voicemeeter.Sha256)
+}
+
+function Set-HLPotatoInstallFailed {
+    param([bool] $Failed)
+    if ($HL.DryRun) { return }
+    $f = Get-HLPotatoFailMarker
+    if ($Failed) {
+        $dir = Split-Path $f -Parent
+        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+        Set-Content -Path $f -Value $script:HLAudioSources.Voicemeeter.Sha256 -Encoding ASCII
+    } else {
+        Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Install-HLComponent {
     param([Parameter(Mandatory)] [ValidateSet('Voicemeeter', 'VBCable', 'EqualizerAPO')] [string] $Name)
 
@@ -435,8 +462,19 @@ function Invoke-HLAudioSetup {
             'Voicemeeter'  { Test-HLVoicemeeterPotato }
         }
         if ($present) { Write-HLSub "$c" 'OK (ya instalado)'; continue }
+        $potatoPage = $script:HLAudioSources.Voicemeeter.Page
+        if ($c -eq 'Voicemeeter' -and (Get-HLVoicemeeterDir) -and (Test-HLPotatoInstallFailed)) {
+            $retry = if ($HL.Unattended) { $false } else { Read-HLYesNo 'La instalación de Voicemeeter Potato ya falló antes con este instalador. ¿Reintentarla? (cierra Voicemeeter mientras tanto)' $false }
+            if (-not $retry) {
+                Write-HLSub 'Voicemeeter Potato' 'MANUAL (falló antes; se usa tu edición actual)'
+                Add-HLResult -Module 'Audio' -Item $c -Status Manual -Detail "Se usa la edición instalada. Potato: $potatoPage"
+                Add-HLManualStep 'Audio' "Instala Voicemeeter Potato ($potatoPage) con Voicemeeter cerrado y vuelve a aplicar el audio: solo Potato tiene el compresor y el gate completos."
+                continue
+            }
+        }
         Write-HLSub "Instalando $c"
         $ok = Install-HLComponent -Name $c
+        if ($c -eq 'Voicemeeter') { Set-HLPotatoInstallFailed -Failed (-not $ok) }
         if ($ok) {
             Write-HLSub "$c" 'OK'
             if (-not $HL.DryRun) { Add-HLManifestEntry -Type 'Info' -Data @{ Note = "Hardline instaló $c. El rollback no desinstala software: quítalo desde Configuración > Aplicaciones si no lo quieres." } }
@@ -534,10 +572,13 @@ function Invoke-HLVoicemeeterPhase {
     }
 
     # Voicemeeter debe arrancar con Windows o el juego se queda sin audio.
-    if ($vmDir) {
-        $exe = Join-Path $vmDir 'voicemeeter8x64.exe'
-        if (-not (Test-Path $exe)) { $exe = Join-Path $vmDir 'voicemeeter8.exe' }
+    # Se apunta a la edición instalada (no siempre Potato).
+    $exe = if ($vmDir) { Get-HLVoicemeeterExe -Dir $vmDir } else { $null }
+    if ($exe) {
         Set-HLRegistryValue -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'HardlineVoicemeeter' -Value ('"{0}"' -f $exe) -Type String -Reason 'Voicemeeter al iniciar sesión' | Out-Null
+    } elseif ($vmDir) {
+        Write-HLWarn "No se encontró el ejecutable de Voicemeeter en ${vmDir}: no arrancará con Windows."
+        Add-HLManualStep 'Audio' 'Voicemeeter no arranca solo con Windows: ábrelo y activa Menú > "Run on Windows Startup", o el juego se queda sin audio tras reiniciar.'
     }
 }
 

@@ -39,7 +39,7 @@ function Invoke-HLServices {
         $r = Set-HLServiceStart -Name $s.Name -StartType $s.Target -Reason $s.Why
         switch ($r) {
             'NotFound'  { Add-HLResult -Module 'Servicios' -Item $s.Name -Status Skipped -Detail 'No existe en este sistema' }
-            'Unchanged' { Add-HLResult -Module 'Servicios' -Item $s.Name -Status Skipped -Detail "Ya estaba en $($s.Target)" }
+            'Unchanged' { Add-HLResult -Module 'Servicios' -Item $s.Name -Status Skipped -Detail "Ya estaba en $($s.Target) o más restringido" }
             'Changed'   { Add-HLResult -Module 'Servicios' -Item $s.Name -Status Applied -Detail "-> $($s.Target). $($s.Why)"; $changed++ }
         }
         Write-HLInfo ('{0,-18} {1,-9} {2}' -f $s.Name, $r, $s.Target)

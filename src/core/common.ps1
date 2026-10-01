@@ -341,6 +341,19 @@ function Set-HLServiceStart {
 
     $map = @{ Automatic = 2; Manual = 3; Disabled = 4 }
     $key = "HKLM:\SYSTEM\CurrentControlSet\Services\$Name"
+
+    # Solo se restringe, nunca se relaja: un servicio que ya estaba deshabilitado
+    # (por ti o por otra herramienta) no pasa a Manual. Start 0/1 son drivers
+    # de arranque: no se tocan.
+    $cur = Get-HLRegistryValue -Path $key -Name 'Start'
+    if ($cur.Exists -and $StartType -ne 'Automatic') {
+        $curStart = [int]$cur.Value
+        if ($curStart -lt 2 -or $curStart -gt $map[$StartType]) {
+            Write-HLLog DEBUG "Servicio $Name sin cambios: Start=$curStart ya es más restrictivo que $StartType (o es un driver)"
+            return 'Unchanged'
+        }
+    }
+
     $changed = Set-HLRegistryValue -Path $key -Name 'Start' -Value $map[$StartType] -Type DWord -Reason "Servicio $Name -> $StartType. $Reason"
 
     if ($StartType -eq 'Disabled' -and $svc.Status -eq 'Running' -and -not $HL.DryRun) {

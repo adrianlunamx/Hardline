@@ -206,6 +206,7 @@ El juego no se toca. Todo es editable en `config\gamesession.json` y queda regis
 
 ```powershell
 .\rollback.ps1              # última sesión
+.\rollback.ps1 -All         # todas las sesiones: como antes de Hardline
 .\rollback.ps1 -List        # ver sesiones
 .\rollback.ps1 -Stamp 2025-01-15_14-30
 ```

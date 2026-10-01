@@ -59,14 +59,33 @@ namespace Hardline {
     Banana, 3/6 = Potato (4-6 = x64). La mejor disponible; 0 si no hay ninguna.
     Abrir una edición que no está instalada deja al programa esperando.
 #>
+$script:HLVoicemeeterEditions = @(
+    @{ Exe = 'voicemeeter8x64.exe'; T = 6 }, @{ Exe = 'voicemeeter8.exe'; T = 3 }, @{ Exe = 'voicemeeterpro_x64.exe'; T = 5 },
+    @{ Exe = 'voicemeeterpro.exe'; T = 2 }, @{ Exe = 'voicemeeter_x64.exe'; T = 4 }, @{ Exe = 'voicemeeter.exe'; T = 1 }
+)
+
 function Get-HLVoicemeeterRunType {
     param([string[]] $Files)
     $f = @($Files | ForEach-Object { "$_".ToLowerInvariant() })
-    foreach ($c in @(@{ Exe = 'voicemeeter8x64.exe'; T = 6 }, @{ Exe = 'voicemeeter8.exe'; T = 3 }, @{ Exe = 'voicemeeterpro_x64.exe'; T = 5 },
-            @{ Exe = 'voicemeeterpro.exe'; T = 2 }, @{ Exe = 'voicemeeter_x64.exe'; T = 4 }, @{ Exe = 'voicemeeter.exe'; T = 1 })) {
+    foreach ($c in $script:HLVoicemeeterEditions) {
         if ($c.Exe -in $f) { return $c.T }
     }
     return 0
+}
+
+<#
+    Ruta del ejecutable de la mejor edición instalada en $Dir, o $null.
+    Para el arranque con Windows: apuntar a una edición que no está instalada
+    (p. ej. voicemeeter8.exe con solo Voicemeeter básico) deja el audio sin
+    Voicemeeter tras reiniciar.
+#>
+function Get-HLVoicemeeterExe {
+    param([Parameter(Mandatory)] [string] $Dir)
+    foreach ($c in $script:HLVoicemeeterEditions) {
+        $p = Join-Path $Dir $c.Exe
+        if (Test-Path -LiteralPath $p) { return $p }
+    }
+    return $null
 }
 
 function Connect-HLVoicemeeter {

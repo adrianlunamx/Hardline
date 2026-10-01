@@ -32,7 +32,7 @@
 $script:HLEqApoClsid = '{EACD2258-FCAC-4FF4-B36D-419E924A6D79}'
 
 # Archivos que trae Equalizer APO en config\: no son configuración tuya.
-$script:HLEqApoStockFiles = @('config.txt', 'example.txt', 'demo.txt', 'multichannel.txt', 'iir_lowpass.txt', 'readme.txt')
+$script:HLEqApoStockFiles = @('config.txt', 'example.txt', 'demo.txt', 'multichannel.txt', 'iir_lowpass.txt', 'selective_delay.txt', 'readme.txt')
 
 $script:HLAudioEnhancers = @(
     @{ Name = 'Art Tune';          Display = '^Art ?Tune';             Process = @('ArtTune*');              Endpoint = 'Art Tune'; Kind = 'Uninstall'; Why = 'Procesa el audio con sus propios efectos y renombra los dispositivos de VB-CABLE ("Art Tune +"), así que las instrucciones ya no coinciden.' }
@@ -116,6 +116,20 @@ function ConvertTo-HLUninstallCommand {
     return [pscustomobject]@{ FilePath = $exe; Arguments = $args_.Trim(); Silent = $silent }
 }
 
+<#
+    ¿Existe el desinstalador al que apunta la entrada? Si se borró la carpeta
+    del programa a mano, la entrada queda huérfana en Aplicaciones: el programa
+    ya no está y lanzar el desinstalador falla siempre. Rutas no absolutas
+    (msiexec, comandos del PATH) se dan por válidas.
+#>
+function Test-HLUninstallerPresent {
+    param([Parameter(Mandatory)] $Entry)
+    $c = ConvertTo-HLUninstallCommand -UninstallString $Entry.UninstallString -QuietUninstallString $Entry.QuietUninstallString
+    $path = [Environment]::ExpandEnvironmentVariables($c.FilePath)
+    if (-not [IO.Path]::IsPathRooted($path)) { return $true }
+    return (Test-Path -LiteralPath $path)
+}
+
 # --------------------------------------------------------------------------
 # Sistema
 # --------------------------------------------------------------------------
@@ -169,6 +183,10 @@ function Get-HLAudioInventory {
     if (@($script:HLAudioEnhancers | Where-Object { $_.Appx }).Count) { $appx = @(Get-AppxPackage -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) }
     $inv.Enhancers = @(foreach ($e in $script:HLAudioEnhancers) {
             $entry = if ($e.Display) { $entries | Where-Object { $_.DisplayName -match $e.Display } | Select-Object -First 1 } else { $null }
+            if ($entry -and -not (Test-HLUninstallerPresent -Entry $entry)) {
+                Write-HLLog INFO "$($e.Name): entrada de desinstalación huérfana ($($entry.UninstallString) no existe); se considera desinstalado."
+                $entry = $null
+            }
             $running = @(foreach ($pat in @($e.Process)) { if ($pat) { $procs | Where-Object { $_ -like $pat } } }).Count -gt 0
             $svc = if ($e.Service) { Get-Service -Name $e.Service -ErrorAction SilentlyContinue } else { $null }
             $ep = if ($e.Endpoint) { @($endpoints | Where-Object { $_ -match [regex]::Escape($e.Endpoint) }).Count -gt 0 } else { $false }

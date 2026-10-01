@@ -159,7 +159,7 @@
         <Button x:Name="btnGameplay" Content="Medir partida"/>
         <Button x:Name="btnGuide" Content="Guía de pasos"/>
         <Button x:Name="btnDryRun" Content="Simular (DryRun)"/>
-        <Button x:Name="btnRollback" Content="Revertir última sesión"/>
+        <Button x:Name="btnRollback" Content="Revertir todo"/>
         <Button x:Name="btnNetDiag" Content="Diagnóstico de red"/>
         <Button x:Name="btnBench" Content="Benchmark"/>
         <Button x:Name="btnFootstep" Content="Test de pasos"/>

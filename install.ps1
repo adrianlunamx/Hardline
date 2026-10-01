@@ -534,6 +534,7 @@ Write-Host '----------------------------------------' -ForegroundColor DarkCyan
 Write-Host ''
 Write-Host 'Revertir:' -ForegroundColor Cyan
 Write-Host ("    {0}\rollback.ps1            (ultima sesion)" -f $HLRoot)
+Write-Host ("    {0}\rollback.ps1 -All       (todas las sesiones)" -f $HLRoot)
 Write-Host ("    {0}\rollback.ps1 -Stamp {1}" -f $HLRoot, $HL.Stamp)
 Write-Host '    o Restaurar sistema > punto "Hardline_*"'
 Write-Host ''

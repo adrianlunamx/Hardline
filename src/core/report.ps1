@@ -88,6 +88,7 @@ function Write-HLReport {
     L 'REVERTIR'
     L "  Todo lo de esta sesión:   .\rollback.ps1 -Stamp $($HL.Stamp)"
     L '  Última sesión:            .\rollback.ps1'
+    L '  Todas las sesiones:       .\rollback.ps1 -All'
     L '  Alternativa:              Panel de control > Recuperación > Restaurar sistema > punto "Hardline_*"'
     L "  Manifiesto de cambios:    $(Join-Path $HL.BackupDir 'manifest.json')"
     L "  Log detallado:            $($HL.LogFile)"
@@ -238,6 +239,7 @@ a{color:var(--acc)}code{background:var(--panel);border:1px solid var(--line);bor
     Add-HtmlLine '<h2>Revertir</h2><ol>'
     Add-HtmlLine ("<li>Esta sesión: <code>.\rollback.ps1 -Stamp {0}</code></li>" -f (& $enc $HL.Stamp))
     Add-HtmlLine '<li>Última sesión: <code>.\rollback.ps1</code></li>'
+    Add-HtmlLine '<li>Todas las sesiones (como antes de Hardline): <code>.\rollback.ps1 -All</code></li>'
     Add-HtmlLine '<li>Restaurar sistema &gt; punto <code>Hardline_*</code></li>'
     Add-HtmlLine ("<li>Manifiesto: <code>{0}</code></li>" -f (& $enc (Join-Path $HL.BackupDir 'manifest.json')))
     Add-HtmlLine '</ol></main></body></html>'

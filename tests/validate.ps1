@@ -259,6 +259,24 @@ try {
         Assert-True (-not (Test-Path "$key\Sub")) 'clave creada eliminada'
         Remove-Item $key -Recurse -Force -ErrorAction SilentlyContinue
     }
+
+    # Servicios: solo se restringe. Get-Service y el valor Start se simulan (DryRun: no se escribe nada).
+    $origGetReg = ${function:Get-HLRegistryValue}
+    $origDry = $HL.DryRun
+    $script:fakeStart = 0
+    function Get-Service { param([string]$Name) [pscustomobject]@{ Name = $Name; Status = 'Stopped' } }
+    function Get-HLRegistryValue { param([string]$Path, [string]$Name) [pscustomobject]@{ Exists = $true; Value = $script:fakeStart; Kind = 'DWord'; KeyExists = $true } }
+    try {
+        $HL.DryRun = $true
+        $script:fakeStart = 4; $sv1 = Set-HLServiceStart -Name 'HLFake' -StartType Manual
+        $script:fakeStart = 2; $sv2 = Set-HLServiceStart -Name 'HLFake' -StartType Manual
+        $script:fakeStart = 1; $sv3 = Set-HLServiceStart -Name 'HLFake' -StartType Disabled
+        Assert-True ($sv1 -eq 'Unchanged' -and $sv2 -eq 'Changed' -and $sv3 -eq 'Unchanged') 'servicios: no se relaja uno deshabilitado ni se tocan drivers de arranque' "$sv1 $sv2 $sv3"
+    } finally {
+        Remove-Item Function:\Get-Service -ErrorAction SilentlyContinue
+        ${function:Get-HLRegistryValue} = $origGetReg
+        $HL.DryRun = $origDry
+    }
 } finally {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 }
@@ -613,6 +631,27 @@ try {
     Assert-True ($setupSrc -match "Stop-Process" -and $setupSrc -match 'VB-Audio\.Voicemeeter\.Potato' -and $setupSrc -match 'Test-HLVoicemeeterPotato\) \{ return \$true \}') 'Voicemeeter: se cierra antes de instalar, alternativa winget, éxito = Potato presente'
     . (Join-HLPath @($root, 'src', 'audio', 'voicemeeter.ps1'))
     Assert-True ((Get-HLVoicemeeterRunType @('voicemeeterpro_x64.exe', 'voicemeeter8x64.exe')) -eq 6 -and (Get-HLVoicemeeterRunType @('VoicemeeterPro_x64.exe', 'voicemeeter_x64.exe')) -eq 5 -and (Get-HLVoicemeeterRunType @('otro.exe')) -eq 0) 'Voicemeeter: se abre la mejor edición instalada (no siempre Potato)'
+    $vmd = Join-Path $tmp 'vm'
+    New-Item -ItemType Directory -Path $vmd -Force | Out-Null
+    $vmNone = Get-HLVoicemeeterExe -Dir $vmd
+    foreach ($n in @('voicemeeter.exe', 'voicemeeter_x64.exe')) { [IO.File]::WriteAllText((Join-Path $vmd $n), '') }
+    $vmBest = Get-HLVoicemeeterExe -Dir $vmd
+    Assert-True ($null -eq $vmNone -and (Split-Path $vmBest -Leaf) -eq 'voicemeeter_x64.exe' -and $setupSrc -match 'Get-HLVoicemeeterExe' -and $setupSrc -notmatch "Join-Path \`$vmDir 'voicemeeter8") 'Voicemeeter al iniciar sesión: la edición instalada, nunca un voicemeeter8.exe que no existe'
+    $orphan = [pscustomobject]@{ UninstallString = '"C:\Program Files\EqualizerAPO\config\no_existe_hl\PeaceSetup.exe" "2"'; QuietUninstallString = '' }
+    $realUn = [pscustomobject]@{ UninstallString = ('"{0}" /c' -f (Join-Path $env:SystemRoot 'System32\cmd.exe')); QuietUninstallString = '' }
+    $msiUn = [pscustomobject]@{ UninstallString = 'MsiExec.exe /I{12345678-1234-1234-1234-123456789ABC}'; QuietUninstallString = '' }
+    Assert-True (-not (Test-HLUninstallerPresent -Entry $orphan) -and (Test-HLUninstallerPresent -Entry $msiUn) -and (-not $onWindows -or (Test-HLUninstallerPresent -Entry $realUn))) 'desinstalador huérfano (Peace borrado a mano): no se intenta lanzar'
+    . (Join-HLPath @($root, 'src', 'audio', 'setup.ps1'))
+    $oldRoot = $HL.Root; $HL.Root = $tmp
+    try {
+        $pf0 = Test-HLPotatoInstallFailed
+        Set-HLPotatoInstallFailed -Failed $true; $pf1 = Test-HLPotatoInstallFailed
+        Set-Content -Path (Get-HLPotatoFailMarker) -Value 'OTRO_HASH' -Encoding ASCII; $pf2 = Test-HLPotatoInstallFailed
+        Set-HLPotatoInstallFailed -Failed $false; $pf3 = Test-HLPotatoInstallFailed
+        Assert-True (-not $pf0 -and $pf1 -and -not $pf2 -and -not $pf3) 'Potato: no se reintenta con el mismo instalador que ya falló; con otro, sí'
+    } finally { $HL.Root = $oldRoot }
+    $rbSrc = Get-Content (Join-HLPath @($root, 'rollback.ps1')) -Raw
+    Assert-True ($rbSrc -match '\[switch\] \$All' -and $rbSrc -match "if \(\`$All\) \{ \`$a \+= '-All' \}" -and $appSrc -match "'-All', '-Unattended'") 'rollback -All: todas las sesiones (también al relanzar elevado y desde la interfaz)'
     $vmXml = Join-HLPath @($root, 'src', 'audio', 'configs', 'voicemeeter_comp.xml')
     $vmStd = (New-HLVoicemeeterScript -XmlPath $vmXml -HeadsetDevice 'Speakers (Sound BlasterX G1)' -VoicemeeterType 1) -join ' '
     $vmPot = (New-HLVoicemeeterScript -XmlPath $vmXml -HeadsetDevice 'Speakers (Sound BlasterX G1)' -VoicemeeterType 3) -join ' '

@@ -2,6 +2,20 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Añadido
+
+- **`rollback.ps1 -All`**: revierte todas las sesiones pendientes, de la más nueva a la más antigua. Cada aplicación crea su propia sesión y revertir solo la última dejaba puestos servicios, registro, DNS y QoS de las anteriores. El botón de la interfaz pasa a ser **"Revertir todo"** e indica cuántas sesiones hay.
+
+### Corregido
+
+- **Voicemeeter no arrancaba con Windows** con la edición básica o Banana: la entrada de inicio apuntaba siempre a `voicemeeter8.exe` (Potato), aunque no estuviera instalado. Ahora apunta a la edición instalada; si no encuentra ninguna, lo avisa en la guía.
+- **Instalación de Potato repetida en cada aplicación**: si falla encima de otra edición, no se reintenta con el mismo instalador (cada intento cerraba Voicemeeter y cortaba el audio). En consola se pregunta; con un instalador nuevo se vuelve a probar.
+- **"Desinstalar Peace" fallaba siempre** cuando Peace se había borrado a mano y quedaba su entrada en Aplicaciones apuntando a un desinstalador que ya no existe. Esas entradas huérfanas se ignoran.
+- **Servicios relajados**: un servicio que ya estaba deshabilitado (p. ej. PcaSvc) pasaba a Manual. Ahora Hardline solo restringe el tipo de inicio, nunca lo afloja, y no toca drivers de arranque.
+- `selective_delay.txt` de Equalizer APO ya no se toma por configuración ajena.
+
 ## [1.10.1] - 2026-10-01
 
 ### Cambiado

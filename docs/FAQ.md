@@ -28,7 +28,7 @@ Porque faltaban permisos de administrador (se abre con UAC) o porque lo lanzaste
 
 **¿Puedo ejecutarlo varias veces?**
 
-Sí. Lo que ya tiene el valor objetivo se omite y no se registra. Cada ejecución crea su propia sesión en `backups/`. Para revertir todo, revierte de la más nueva a la más antigua (`rollback.ps1` sin parámetros coge siempre la más nueva pendiente).
+Sí. Lo que ya tiene el valor objetivo se omite y no se registra. Cada ejecución crea su propia sesión en `backups/`. Para revertir todo: `rollback.ps1 -All` (o el botón **Revertir todo** de la interfaz), que va de la más nueva a la más antigua. `rollback.ps1` sin parámetros solo revierte la más nueva pendiente.
 
 ## Actualizar
 
@@ -50,7 +50,7 @@ Todo lo que aparece en `backups/<sesión>/manifest.json`: valores de registro (i
 
 **Algo se rompió y no sé qué.**
 
-1. `.\rollback.ps1`
+1. `.\rollback.ps1 -All`
 2. Si persiste: Panel de control > Recuperación > Abrir Restaurar sistema > punto `Hardline_<fecha>`.
 3. El log de la sesión (`logs/`) tiene cada cambio con su valor anterior.
 

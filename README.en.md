@@ -93,6 +93,7 @@ flowchart LR
 
 ```powershell
 .\rollback.ps1              # last session
+.\rollback.ps1 -All         # every session: back to before Hardline
 .\rollback.ps1 -List        # list sessions
 ```
 
