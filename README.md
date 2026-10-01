@@ -11,8 +11,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jhernandezl2c-hash/Hardline/actions/workflows/release.yml"><img alt="CI" src="https://github.com/jhernandezl2c-hash/Hardline/actions/workflows/release.yml/badge.svg"></a>
-  <a href="https://github.com/jhernandezl2c-hash/Hardline/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/jhernandezl2c-hash/Hardline?style=flat-square&color=FF5A1F"></a>
+  <a href="https://github.com/adrianlunamx/Hardline/actions/workflows/release.yml"><img alt="CI" src="https://github.com/adrianlunamx/Hardline/actions/workflows/release.yml/badge.svg"></a>
+  <a href="https://github.com/adrianlunamx/Hardline/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/adrianlunamx/Hardline?style=flat-square&color=FF5A1F"></a>
   <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E1116?style=flat-square">
   <img alt="PowerShell 5.1+" src="https://img.shields.io/badge/PowerShell-5.1%2B-0E1116?style=flat-square">
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/licencia-MIT-FF5A1F?style=flat-square"></a>
@@ -42,13 +42,13 @@ Hardline es un script de PowerShell que ajusta Windows, tu GPU y CPU, la red, la
 PowerShell **como administrador**:
 
 ```powershell
-irm https://raw.githubusercontent.com/jhernandezl2c-hash/Hardline/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/adrianlunamx/Hardline/main/install.ps1 | iex
 ```
 
 Primero, si quieres ver qué haría sin tocar nada:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/jhernandezl2c-hash/Hardline/main/install.ps1))) -DryRun
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/adrianlunamx/Hardline/main/install.ps1))) -DryRun
 ```
 
 > [!NOTE]
@@ -58,7 +58,7 @@ Primero, si quieres ver qué haría sin tocar nada:
 <summary><strong>Desde un clon</strong></summary>
 
 ```powershell
-git clone https://github.com/jhernandezl2c-hash/Hardline.git
+git clone https://github.com/adrianlunamx/Hardline.git
 cd Hardline
 .\install.ps1
 ```

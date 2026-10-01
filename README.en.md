@@ -11,8 +11,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jhernandezl2c-hash/Hardline/actions/workflows/release.yml"><img alt="CI" src="https://github.com/jhernandezl2c-hash/Hardline/actions/workflows/release.yml/badge.svg"></a>
-  <a href="https://github.com/jhernandezl2c-hash/Hardline/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/jhernandezl2c-hash/Hardline?style=flat-square&color=FF5A1F"></a>
+  <a href="https://github.com/adrianlunamx/Hardline/actions/workflows/release.yml"><img alt="CI" src="https://github.com/adrianlunamx/Hardline/actions/workflows/release.yml/badge.svg"></a>
+  <a href="https://github.com/adrianlunamx/Hardline/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/adrianlunamx/Hardline?style=flat-square&color=FF5A1F"></a>
   <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E1116?style=flat-square">
   <img alt="PowerShell 5.1+" src="https://img.shields.io/badge/PowerShell-5.1%2B-0E1116?style=flat-square">
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-FF5A1F?style=flat-square"></a>
@@ -38,13 +38,13 @@ Hardline is a PowerShell script that tunes Windows, your GPU/CPU platform, the n
 PowerShell **as administrator**:
 
 ```powershell
-irm https://raw.githubusercontent.com/jhernandezl2c-hash/Hardline/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/adrianlunamx/Hardline/main/install.ps1 | iex
 ```
 
 Dry run first, to see what it would do without changing anything:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/jhernandezl2c-hash/Hardline/main/install.ps1))) -DryRun
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/adrianlunamx/Hardline/main/install.ps1))) -DryRun
 ```
 
 It downloads the **latest release** and verifies its SHA256 before running (`-Channel main` gets the latest `main` branch instead). It creates a Windows restore point first and installs to `%LOCALAPPDATA%\Hardline`. A checklist at the start lets you pick which modules to apply.

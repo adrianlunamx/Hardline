@@ -258,6 +258,17 @@ $wf = Get-Content (Join-HLPath @($root, '.github', 'workflows', 'release.yml')) 
 $inst = Get-Content (Join-HLPath @($root, 'install.ps1')) -Raw
 Assert-True ($wf -match 'hardline-\$\{VERSION\}\.zip' -and $wf -match '\.zip\.sha256') 'release.yml publica hardline-X.zip + .sha256'
 Assert-True ($inst.Contains("'^hardline-.*\.zip$'") -and $inst.Contains("'^hardline-.*\.zip\.sha256$'")) 'install.ps1 busca esos mismos nombres de asset'
+# Un solo repositorio en todas partes: si el usuario de GitHub cambia, la redirección
+# del nombre antiguo puede caducar y "irm | iex" acabaría descargando código ajeno.
+$owner = [regex]::Match($inst, "\`$HLRepoOwner = '([^']+)'").Groups[1].Value
+$name = [regex]::Match($inst, "\`$HLRepoName = '([^']+)'").Groups[1].Value
+Assert-True ("$owner/$name" -eq $HLRepo) "install.ps1 y common.ps1 apuntan al mismo repo ($owner/$name)"
+$docs = @('README.md', 'README.en.md', 'install.ps1', (Join-HLPath @('.github', 'ISSUE_TEMPLATE', 'config.yml')))
+$stray = @(foreach ($d in $docs) {
+        $txt = Get-Content (Join-Path $root $d) -Raw
+        [regex]::Matches($txt, 'github(?:usercontent)?\.com/([A-Za-z0-9-]+)/Hardline') | Where-Object { $_.Groups[1].Value -ne $owner } | ForEach-Object { "$d -> $($_.Groups[1].Value)" }
+    })
+Assert-True ($stray.Count -eq 0) 'enlaces de README/instalador con el usuario actual' ($stray -join '; ')
 $cl = Get-Content (Join-HLPath @($root, 'CHANGELOG.md')) -Raw
 Assert-True ($cl -match ('## \[' + [regex]::Escape($HLVersion) + '\]')) "CHANGELOG tiene entrada para $HLVersion"
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ("hl_test_" + [guid]::NewGuid().ToString('N').Substring(0, 8))
