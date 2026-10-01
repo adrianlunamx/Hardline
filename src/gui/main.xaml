@@ -152,6 +152,7 @@
         <Button x:Name="btnNetDiag" Content="Diagnóstico de red"/>
         <Button x:Name="btnBench" Content="Benchmark"/>
         <Button x:Name="btnFootstep" Content="Test de pasos"/>
+        <Button x:Name="btnEqPanel" Content="Panel del EQ"/>
         <Button x:Name="btnControllerTest" Content="Test de mando"/>
         <Button x:Name="btnReport" Content="Abrir último reporte"/>
         <Button x:Name="btnFolder" Content="Carpeta de Hardline"/>

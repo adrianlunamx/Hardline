@@ -303,6 +303,25 @@ try {
     Assert-True ((Get-HLEqState -SwitchPath $sw) -eq $false -and (Get-Content $sw -Raw) -match '# OFF Include: warzone_footsteps_generic\.txt') 'apagar comenta el Include'
     Set-HLEqState -On $true -SwitchPath $sw
     Assert-True ((Get-HLEqState -SwitchPath $sw) -eq $true -and @(Get-Content $sw | Where-Object { $_ -match '^Include:' }).Count -eq 1) 'encender lo restaura (una sola línea Include)'
+    Set-HLEqState -On $false -SwitchPath $sw
+    Set-HLEqPreset -PresetName 'warzone_footsteps_generic_70.txt' -SwitchPath $sw
+    Assert-True ((Get-HLEqPreset -SwitchPath $sw) -eq 'warzone_footsteps_generic_70.txt' -and (Get-HLEqState -SwitchPath $sw) -eq $false) 'cambiar intensidad conserva el estado apagado'
+    Set-HLEqState -On $true -SwitchPath $sw
+    Set-HLEqPreset -PresetName 'warzone_footsteps_generic.txt' -SwitchPath $sw
+    Assert-True ((Get-HLEqPreset -SwitchPath $sw) -eq 'warzone_footsteps_generic.txt' -and (Get-HLEqState -SwitchPath $sw) -eq $true) 'cambiar intensidad conserva el estado encendido'
+    $badPreset = $false; try { Set-HLEqPreset -PresetName '..\..\otro.txt' -SwitchPath $sw } catch { $badPreset = $true }
+    Assert-True $badPreset 'nombre de preset no válido: rechazado'
+    $vars = @(Get-HLEqPresetVariants -Names @('warzone_footsteps_generic_70.txt', 'warzone_footsteps_generic.txt', 'warzone_footsteps_corsair-hs80.txt', 'switch.txt') -Current 'warzone_footsteps_generic.txt')
+    Assert-True ($vars.Count -eq 2 -and $vars[0].Label -eq 'Completa' -and $vars[1].Label -eq 'Moderada (70%)') 'variantes de intensidad del preset activo (otros headsets fuera)'
+    . (Join-HLPath @($root, 'src', 'gui', 'eq_panel.ps1')) -Root $root
+    $pv1 = Get-HLEqPanelView -On $true -Preset 'warzone_footsteps_generic_70.txt' -Variants $vars
+    $pv2 = Get-HLEqPanelView -On $null -Preset $null -Variants @()
+    Assert-True ($pv1.State -eq 'Encendido' -and $pv1.Button -eq 'Apagar' -and $pv1.Detail -match 'Moderada' -and $pv2.State -eq 'Sin configurar' -and -not $pv2.Enabled) 'panel del EQ: estado, botón e intensidad'
+    [xml]$eqx = Get-Content (Join-HLPath @($root, 'src', 'gui', 'eq_panel.xaml')) -Raw -Encoding UTF8
+    $eqNames = @($eqx.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]') | ForEach-Object { $_.GetAttribute('Name', 'http://schemas.microsoft.com/winfx/2006/xaml') } | Where-Object { $_ })
+    $eqSrc = Get-Content (Join-HLPath @($root, 'src', 'gui', 'eq_panel.ps1')) -Raw
+    $eqUsed = @([regex]::Matches($eqSrc, "'(eq[A-Z]\w+)'") | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+    Assert-True ($eqUsed.Count -ge 7 -and @($eqUsed | Where-Object { $_ -notin $eqNames }).Count -eq 0 -and $eqSrc -notmatch 'Test-HLAdmin') 'eq_panel.xaml tiene los controles del panel; el panel no pide admin'
     Assert-True ($null -eq (Get-HLEqState -SwitchPath (Join-Path $tmp 'no-existe.txt'))) 'sin interruptor: $null'
     $vbs = [IO.File]::ReadAllBytes((Join-HLPath @($root, 'src', 'audio', 'eq_toggle.vbs')))
     Assert-True (-not [bool]($vbs | Where-Object { $_ -gt 127 } | Select-Object -First 1)) 'eq_toggle.vbs es ASCII (WScript no lee UTF-8)'
@@ -582,6 +601,8 @@ try {
     Assert-True (((Get-Content (Join-Path $acfg 'peace.txt') -Raw) -eq 'Preamp: -3 dB') -and (Test-Path (Join-Path $acfg 'AutoEq\HD600.txt')) -and (Test-Path (Join-Path $acfg 'hardline\warzone_footsteps_generic.txt'))) 'rollback devuelve el audio anterior a su sitio'
     $setupSrc = Get-Content (Join-HLPath @($root, 'src', 'audio', 'setup.ps1')) -Raw
     Assert-True ($setupSrc -match 'Get-HLAudioInventory' -and $setupSrc -match 'Invoke-HLAudioCleanup' -and $setupSrc -notmatch "Install-HLComponent -Name 'Peace'" -and $setupSrc -match 'Test-HLVoicemeeterPotato') 'audio: limpieza antes de instalar, sin instalar Peace, Voicemeeter Potato exigido'
+    Assert-True ((@(Select-HLStalePresets -Names @('warzone_footsteps_x.txt', 'warzone_footsteps_x_70.txt', 'warzone_footsteps_y.txt') -Keep @('warzone_footsteps_x.txt', 'warzone_footsteps_x_70.txt')) -join '|') -eq 'warzone_footsteps_y.txt') 'limpieza: se conservan las dos intensidades del preset actual'
+    Assert-True ($setupSrc -match "Name 'Hardline EQ'" -and $setupSrc -match 'eq_panel\.ps1' -and $setupSrc -match '_70\.txt' -and 'btnEqPanel' -in $xamlNames) 'panel del EQ: acceso directo, botón en la interfaz y preset moderado instalado'
     Assert-True ('CleanAudio' -in $instParams -and 'chkCleanAudio' -in $xamlNames -and ((ConvertTo-HLGuiArguments -State @{ Audio = $true; CleanAudio = $true }) -contains '-CleanAudio') -and -not ((ConvertTo-HLGuiArguments -State @{ Audio = $false; CleanAudio = $true }) -contains '-CleanAudio')) 'interfaz e instalador: -CleanAudio solo con audio marcado'
 } finally {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue

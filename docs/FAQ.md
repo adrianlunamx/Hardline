@@ -79,7 +79,7 @@ No. Antes de instalar, Hardline lo detecta y lo limpia. Tu configuración de Equ
 
 **¿Y Peace?**
 
-Hardline ya no lo instala. Al guardar un preset en Peace se reescribe `config.txt` y desaparece el de Hardline, que es justo la confusión que se quiere evitar. Para encender y apagar el EQ está `Ctrl+Alt+F10`.
+Hardline ya no lo instala. Al guardar un preset en Peace se reescribe `config.txt` y desaparece el de Hardline, que es justo la confusión que se quiere evitar. Para encender y apagar el EQ y cambiar la intensidad está el **panel del EQ** (Inicio > Hardline > Hardline EQ), y en partida `Ctrl+Alt+F10`.
 
 **Quiero cero latencia añadida.**
 
@@ -211,7 +211,15 @@ Edita `config\gamesession.json`: quita X de `pause_services` o `lower_priority`,
 
 Al iniciar sesión, el modo partida restaura lo que quedó pendiente. Si lo desinstalaste antes, ejecuta `src\modules\windows\gamesession_watcher.ps1 -Root <carpeta de Hardline> -RestoreOnly` como administrador.
 
-## Atajo del EQ
+## Panel y atajo del EQ
+
+**¿Dónde enciendo y apago el EQ?**
+
+En el **panel del EQ**: Inicio > Hardline > Hardline EQ, o el botón "Panel del EQ" de la interfaz. Muestra si está encendido, lo cambia con un clic y deja elegir intensidad Completa o Moderada (70%) al momento. No pide administrador. En partida, sin salir del juego: `Ctrl+Alt+F10`; el panel se actualiza solo.
+
+**El panel dice "Sin configurar".**
+
+Falta la configuración de audio de Hardline: aplica con la casilla Audio marcada.
 
 **Ctrl+Alt+F10 no hace nada.**
 

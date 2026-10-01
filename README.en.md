@@ -71,7 +71,7 @@ It downloads the **latest release** and verifies its SHA256 before running (`-Ch
 | **Network diagnosis** | Packet loss and jitter to the router and to the Internet separately, bufferbloat under load (A+ to F), MTU | Hit registration is server-side; this measures what reaches the server and whether problems are at home or at your ISP |
 | **Controller** | Detects controller and connection; USB power saving off for the controller and its hub; warns about Bluetooth and remapping layers (DS4Windows, reWASD, Steam Input...); trigger deadzone 0, vibration off. Built-in test measures stick drift and real update rate (Hz) | Stick deadzone from the test result, wired or official adapter |
 | **Warzone** | Graphics settings in `options.*.cst`, validated against the file's own allowed values. Reflex + Boost, Anti-Lag 2 or XeLL for your GPU; exclusive fullscreen | FOV, brightness |
-| **Audio** | Measured headset correction (AutoEq, ~8800 models) + footsteps EQ + compressor/gate (Voicemeeter). `Ctrl+Alt+F10` toggles the EQ in-game; a built-in A/B footstep test | Per-app routing of `cod.exe` in Windows |
+| **Audio** | Measured headset correction (AutoEq, ~8800 models) + footsteps EQ + compressor/gate (Voicemeeter). EQ panel (on/off, full or moderate intensity, no admin), `Ctrl+Alt+F10` in-game, built-in A/B footstep test | Per-app routing of `cod.exe` in Windows |
 
 ## Audio
 

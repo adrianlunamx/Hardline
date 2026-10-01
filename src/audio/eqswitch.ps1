@@ -48,6 +48,45 @@ function Get-HLEqState {
     return $null
 }
 
+# Preset al que apunta el interruptor (encendido o apagado), o $null.
+function Get-HLEqPreset {
+    param([string]$SwitchPath = (Get-HLEqSwitchPath))
+    if (-not $SwitchPath -or -not (Test-Path $SwitchPath)) { return $null }
+    foreach ($l in (Get-Content $SwitchPath)) {
+        if ($l -match '^\s*(#\s*OFF\s+)?Include:\s*(.+?)\s*$') { return $Matches[2] }
+    }
+    return $null
+}
+
+<#
+    Variantes de intensidad junto al preset activo: warzone_footsteps_<id>.txt
+    (completa) y warzone_footsteps_<id>_70.txt (moderada). Devuelve Name,
+    Label e Intensity, la completa primero.
+#>
+function Get-HLEqPresetVariants {
+    param([Parameter(Mandatory)] [string[]] $Names, [string] $Current = '')
+    $base = if ($Current -match '^(warzone_footsteps_.+?)(_70)?\.txt$') { $Matches[1] } else { '' }
+    $out = foreach ($n in $Names) {
+        if ($n -notmatch '^(warzone_footsteps_.+?)(_70)?\.txt$') { continue }
+        if ($base -and $Matches[1] -ne $base) { continue }
+        $mod = [bool]$Matches[2]
+        [pscustomobject]@{ Name = $n; Label = $(if ($mod) { 'Moderada (70%)' } else { 'Completa' }); Intensity = $(if ($mod) { 0.7 } else { 1.0 }) }
+    }
+    return @($out | Sort-Object { -$_.Intensity })
+}
+
+# Cambia el preset sin tocar el estado encendido/apagado. Equalizer APO recarga al momento.
+function Set-HLEqPreset {
+    param([Parameter(Mandatory)] [string] $PresetName, [string]$SwitchPath = (Get-HLEqSwitchPath))
+    if (-not $SwitchPath -or -not (Test-Path $SwitchPath)) { throw 'No hay interruptor de EQ (ejecuta la configuración de audio de Hardline).' }
+    if ($PresetName -notmatch '^warzone_footsteps_[\w.-]+\.txt$') { throw "Nombre de preset no válido: $PresetName" }
+    $lines = @(Get-Content $SwitchPath)
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match '^(\s*(?:#\s*OFF\s+)?Include:\s*)') { $lines[$i] = $Matches[1] + $PresetName }
+    }
+    [IO.File]::WriteAllText($SwitchPath, ($lines -join "`r`n"), (New-Object Text.UTF8Encoding($false)))
+}
+
 function Set-HLEqState {
     param([Parameter(Mandatory)] [bool] $On, [string]$SwitchPath = (Get-HLEqSwitchPath))
     if (-not $SwitchPath -or -not (Test-Path $SwitchPath)) { throw 'No hay interruptor de EQ (ejecuta la configuración de audio de Hardline).' }

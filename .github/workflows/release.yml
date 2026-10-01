@@ -68,7 +68,7 @@ jobs:
         run: |
           Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
           $ns = 'http://schemas.microsoft.com/winfx/2006/xaml'
-          foreach ($f in @('main.xaml', 'guide.xaml')) {
+          foreach ($f in @('main.xaml', 'guide.xaml', 'eq_panel.xaml')) {
             [xml]$x = Get-Content (Join-Path .\src\gui $f) -Raw -Encoding UTF8
             $w = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $x))
             $names = $x.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]') | ForEach-Object { $_.GetAttribute('Name', $ns) } | Where-Object { $_ }

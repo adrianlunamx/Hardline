@@ -259,6 +259,10 @@ function Show-HLGui {
             & $startJob 'Test de mando' (Join-Path $Root 'src\modules\input\controller_test.ps1') @() $null
         })
     $ui.btnReport.Add_Click({ & $openLatestReport })
+    $ui.btnEqPanel.Add_Click({
+            $ps = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+            Start-Process -FilePath $ps -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', ('"{0}"' -f (Join-Path $Root 'src\gui\eq_panel.ps1')), '-Root', ('"{0}"' -f $Root)) -WindowStyle Hidden
+        })
     $ui.btnGuide.Add_Click({ Show-HLGuideWindow -Owner $window })
     $ui.btnFolder.Add_Click({ Start-Process explorer.exe -ArgumentList "`"$Root`"" })
     $ui.chkAudio.Add_Click({

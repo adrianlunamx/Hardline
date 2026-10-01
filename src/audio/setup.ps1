@@ -246,9 +246,15 @@ function Write-HLEqConfig {
     $hlDir = Join-Path $cfgDir 'hardline'
     if (-not (Test-Path $hlDir) -and -not $HL.DryRun) { New-Item -ItemType Directory -Path $hlDir -Force | Out-Null }
 
-    $presetName = "warzone_footsteps_$($HeadsetProfile.id).txt"
+    # Las dos intensidades quedan escritas: el panel del EQ cambia entre ellas al momento.
+    $fullName = "warzone_footsteps_$($HeadsetProfile.id).txt"
+    $modName = "warzone_footsteps_$($HeadsetProfile.id)_70.txt"
+    $presetName = if ($Intensity -lt 1.0) { $modName } else { $fullName }
     $presetPath = Join-Path $hlDir $presetName
-    $text = ConvertTo-HLEqApoText -HeadsetProfile $HeadsetProfile -Title 'Warzone footsteps' -Intensity $Intensity
+    $variants = @{
+        $fullName = ConvertTo-HLEqApoText -HeadsetProfile $HeadsetProfile -Title 'Warzone footsteps' -Intensity 1.0
+        $modName  = ConvertTo-HLEqApoText -HeadsetProfile $HeadsetProfile -Title 'Warzone footsteps (moderada)' -Intensity 0.7
+    }
     $configPath = Join-Path $cfgDir 'config.txt'
 
     # config.txt -> hardline\switch.txt -> preset. El atajo de teclado solo
@@ -265,8 +271,11 @@ function Write-HLEqConfig {
     if ($HL.DryRun) { return $presetPath }
 
     $utf8 = New-Object Text.UTF8Encoding($false)
-    Backup-HLFile -Path $presetPath -Reason 'Preset EQ de Hardline' | Out-Null
-    [IO.File]::WriteAllText($presetPath, $text.Replace("`r`n", "`n").Replace("`n", "`r`n"), $utf8)
+    foreach ($v in $variants.Keys) {
+        $vp = Join-Path $hlDir $v
+        Backup-HLFile -Path $vp -Reason 'Preset EQ de Hardline' | Out-Null
+        [IO.File]::WriteAllText($vp, $variants[$v].Replace("`r`n", "`n").Replace("`n", "`r`n"), $utf8)
+    }
     Backup-HLFile -Path $switchPath -Reason 'Interruptor del EQ' | Out-Null
     [IO.File]::WriteAllText($switchPath, (ConvertTo-HLAscii (New-HLEqSwitchText -PresetName $presetName -On $true)), $utf8)
     Backup-HLFile -Path $configPath -Reason 'config.txt de Equalizer APO' | Out-Null
@@ -322,11 +331,14 @@ function Install-HLAudioShortcuts {
     New-HLShortcut -Name 'Hardline EQ on-off' -Target (Join-Path $env:SystemRoot 'System32\wscript.exe') `
         -Arguments ('"{0}"' -f (Join-Path $audio 'eq_toggle.vbs')) -Hotkey 'CTRL+ALT+F10' `
         -Description 'Enciende/apaga el EQ de pasos. Un pitido agudo = encendido, dos graves = apagado.' | Out-Null
+    New-HLShortcut -Name 'Hardline EQ' -Target $ps `
+        -Arguments ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}"' -f (Join-Path $HL.Root 'src\gui\eq_panel.ps1')) `
+        -Description 'Panel del EQ de pasos: encender/apagar e intensidad. Sin administrador.' | Out-Null
     New-HLShortcut -Name 'Hardline test de pasos' -Target $ps `
         -Arguments ('-NoProfile -NoExit -ExecutionPolicy Bypass -File "{0}"' -f (Join-Path $audio 'footstep_test.ps1')) `
         -Description 'Escena de prueba (pasos + explosión) con el EQ apagado y encendido.' | Out-Null
-    Write-HLSub 'Atajo Ctrl+Alt+F10 (EQ on/off) y test de pasos en Inicio > Hardline' 'OK'
-    Add-HLResult -Module 'Audio' -Item 'Atajos' -Status Applied -Detail 'Ctrl+Alt+F10 enciende/apaga el EQ. Inicio > Hardline > "Hardline test de pasos" para comparar.'
+    Write-HLSub 'Panel del EQ, atajo Ctrl+Alt+F10 y test de pasos en Inicio > Hardline' 'OK'
+    Add-HLResult -Module 'Audio' -Item 'Atajos' -Status Applied -Detail 'Inicio > Hardline > "Hardline EQ" (panel: encender/apagar e intensidad). Ctrl+Alt+F10 en partida. "Hardline test de pasos" para comparar.'
 }
 
 # --------------------------------------------------------------------------
@@ -365,7 +377,7 @@ function Invoke-HLAudioSetup {
     Add-HLResult -Module 'Audio' -Item 'Perfil' -Status Info -Detail "$($hp.name), modo $Mode, intensidad $([int]($Intensity*100))%"
 
     # --- Audio anterior: limpieza antes de instalar -----------------------------
-    $keepPreset = "warzone_footsteps_$($hp.id).txt"
+    $keepPreset = @("warzone_footsteps_$($hp.id).txt", "warzone_footsteps_$($hp.id)_70.txt")
     $apo0 = Get-HLEqApoDir
     $inv = Get-HLAudioInventory -ConfigDir $(if ($apo0) { Get-HLEqApoConfigDir -InstallDir $apo0 } else { '' })
     if (Test-HLAudioInventoryClean -Inventory $inv -KeepPreset $keepPreset) {

@@ -128,7 +128,7 @@ flowchart LR
 | **Diagnóstico de red** | Pérdida y jitter al router y a Internet por separado, bufferbloat bajo carga (nota A+ a F), MTU | Qué falla y dónde: casa o proveedor |
 | **Mando** | Detecta mando y conexión; ahorro de energía USB off en el mando y su hub; avisa de Bluetooth y de capas de remapeo (DS4Windows, reWASD, Steam Input...); zona muerta de gatillos 0, vibración off. Test de drift y Hz | Zona muerta de sticks según el test, cable o adaptador oficial |
 | **Warzone** | Ajustes gráficos en `options.*.cst` / `adv_options.ini`, validados contra el propio archivo. Reflex + Boost, Anti-Lag 2 o XeLL según tu GPU; pantalla completa exclusiva | FOV, brillo, Anti-Lag 2 |
-| **Audio** | Corrección medida de tu headset + EQ de pasos + compresor/gate. `Ctrl+Alt+F10` enciende/apaga el EQ en partida y hay un test de pasos A/B | Enrutado de `cod.exe` en Windows |
+| **Audio** | Corrección medida de tu headset + EQ de pasos + compresor/gate. Panel del EQ (encender/apagar, intensidad), `Ctrl+Alt+F10` en partida y test de pasos A/B | Enrutado de `cod.exe` en Windows |
 
 Lo que Hardline **no** hace, y por qué: [Lo que Hardline NO hace](docs/TWEAKS_EXPLAINED.md#lo-que-hardline-no-hace).
 
@@ -167,6 +167,7 @@ flowchart LR
 - **Compresor**: baja los picos y sube lo que no lo es. Neto: pasos más altos, explosiones más bajas.
 - **Solo el juego**: Discord y el resto del sistema no pasan por el EQ.
 - **Sin latencia añadida**: `-AudioMode EqOnly` quita Voicemeeter y deja solo el EQ.
+- **Panel del EQ**: Inicio > Hardline > *Hardline EQ*. Enciende y apaga el EQ y cambia entre intensidad Completa y Moderada al momento, sin administrador.
 - **Comparar al momento**: `Ctrl+Alt+F10` enciende/apaga el EQ en partida (un pitido agudo = encendido, dos graves = apagado). Inicio > Hardline > *test de pasos* reproduce la misma escena con el EQ apagado y encendido.
 
 ### Tu headset

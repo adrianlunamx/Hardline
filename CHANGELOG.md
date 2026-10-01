@@ -2,6 +2,13 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.8.0] - 2026-10-01
+
+### Añadido
+
+- **Panel del EQ** (Inicio > Hardline > Hardline EQ, o botón "Panel del EQ" en la interfaz): estado encendido/apagado, botón para cambiarlo, intensidad Completa o Moderada al momento y acceso al test de pasos. Sin administrador. Refleja el atajo `Ctrl+Alt+F10` si lo usas en partida. Opción "Siempre visible".
+- La instalación deja escritas las dos intensidades del preset (`warzone_footsteps_<headset>.txt` y `_70.txt`), así que cambiar de una a otra no requiere volver a instalar.
+
 ## [1.7.0] - 2026-10-01
 
 ### Añadido

@@ -91,8 +91,8 @@ function Select-HLEqApoForeignFiles {
 
 # Presets de Hardline que ya no se usan (otro headset u otra versión).
 function Select-HLStalePresets {
-    param([string[]]$Names, [string]$Keep)
-    return @($Names | Where-Object { $_ -like 'warzone_footsteps_*.txt' -and $_ -ne $Keep })
+    param([string[]]$Names, [string[]]$Keep)
+    return @($Names | Where-Object { $_ -like 'warzone_footsteps_*.txt' -and $_ -notin $Keep })
 }
 
 <#
@@ -186,13 +186,13 @@ function Test-HLVoicemeeterPotato {
 }
 
 function Test-HLAudioInventoryClean {
-    param([Parameter(Mandatory)] $Inventory, [string] $KeepPreset = '')
+    param([Parameter(Mandatory)] $Inventory, [string[]] $KeepPreset = @())
     return (-not $Inventory.ForeignConfig -and @(Select-HLStalePresets -Names $Inventory.StalePresets -Keep $KeepPreset).Count -eq 0 -and
         $Inventory.ApoDevices.Count -le 1 -and $Inventory.Enhancers.Count -eq 0 -and -not $Inventory.VoicemeeterNoPotato)
 }
 
 function Show-HLAudioInventory {
-    param([Parameter(Mandatory)] $Inventory, [string] $KeepPreset = '')
+    param([Parameter(Mandatory)] $Inventory, [string[]] $KeepPreset = @())
     Write-HLWarn 'Hay un audio personalizado anterior. Se limpia antes de instalar para que no haya dos cadenas compitiendo:'
     if ($Inventory.ForeignConfig) { Write-HLSub ("Equalizer APO con configuración propia ({0} archivos): se apartan a config\antes_de_hardline\" -f $Inventory.ForeignFiles.Count) }
     $stale = @(Select-HLStalePresets -Names $Inventory.StalePresets -Keep $KeepPreset)
@@ -238,7 +238,7 @@ function Invoke-HLUninstallProgram {
     con preguntas, se confirma programa a programa.
 #>
 function Invoke-HLAudioCleanup {
-    param([Parameter(Mandatory)] $Inventory, [string] $KeepPreset = '', [bool] $AllowUninstall = $false)
+    param([Parameter(Mandatory)] $Inventory, [string[]] $KeepPreset = @(), [bool] $AllowUninstall = $false)
     $cfgDir = $Inventory.ConfigDir
     $moved = 0
 
