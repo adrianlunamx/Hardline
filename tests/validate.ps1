@@ -252,6 +252,97 @@ try {
 }
 
 # ---------------------------------------------------------------------------
+Write-Host "`n[8] Versiones, releases y menú" -ForegroundColor Cyan
+Assert-True ((Compare-HLVersion 'v1.10.0' '1.2.0') -eq 1 -and (Compare-HLVersion 'v1.2.0' '1.2.0') -eq 0 -and (Compare-HLVersion '1.1.9' '1.2.0') -eq -1) 'Compare-HLVersion (incluye 1.10 > 1.2)'
+$wf = Get-Content (Join-HLPath @($root, '.github', 'workflows', 'release.yml')) -Raw
+$inst = Get-Content (Join-HLPath @($root, 'install.ps1')) -Raw
+Assert-True ($wf -match 'hardline-\$\{VERSION\}\.zip' -and $wf -match '\.zip\.sha256') 'release.yml publica hardline-X.zip + .sha256'
+Assert-True ($inst.Contains("'^hardline-.*\.zip$'") -and $inst.Contains("'^hardline-.*\.zip\.sha256$'")) 'install.ps1 busca esos mismos nombres de asset'
+$cl = Get-Content (Join-HLPath @($root, 'CHANGELOG.md')) -Raw
+Assert-True ($cl -match ('## \[' + [regex]::Escape($HLVersion) + '\]')) "CHANGELOG tiene entrada para $HLVersion"
+$tmp = Join-Path ([IO.Path]::GetTempPath()) ("hl_test_" + [guid]::NewGuid().ToString('N').Substring(0, 8))
+New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+try {
+    Initialize-HLSession -Root $tmp -Unattended -NoBackup
+    $menu = Read-HLChecklist -Title 't' -Items @(
+        [pscustomobject]@{ Key = 'a'; Label = 'A'; Default = $true }
+        [pscustomobject]@{ Key = 'b'; Label = 'B'; Default = $false }
+    )
+    Assert-True ($menu['a'] -eq $true -and $menu['b'] -eq $false) 'menú desatendido devuelve los valores por defecto'
+
+    # -----------------------------------------------------------------------
+    Write-Host "`n[9] Interruptor del EQ y test de pasos" -ForegroundColor Cyan
+    . (Join-HLPath @($root, 'src', 'audio', 'eqswitch.ps1'))
+    $sw = Join-Path $tmp 'switch.txt'
+    [IO.File]::WriteAllText($sw, (New-HLEqSwitchText -PresetName 'warzone_footsteps_generic.txt' -On $true))
+    Assert-True ((Get-HLEqState -SwitchPath $sw) -eq $true) 'switch recién creado: encendido'
+    Set-HLEqState -On $false -SwitchPath $sw
+    Assert-True ((Get-HLEqState -SwitchPath $sw) -eq $false -and (Get-Content $sw -Raw) -match '# OFF Include: warzone_footsteps_generic\.txt') 'apagar comenta el Include'
+    Set-HLEqState -On $true -SwitchPath $sw
+    Assert-True ((Get-HLEqState -SwitchPath $sw) -eq $true -and @(Get-Content $sw | Where-Object { $_ -match '^Include:' }).Count -eq 1) 'encender lo restaura (una sola línea Include)'
+    Assert-True ($null -eq (Get-HLEqState -SwitchPath (Join-Path $tmp 'no-existe.txt'))) 'sin interruptor: $null'
+    $vbs = [IO.File]::ReadAllBytes((Join-HLPath @($root, 'src', 'audio', 'eq_toggle.vbs')))
+    Assert-True (-not [bool]($vbs | Where-Object { $_ -gt 127 } | Select-Object -First 1)) 'eq_toggle.vbs es ASCII (WScript no lee UTF-8)'
+
+    $wav = Join-Path $tmp 'steps.wav'
+    & (Join-HLPath @($root, 'src', 'audio', 'footstep_test.ps1')) -SaveWav $wav | Out-Null
+    $pcm = [Hardline.FootstepTest]::Render(48000)
+    Assert-True ($pcm.Length -eq [int](5.2 * 48000) * 2) 'test de pasos: 5.2 s estéreo a 48 kHz'
+    $sumL = 0.0; $sumR = 0.0
+    for ($i = [int](0.3 * 48000); $i -lt [int](0.45 * 48000); $i++) { $sumL += [math]::Abs($pcm[2 * $i]); $sumR += [math]::Abs($pcm[2 * $i + 1]) }
+    Assert-True ($sumL -gt 2 * $sumR) 'test de pasos: los pasos suenan a la izquierda'
+    $peak = ($pcm | ForEach-Object { [math]::Abs([int]$_) } | Measure-Object -Maximum).Maximum
+    Assert-True ($peak -le 16500 -and $peak -gt 8000) "test de pasos: pico ~-6 dBFS (margen para el EQ) ($peak)"
+    Assert-True ((Test-Path $wav) -and (Get-Item $wav).Length -gt 900000) 'test de pasos: exporta WAV'
+
+    # -----------------------------------------------------------------------
+    Write-Host "`n[10] Modo partida" -ForegroundColor Cyan
+    $gsDefault = Join-HLPath @($root, 'src', 'modules', 'windows', 'configs', 'gamesession.default.json')
+    $gs = Get-Content $gsDefault -Raw -Encoding UTF8 | ConvertFrom-Json
+    Assert-True ((@($gs.process) -contains 'cod') -and $gs.poll_seconds -ge 2 -and @($gs.close_processes).Count -eq 0) 'config por defecto: cod, sondeo >= 2 s, no cierra nada'
+    Assert-True (@($gs.lower_priority | Where-Object { $_ -match '^(cod|Discord)$' }).Count -eq 0) 'no baja la prioridad del juego ni de Discord'
+    # Recuperación de una sesión interrumpida: el estado pendiente se aplica y se borra.
+    $gsRoot = Join-Path $tmp 'gs'
+    New-Item -ItemType Directory -Path (Join-Path $gsRoot 'config'), (Join-Path $gsRoot 'logs') -Force | Out-Null
+    '{ "process": ["hardline-no-existe"], "poll_seconds": 2, "pause_services": [], "lower_priority": [], "close_processes": [], "power_plan": false }' |
+        Set-Content (Join-Path $gsRoot 'config\gamesession.json')
+    '{ "Started": "2026-01-01T00:00:00", "Game": "cod", "Services": [], "Priorities": [ { "Id": "999999", "Name": "x", "Start": "2026-01-01T00:00:00.0000000", "Original": "Normal" } ], "PrevScheme": null }' |
+        Set-Content (Join-Path $gsRoot 'config\gamesession.state.json')
+    & (Join-HLPath @($root, 'src', 'modules', 'windows', 'gamesession_watcher.ps1')) -Root $gsRoot -RestoreOnly
+    Assert-True (-not (Test-Path (Join-Path $gsRoot 'config\gamesession.state.json'))) 'sesión interrumpida: restaurada y estado borrado'
+    Assert-True ((Get-Content (Join-Path $gsRoot 'logs\gamesession.log') -Raw) -match 'interrumpida') 'sesión interrumpida: queda en el log'
+
+    # -----------------------------------------------------------------------
+    Write-Host "`n[11] GPU y reporte HTML" -ForegroundColor Cyan
+    . (Join-HLPath @($root, 'src', 'modules', 'gpu', 'shared.ps1'))
+    Assert-True ((ConvertTo-HLNvidiaDriverVersion '32.0.15.6094') -eq '560.94' -and (ConvertTo-HLNvidiaDriverVersion '27.21.14.5671') -eq '456.71') 'versión de driver NVIDIA desde la de Windows'
+    Assert-True ($null -eq (ConvertTo-HLNvidiaDriverVersion 'raro')) 'versión NVIDIA no reconocible: $null'
+
+    . (Join-HLPath @($root, 'src', 'core', 'benchmarker.ps1'))
+    . (Join-HLPath @($root, 'src', 'core', 'report.ps1'))
+    Initialize-HLSession -Root $tmp -Unattended
+    Add-HLResult -Module 'Audio' -Item 'x' -Status Failed -Detail '<script>alert(1)</script> & co'
+    Add-HLManualStep 'BIOS' 'Paso de prueba' 'https://example.com/?a=1&b=2'
+    $mk = { param($t) [pscustomobject]@{ Timer = [pscustomobject]@{ TimerResMs = $t; Sleep1AvgMs = $t; Sleep1P99Ms = $t }; PingCf = $null; DnsMs = 10; Capture = $null } }
+    $HL.BenchPre = & $mk 15.6; $HL.BenchPost = & $mk 0.5
+    $fakeHw2 = [pscustomobject]@{
+        CPU = [pscustomobject]@{ Name = 'CPU X'; Cores = 6; Threads = 12; Family = 'Zen4' }
+        GPU = [pscustomobject]@{ Primary = [pscustomobject]@{ Name = 'GPU Y'; VRAMGB = 8; DriverVersion = '1' } }
+        RAM = [pscustomobject]@{ TotalGB = 32; Type = 'DDR5'; SpeedMTs = 6000; Profile = 'Activo' }
+        Storage = [pscustomobject]@{ SystemBus = 'NVMe'; SystemModel = 'Z' }
+        Board = [pscustomobject]@{ Vendor = 'MSI'; Product = 'B650'; BiosVersion = '1' }
+        OS = [pscustomobject]@{ Caption = 'Windows 11'; Build = 26100 }
+        Game = [pscustomobject]@{ Primary = $null }
+    }
+    $html = Get-Content (Write-HLReportHtml -Hardware $fakeHw2) -Raw
+    Assert-True ($html -match '<th>CPU</th><td>CPU X \(6C/12T, Zen4\)</td>') 'reporte HTML: fila de hardware completa'
+    Assert-True ($html -notmatch '<script>alert' -and $html -match '&lt;script&gt;') 'reporte HTML: texto escapado'
+    Assert-True ($html -match 'class="better">-97%') 'reporte HTML: mejora marcada en verde'
+} finally {
+    Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+# ---------------------------------------------------------------------------
 Write-Host ''
 $color = if ($script:fails -eq 0) { 'Green' } else { 'Red' }
 Write-Host ("Resultado: {0} OK, {1} fallos" -f $script:passes, $script:fails) -ForegroundColor $color

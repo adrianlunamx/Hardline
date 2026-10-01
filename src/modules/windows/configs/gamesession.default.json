@@ -1,0 +1,16 @@
+{
+  "notes": [
+    "Configuración del modo partida. Hardline copia este archivo a config\\gamesession.json la primera vez; edita esa copia, no esta.",
+    "process: nombres de proceso del juego, sin .exe. Mientras alguno esté abierto, la sesión está activa.",
+    "pause_services: se detienen al empezar la partida SOLO si estaban en marcha, y se vuelven a arrancar al terminar.",
+    "lower_priority: procesos que pasan a prioridad 'Por debajo de lo normal' durante la partida. El juego no se toca (el anticheat vigila su proceso).",
+    "close_processes: se cierran al empezar la partida y no se reabren. Vacío por defecto: pon aquí solo lo que tengas claro.",
+    "power_plan: activa 'Hardline Ultimate Performance' durante la partida y vuelve al plan anterior al cerrar el juego."
+  ],
+  "process": ["cod"],
+  "poll_seconds": 5,
+  "pause_services": ["WSearch", "SysMain", "wuauserv", "BITS", "DoSvc", "UsoSvc", "Spooler"],
+  "lower_priority": ["OneDrive", "msedge", "chrome", "firefox", "brave", "opera", "Spotify", "steamwebhelper", "EpicGamesLauncher", "EADesktop", "Battle.net", "Agent"],
+  "close_processes": [],
+  "power_plan": true
+}

@@ -32,11 +32,15 @@ function Get-HLRegistryPlan {
     Add-Tweak 'Game Mode' 'HKCU:\Software\Microsoft\GameBar' 'AutoGameModeEnabled' 1 DWord 'Game Mode activo.'
     Add-Tweak 'Game Mode' 'HKCU:\Software\Microsoft\GameBar' 'AllowAutoGameMode' 1 DWord 'Game Mode activo (clave antigua, Win10).'
 
-    # --- HAGS OFF ------------------------------------------------------------
+    # --- HAGS OFF (solo Radeon) ------------------------------------------------
     # HwSchMode: 1 = off, 2 = on. Con RDNA2 y Warzone, HAGS off da frametimes
     # más estables en la mayoría de drivers Adrenalin. Requiere reinicio.
-    # Nota: AFMF/Frame Gen de algunos juegos requiere HAGS on; Warzone no lo usa.
-    Add-Tweak 'HAGS' 'HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers' 'HwSchMode' 1 DWord 'Hardware-accelerated GPU scheduling OFF (reinicio necesario).'
+    # En NVIDIA e Intel no se toca: su Frame Generation lo necesita activado y
+    # con sus drivers actuales no hay ventaja medible en apagarlo.
+    $vendor = if ($Hardware -and $Hardware.GPU.Primary) { $Hardware.GPU.Primary.Vendor } else { '' }
+    if ($vendor -eq 'AMD') {
+        Add-Tweak 'HAGS' 'HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers' 'HwSchMode' 1 DWord 'Hardware-accelerated GPU scheduling OFF (reinicio necesario).'
+    }
 
     # --- MMCSS ---------------------------------------------------------------
     # SystemResponsiveness: % de CPU reservado para tareas de baja prioridad

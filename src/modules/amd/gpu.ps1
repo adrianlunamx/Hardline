@@ -15,36 +15,7 @@
     corrupto. Se generan instrucciones exactas en el reporte.
 #>
 
-function Get-HLRebarState {
-    param([Parameter(Mandatory)] $Gpu)
-    try {
-        $dev = Get-CimInstance Win32_PnPEntity -ErrorAction Stop | Where-Object { $_.PNPDeviceID -eq $Gpu.PnpId } | Select-Object -First 1
-        if (-not $dev) { return $null }
-        $ranges = @(Get-CimAssociatedInstance -InputObject $dev -ResultClassName Win32_DeviceMemoryAddress -ErrorAction Stop)
-        if ($ranges.Count -eq 0) { return $null }
-        $largest = ($ranges | ForEach-Object { [uint64]$_.EndingAddress - [uint64]$_.StartingAddress + 1 } | Measure-Object -Maximum).Maximum
-        # Sin ReBAR la CPU ve una ventana de 256 MB de VRAM. Con ReBAR/SAM, la
-        # ventana cubre toda la VRAM (8 GB en una 6650 XT).
-        return [pscustomobject]@{
-            ApertureMB = [math]::Round($largest / 1MB)
-            Enabled    = ($largest -gt 512MB)
-        }
-    } catch {
-        Write-HLLog WARN "No se pudo leer la apertura PCIe de la GPU: $($_.Exception.Message)"
-        return $null
-    }
-}
-
-function Get-HLDisplayCrashes {
-    param([int]$Days = 14)
-    try {
-        $events = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; Id = 4101; StartTime = (Get-Date).AddDays(-$Days) } -ErrorAction Stop)
-        return $events.Count
-    } catch {
-        # Get-WinEvent lanza excepción cuando no hay coincidencias.
-        return 0
-    }
-}
+# Get-HLRebarState, Get-HLDisplayCrashes y Get-HLRebarBiosPath: src/modules/gpu/shared.ps1
 
 function Invoke-HLAmdGpu {
     param([Parameter(Mandatory)] $Hardware)
@@ -81,13 +52,7 @@ function Invoke-HLAmdGpu {
         Add-HLResult -Module 'GPU AMD' -Item 'SAM' -Status Info -Detail "Activo, apertura $($rebar.ApertureMB) MB"
     } else {
         Write-HLSub "Smart Access Memory (apertura $($rebar.ApertureMB) MB)" 'MANUAL (desactivado)'
-        $biosPath = switch ($Hardware.Board.Vendor) {
-            'ASUS'     { 'Advanced > PCI Subsystem Settings > Above 4G Decoding: Enabled, Re-Size BAR Support: Enabled' }
-            'MSI'      { 'Settings > Advanced > PCIe/PCI Sub-system Settings > Above 4G memory: Enabled, Re-Size BAR Support: Enabled' }
-            'Gigabyte' { 'Settings > IO Ports > Above 4G Decoding: Enabled, Re-Size BAR Support: Auto' }
-            'ASRock'   { 'Advanced > PCI Configuration > Above 4G Decoding: Enabled, C.A.M. (Clever Access Memory): Enabled' }
-            default    { 'Busca "Above 4G Decoding" y "Re-Size BAR" en la BIOS y actívalos' }
-        }
+        $biosPath = Get-HLRebarBiosPath -BoardVendor $Hardware.Board.Vendor
         Add-HLManualStep 'BIOS' "Activa SAM/ReBAR: $biosPath. Requiere CSM desactivado (arranque UEFI)." 'https://www.amd.com/es/technologies/smart-access-memory'
         Add-HLResult -Module 'GPU AMD' -Item 'SAM' -Status Manual -Detail 'Desactivado en BIOS'
     }

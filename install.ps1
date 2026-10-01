@@ -33,6 +33,12 @@
     Por defecto se deduce de donde esta cod.exe y se confirma.
 .PARAMETER AudioMode
     Full (EQ + compresor Voicemeeter) o EqOnly.
+.PARAMETER Channel
+    stable (por defecto): descarga la ultima release publicada y verifica su
+    SHA256. main: lo ultimo de la rama main, sin verificacion (para probar
+    cambios antes de que se publiquen).
+.PARAMETER GameSession
+    Activa el modo partida (Yes) o no (No) sin preguntar.
 #>
 [CmdletBinding()]
 param(
@@ -42,12 +48,15 @@ param(
     [switch] $SkipNetwork,
     [switch] $SkipGame,
     [switch] $SkipAudio,
+    [switch] $SkipPlatforms,
     [switch] $SkipBenchmark,
     [switch] $NoRestorePoint,
     [switch] $BenchmarkOnly,
     [string] $Headset = '',
     [ValidateSet('', 'battlenet', 'steam', 'xbox')] [string] $Platform = '',
     [ValidateSet('', 'Full', 'EqOnly')] [string] $AudioMode = '',
+    [ValidateSet('stable', 'main')] [string] $Channel = 'stable',
+    [ValidateSet('', 'Yes', 'No')] [string] $GameSession = '',
     [string] $Branch = 'main',
     [string] $InstallDir = ''
 )
@@ -68,7 +77,9 @@ $HLRawInstaller = "https://raw.githubusercontent.com/$HLRepoOwner/$HLRepoName/$B
 if ($env:HARDLINE_DRYRUN -eq '1') { $DryRun = $true }
 if ($env:HARDLINE_UNATTENDED -eq '1') { $Unattended = $true }
 if ($env:HARDLINE_HEADSET) { $Headset = $env:HARDLINE_HEADSET }
-if ($env:HARDLINE_BRANCH) { $Branch = $env:HARDLINE_BRANCH }
+if ($env:HARDLINE_BRANCH) { $Branch = $env:HARDLINE_BRANCH; $Channel = 'main' }
+if ($env:HARDLINE_CHANNEL) { $Channel = $env:HARDLINE_CHANNEL }
+if ($PSBoundParameters.ContainsKey('Branch')) { $Channel = 'main' }
 
 # Reconstruye los parametros para relanzar el script (elevado o en PS 5.1).
 # Style Command: dentro de una cadena -Command "..." (comillas simples).
@@ -145,41 +156,88 @@ if (-not $isAdmin) {
 # ---------------------------------------------------------------------------
 if (-not $localRoot) {
     if (-not $InstallDir) { $InstallDir = Join-Path $env:LOCALAPPDATA 'Hardline' }
-    Write-Host "[*] Descargando Hardline ($Branch) en $InstallDir ..." -ForegroundColor Cyan
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
     $tmp = Join-Path $env:TEMP ("hardline_" + [guid]::NewGuid().ToString('N').Substring(0, 8))
     New-Item -ItemType Directory -Path $tmp -Force | Out-Null
     $zip = Join-Path $tmp 'hardline.zip'
-    $zipUrl = "https://github.com/$HLRepoOwner/$HLRepoName/archive/refs/heads/$Branch.zip"
+    $source = $null
     $oldProgress = $ProgressPreference
-    $ProgressPreference = 'SilentlyContinue'
+    $ProgressPreference = 'SilentlyContinue'   # la barra de IWR en PS 5.1 multiplica el tiempo de descarga
     try {
-        Invoke-WebRequest -Uri $zipUrl -OutFile $zip -UseBasicParsing
+        # Canal stable: ultima release publicada, con SHA256 verificado.
+        if ($Channel -eq 'stable') {
+            $rel = $null
+            try {
+                $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$HLRepoOwner/$HLRepoName/releases/latest" `
+                    -Headers @{ 'User-Agent' = 'Hardline-installer'; 'Accept' = 'application/vnd.github+json' } -TimeoutSec 20 -UseBasicParsing
+            } catch {
+                Write-Host '[!] No hay release publicada o GitHub no responde; se usa la rama main.' -ForegroundColor Yellow
+            }
+            if ($rel) {
+                $zipAsset = @($rel.assets | Where-Object { $_.name -match '^hardline-.*\.zip$' }) | Select-Object -First 1
+                $shaAsset = @($rel.assets | Where-Object { $_.name -match '^hardline-.*\.zip\.sha256$' }) | Select-Object -First 1
+                if ($zipAsset -and $shaAsset) {
+                    Write-Host "[*] Descargando Hardline $($rel.tag_name) en $InstallDir ..." -ForegroundColor Cyan
+                    Invoke-WebRequest -Uri $zipAsset.browser_download_url -OutFile $zip -UseBasicParsing
+                    $shaText = (Invoke-WebRequest -Uri $shaAsset.browser_download_url -UseBasicParsing).Content
+                    if ($shaText -is [byte[]]) { $shaText = [Text.Encoding]::ASCII.GetString($shaText) }
+                    $expected = ("$shaText".Trim() -split '\s+')[0].ToUpperInvariant()
+                    $actual = (Get-FileHash -Path $zip -Algorithm SHA256).Hash
+                    if ($expected -ne $actual) {
+                        # No se cae a main en silencio: un hash distinto es un ZIP corrupto o manipulado.
+                        Write-Host "[x] SHA256 no coincide (esperado $expected, obtenido $actual). Instalacion cancelada." -ForegroundColor Red
+                        return
+                    }
+                    Write-Host "[+] SHA256 verificado: $actual" -ForegroundColor Green
+                    $source = "release $($rel.tag_name)"
+                } else {
+                    Write-Host '[!] La release no trae ZIP + .sha256; se usa la rama main.' -ForegroundColor Yellow
+                }
+            }
+        }
+        # Canal main (o sin release): ZIP de la rama, sin verificacion.
+        if (-not $source) {
+            Write-Host "[*] Descargando Hardline (rama $Branch) en $InstallDir ..." -ForegroundColor Cyan
+            Invoke-WebRequest -Uri "https://github.com/$HLRepoOwner/$HLRepoName/archive/refs/heads/$Branch.zip" -OutFile $zip -UseBasicParsing
+            $source = "rama $Branch"
+        }
     } catch {
-        Write-Host "[x] No se pudo descargar $zipUrl : $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "[x] Descarga fallida: $($_.Exception.Message)" -ForegroundColor Red
         return
     } finally {
         $ProgressPreference = $oldProgress
     }
-    Expand-Archive -Path $zip -DestinationPath $tmp -Force
-    $extracted = Get-ChildItem $tmp -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'install.ps1') } | Select-Object -First 1
+
+    # El ZIP de la rama trae una carpeta raiz (Hardline-main\); el de la release, no.
+    $x = Join-Path $tmp 'x'
+    Expand-Archive -Path $zip -DestinationPath $x -Force
+    $extracted = if (Test-Path (Join-Path $x 'install.ps1')) { Get-Item $x } else {
+        Get-ChildItem $x -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'install.ps1') } | Select-Object -First 1
+    }
     if (-not $extracted) { Write-Host '[x] El ZIP descargado no contiene install.ps1.' -ForegroundColor Red; return }
 
     if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null }
-    # Se conserva lo generado en ejecuciones anteriores (backups, reports, logs).
-    Get-ChildItem $extracted.FullName -Force | Where-Object { $_.Name -notin @('backups', 'reports', 'logs', 'headsets') } | ForEach-Object {
+    # Se conserva lo generado en ejecuciones anteriores (backups, reports, logs, headsets, config).
+    $keep = @('backups', 'reports', 'logs', 'headsets', 'config')
+    Get-ChildItem $extracted.FullName -Force | Where-Object { $_.Name -notin $keep } | ForEach-Object {
         Copy-Item -Path $_.FullName -Destination $InstallDir -Recurse -Force
     }
-    foreach ($d in @('backups', 'reports', 'logs', 'headsets')) {
+    foreach ($d in $keep) {
         $p = Join-Path $InstallDir $d
         if (-not (Test-Path $p)) { New-Item -ItemType Directory -Path $p -Force | Out-Null }
+        # Archivos nuevos de la version (plantillas, notas) sin pisar los del usuario.
+        $srcDir = Join-Path $extracted.FullName $d
+        if (Test-Path $srcDir) {
+            Get-ChildItem $srcDir -File -Force | Where-Object { $_.Name -ne '.gitkeep' } | ForEach-Object {
+                $dst = Join-Path $p $_.Name
+                if (-not (Test-Path $dst)) { Copy-Item $_.FullName $dst }
+            }
+        }
     }
-    # headsets\ guarda perfiles del usuario: solo se copia la nota explicativa.
-    $leeme = Join-Path $extracted.FullName 'headsets\LEEME.txt'
-    if (Test-Path $leeme) { Copy-Item $leeme (Join-Path $InstallDir 'headsets') -Force }
+    Set-Content -Path (Join-Path $InstallDir '.hardline-source') -Value ("{0} | {1:yyyy-MM-dd HH:mm}" -f $source, (Get-Date)) -Encoding ASCII
     Get-ChildItem $InstallDir -Recurse -File | Unblock-File -ErrorAction SilentlyContinue
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Host "[+] Descargado. Para revertir mas tarde: $InstallDir\rollback.ps1" -ForegroundColor Green
+    Write-Host "[+] Instalado ($source). Para revertir mas tarde: $InstallDir\rollback.ps1" -ForegroundColor Green
 
     & (Join-Path $InstallDir 'install.ps1') @bound
     return
@@ -215,6 +273,7 @@ if ($BenchmarkOnly) {
 
 Initialize-HLSession -Root $HLRoot -DryRun:$DryRun -Unattended:$Unattended
 Show-HLBanner
+Show-HLUpdateNotice
 
 Write-HLStep 'Verificando permisos...'
 Write-HLOk 'Admin OK'
@@ -255,6 +314,29 @@ if ($NoRestorePoint -or $DryRun) {
     }
 }
 
+# --- Que aplicar ---------------------------------------------------------------
+# Con cualquier -Skip* o -GameSession explicito se respeta la linea de comandos;
+# si no, se muestra el menu (en modo desatendido devuelve los valores por defecto).
+$explicit = $PSBoundParameters.Keys | Where-Object { $_ -like 'Skip*' -or $_ -eq 'GameSession' }
+if (-not $explicit) {
+    $menu = Read-HLChecklist -Title 'Que quieres aplicar' -Items @(
+        [pscustomobject]@{ Key = 'windows';   Label = 'Windows: servicios, registro, plan de energia, timer'; Default = $true }
+        [pscustomobject]@{ Key = 'platforms'; Label = 'Plataformas: cerrar las que no usas (Battle.net, Steam, Xbox)'; Default = $true }
+        [pscustomobject]@{ Key = 'session';   Label = 'Modo partida: pausar lo innecesario solo con Warzone abierto'; Default = $true }
+        [pscustomobject]@{ Key = 'network';   Label = 'Red: DNS, ahorro de energia de la NIC, QoS'; Default = $true }
+        [pscustomobject]@{ Key = 'game';      Label = 'Warzone: ajustes graficos'; Default = $true }
+        [pscustomobject]@{ Key = 'audio';     Label = 'Audio: EQ de pasos y compresor'; Default = $true }
+        [pscustomobject]@{ Key = 'bench';     Label = 'Benchmark antes/despues (~40 s)'; Default = $true }
+    )
+    $SkipWindows = -not $menu['windows']
+    $SkipPlatforms = -not $menu['platforms']
+    $GameSession = if ($menu['session']) { 'Yes' } else { 'No' }
+    $SkipNetwork = -not $menu['network']
+    $SkipGame = -not $menu['game']
+    $SkipAudio = -not $menu['audio']
+    $SkipBenchmark = -not $menu['bench']
+}
+
 # --- Hardware ------------------------------------------------------------------
 Write-HLStep 'Detectando hardware...'
 $hw = Get-HLHardware
@@ -290,7 +372,8 @@ if (-not $SkipBenchmark) {
 }
 
 # --- Optimizaciones --------------------------------------------------------------
-Invoke-HLOptimization -Hardware $hw -SkipWindows:$SkipWindows -SkipNetwork:$SkipNetwork -SkipGame:$SkipGame -Platform $Platform
+Invoke-HLOptimization -Hardware $hw -SkipWindows:$SkipWindows -SkipNetwork:$SkipNetwork -SkipGame:$SkipGame `
+    -SkipPlatforms:$SkipPlatforms -Platform $Platform -GameSession $GameSession
 
 # --- Audio ---------------------------------------------------------------------
 if (-not $SkipAudio) {
@@ -308,7 +391,9 @@ if (-not $SkipBenchmark) {
 # --- Reporte y resumen -------------------------------------------------------------
 Write-HLStep 'Generando reporte...'
 $report = Write-HLReport -Hardware $hw
-Write-HLOk "Reporte: $report"
+$reportHtml = Write-HLReportHtml -Hardware $hw
+Write-HLOk "Reporte: $reportHtml"
+Write-HLInfo "Texto plano: $report"
 
 $applied = @($HL.Results | Where-Object { $_.Status -eq 'Applied' }).Count
 $manual = $HL.Manual.Count
@@ -332,4 +417,4 @@ if ($HL.NeedsReboot -and -not $DryRun) {
     Write-HLInfo "Despues del reinicio: $HLRoot\install.ps1 -BenchmarkOnly  (compara con el benchmark previo)"
     if (Read-HLYesNo 'Reiniciar ahora' $false) { Restart-Computer -Force }
 }
-if (-not $Unattended) { Start-Process notepad.exe -ArgumentList "`"$report`"" -ErrorAction SilentlyContinue }
+if (-not $Unattended) { Start-Process -FilePath $reportHtml -ErrorAction SilentlyContinue }

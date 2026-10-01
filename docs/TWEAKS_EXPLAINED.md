@@ -51,7 +51,7 @@ Archivo: `src/modules/windows/registry.ps1`.
 | Game DVR off | `HKCU\System\GameConfigStore\GameDVR_Enabled=0`, `AppCaptureEnabled=0`, política `AllowGameDVR=0` | La captura en segundo plano mantiene un encoder de vídeo activo. |
 | Overlay de Game Bar off | `HKCU\Software\Microsoft\GameBar\UseNexusForGameBarEnabled=0` | Win+G y el botón Xbox del mando dejan de abrirlo. |
 | Game Mode on | `AutoGameModeEnabled=1` | Desde Win10 2004, Game Mode frena Windows Update y prioriza el proceso en primer plano. Se nota en 1% lows cuando hay actividad de fondo; en reposo es neutro. |
-| HAGS off | `HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers\HwSchMode=1` | Con RDNA2 y los drivers Adrenalin actuales, HAGS off da frametimes más regulares en Warzone. Requiere reinicio. Si usas AFMF o Frame Generation en otros juegos, estos necesitan HAGS on. |
+| HAGS off (solo Radeon) | `HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers\HwSchMode=1` | Con RDNA2 y los drivers Adrenalin actuales, HAGS off da frametimes más regulares en Warzone. Requiere reinicio. En NVIDIA e Intel no se toca: su Frame Generation necesita HAGS on y con sus drivers no hay ventaja medible en apagarlo. |
 | MMCSS `SystemResponsiveness=10` | `...\Multimedia\SystemProfile` | Reserva de CPU para tareas de baja prioridad cuando hay tareas multimedia: 20% por defecto. [Microsoft documenta](https://learn.microsoft.com/windows/win32/procthread/multimedia-class-scheduler-service) que 0 se trata como 10, así que 10 es el mínimo real. |
 | MMCSS tarea `Games` | `GPU Priority=8`, `Priority=6`, `Scheduling Category=High`, `SFIO Priority=High` | Prioridad de la clase "Games" de MMCSS. Efecto pequeño y dependiente de si el juego se registra en MMCSS; se incluye porque no tiene contrapartida. |
 | Power Throttling off | `...\Control\Power\PowerThrottling\PowerThrottlingOff=1` | EcoQoS puede aparcar Discord/overlays en núcleos lentos mientras juegas. |
@@ -68,7 +68,28 @@ Duplica la plantilla oculta Ultimate Performance (`e9a42b02-d5df-448d-aa00-03f14
 
 Efecto: los núcleos no se aparcan y la CPU no baja a estados C/P profundos, así que no hay latencia de salida al llegar trabajo. Coste: 10-25 W más en reposo en un Ryzen 7000. El rollback reactiva tu plan anterior y borra el creado.
 
-Nota: AMD recomienda Balanced con el driver de chipset para Ryzen. En la práctica, con Ultimate Performance los 1% lows son iguales o mejores y el consumo en reposo sube; si te importa el consumo, vuelve a Balanced desde el Panel de control sin tocar nada más.
+Nota: AMD recomienda Balanced con el driver de chipset para Ryzen. En la práctica, con Ultimate Performance los 1% lows son iguales o mejores y el consumo en reposo sube.
+
+**Con modo partida** se puede elegir que el plan esté activo **solo con Warzone abierto**: el plan se crea pero no se activa, y el modo partida lo activa al abrir el juego y devuelve tu plan al cerrarlo. Es la opción por defecto si instalas el modo partida.
+
+### Modo partida [auto]
+
+Archivos: `src/modules/windows/gamesession.ps1` (instalación) y `gamesession_watcher.ps1` (proceso residente).
+
+En vez de dejar todo apagado de forma permanente, una tarea al iniciar sesión (`Hardline-GameSession`, con privilegios elevados porque detiene servicios) comprueba cada 5 s si `cod.exe` está abierto.
+
+| Al abrir Warzone | Al cerrarlo |
+|---|---|
+| Detiene los servicios de `pause_services` **que estuvieran en marcha**: Windows Search, SysMain, Windows Update (`wuauserv`, `UsoSvc`), BITS, Delivery Optimization, cola de impresión | Los vuelve a arrancar |
+| Baja a "por debajo de lo normal" la prioridad de `lower_priority`: navegadores, Spotify, OneDrive, launchers. También los que abras durante la partida | Devuelve la prioridad original (comprueba PID + hora de inicio para no tocar un proceso distinto que reutilizó el PID) |
+| Cierra `close_processes` (vacío por defecto) | — |
+| Activa `Hardline Ultimate Performance` si `power_plan` es true | Vuelve al plan anterior |
+
+- **El juego no se toca**: ni prioridad ni afinidad. El anticheat vigila su proceso y no hay ganancia que justifique el riesgo.
+- **Discord** no está en la lista: el chat de voz debe seguir fluido.
+- **Configuración**: `config\gamesession.json` (se crea a partir de `src/modules/windows/configs/gamesession.default.json` y las actualizaciones no la pisan). Se relee al empezar cada partida.
+- **Registro**: `logs\gamesession.log`, una línea al empezar y otra al terminar.
+- **Robustez**: el estado de la partida se guarda en `config\gamesession.state.json`. Si el PC se apaga a mitad de partida, al siguiente inicio de sesión se restaura lo pendiente. El rollback también lo hace antes de quitar la tarea.
 
 ### Timer resolution 0.5 ms [auto]
 
@@ -127,7 +148,31 @@ Se comprueba que esté instalado AMD Chipset Software. Incluye el driver PPM/CPP
 
 ---
 
-## GPU Radeon
+## GPU
+
+Comprobaciones comunes (`src/modules/gpu/shared.ps1`): antigüedad del driver, estado real de Resizable BAR leyendo la ventana de memoria PCIe de la GPU, y crashes del driver (TDR, evento 4101) de los últimos 14 días.
+
+### NVIDIA [manual]
+
+Archivo: `src/modules/gpu/nvidia.ps1`. La versión del driver se traduce desde la de Windows (`32.0.15.6094` → 560.94).
+
+| Ajuste | Valor | Por qué |
+|---|---|---|
+| Reflex (en Warzone) | Activado + Boost | Elimina la cola de render entre CPU y GPU. Con Reflex activo, el "Modo de baja latencia" del panel no se usa. |
+| Modo de control de energía (cod.exe) | Preferir rendimiento máximo | Evita bajadas de reloj en escenas ligeras que luego cuestan subir. |
+| Filtrado de texturas - Calidad | Alto rendimiento | Coste mínimo en imagen. |
+| Tamaño de caché del sombreador | 10 GB / Ilimitado | Warzone recompila sombreadores en cada parche; con caché pequeña hay tirones al empezar. |
+| V-Sync (panel) | Solo con G-SYNC | G-SYNC + V-Sync en el panel + Reflex limita los FPS por debajo del refresco sin tearing. Sin G-SYNC: desactivado. |
+| DLSS Frame Generation | Desactivado | Los frames generados no responden al ratón: más latencia real. |
+| Superposición / Repetición instantánea | Desactivadas | Graban o procesan en segundo plano. |
+
+HAGS no se toca en NVIDIA. Undervolt sugerido con la curva de MSI Afterburner (~0.900-0.950 V a tu boost habitual), validado con el contador de TDR.
+
+### Intel Arc [manual]
+
+Archivo: `src/modules/gpu/intel.ps1`. En Arc, **Resizable BAR es obligatorio**: sin él el rendimiento cae a la mitad o menos, así que es lo primero que se comprueba. XeLL en el juego si está disponible, XeSS solo si no llegas a tus FPS, Frame Generation desactivado.
+
+### Radeon
 
 Archivo: `src/modules/amd/gpu.ps1`.
 
@@ -300,6 +345,14 @@ Pasos que el script no puede hacer por ti (Windows no tiene API pública para el
 3. En el Configurator de Equalizer APO, marca solo el dispositivo que indica el script.
 4. Desactiva "Audio espacial" y "Mejoras de audio" en el headset, y el 7.1 virtual del software del fabricante. Warzone ya aplica su propio HRTF; apilar virtualizadores destruye la localización.
 5. En Warzone: mezcla de audio "Auriculares", música y diálogos a 0.
+
+### Atajo EQ on/off y test de pasos [auto]
+
+Archivos: `src/audio/eqswitch.ps1`, `eq_toggle.ps1`, `eq_toggle.vbs`, `footstep_test.ps1`.
+
+- **Cadena**: `config.txt` → `hardline\switch.txt` → preset. Encender/apagar solo comenta o descomenta la línea de `switch.txt`; Equalizer APO recarga al instante. La instalación da permiso de escritura al usuario sobre `config\hardline` (queda en el manifiesto y el rollback lo retira), así que el atajo no pide admin.
+- **Atajo**: `Ctrl+Alt+F10`, desde un acceso directo en Inicio > Hardline (Windows solo atiende atajos de accesos directos del menú Inicio o el escritorio). Se lanza vía `wscript` sin ventana: una consola, aunque sea un instante, puede quitar el foco al juego en pantalla completa exclusiva. Confirmación por sonido: un pitido agudo = encendido, dos graves = apagado. No se usa `Ctrl+Alt+letra` porque en teclados españoles equivale a AltGr (Ctrl+Alt+E = €).
+- **Test de pasos**: genera una escena sintética de 5 s (4 pasos lejanos a la izquierda, una explosión cercana, 2 pasos más justo después) y la reproduce dos veces por el mismo dispositivo que usa el juego (`CABLE Input` en modo Completo), primero con el EQ apagado y luego encendido. Al terminar deja el EQ como estaba. No usa grabaciones de terceros.
 
 ---
 

@@ -33,12 +33,21 @@ function Find-HLPowerScheme {
     return $null
 }
 
+<#
+    -CreateOnly: crea el plan pero no lo activa. Lo usa el modo partida, que lo
+    activa al abrir Warzone y devuelve el plan anterior al cerrarlo.
+#>
 function Invoke-HLPowerPlan {
-    param($Hardware)
+    param($Hardware, [switch]$CreateOnly)
 
     $prev = Get-HLActivePowerScheme
     $existing = Find-HLPowerScheme -Name $script:HLPlanName
 
+    if ($CreateOnly -and $existing) {
+        Write-HLSub 'Plan Ultimate Performance (solo durante la partida)' 'OK (ya existe)'
+        Add-HLResult -Module 'Energía' -Item 'Plan Ultimate Performance' -Status Skipped -Detail 'Ya existe; lo activa el modo partida'
+        return
+    }
     if ($existing -and $existing -eq $prev) {
         Write-HLSub 'Ultimate Performance plan' 'OK (ya activo)'
         Add-HLResult -Module 'Energía' -Item 'Plan Ultimate Performance' -Status Skipped -Detail 'Ya activo'
@@ -73,6 +82,13 @@ function Invoke-HLPowerPlan {
     & powercfg.exe /setacvalueindex $guid 501a4d13-42af-4429-9fd1-a8218c268e20 ee12f906-d277-404b-b6da-e5fa1a576df5 0 | Out-Null
     # Estado mínimo del procesador: 100%.
     & powercfg.exe /setacvalueindex $guid 54533251-82be-4824-96c1-47b60b740d00 893dee8e-2bef-41e0-89c6-b55d0929964c 100 | Out-Null
+
+    if ($CreateOnly) {
+        Add-HLManifestEntry -Type 'PowerScheme' -Data @{ PrevActive = $prev; Created = $created; NewActive = $prev }
+        Write-HLSub 'Plan Ultimate Performance (solo durante la partida)' 'OK'
+        Add-HLResult -Module 'Energía' -Item 'Plan Ultimate Performance' -Status Applied -Detail "Creado ($guid). Se activa solo con Warzone abierto; el resto del tiempo sigue tu plan actual."
+        return
+    }
 
     Add-HLManifestEntry -Type 'PowerScheme' -Data @{ PrevActive = $prev; Created = $created; NewActive = $guid }
     & powercfg.exe /setactive $guid | Out-Null

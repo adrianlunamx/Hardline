@@ -8,3 +8,4 @@ logs/*
 dist/
 headsets/*
 !headsets/LEEME.txt
+config/

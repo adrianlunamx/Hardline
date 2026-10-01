@@ -12,6 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/jhernandezl2c-hash/Hardline/actions/workflows/release.yml"><img alt="CI" src="https://github.com/jhernandezl2c-hash/Hardline/actions/workflows/release.yml/badge.svg"></a>
+  <a href="https://github.com/jhernandezl2c-hash/Hardline/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/jhernandezl2c-hash/Hardline?style=flat-square&color=FF5A1F"></a>
   <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E1116?style=flat-square">
   <img alt="PowerShell 5.1+" src="https://img.shields.io/badge/PowerShell-5.1%2B-0E1116?style=flat-square">
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/licencia-MIT-FF5A1F?style=flat-square"></a>
@@ -23,17 +24,18 @@
   <a href="#audio-pasos-claros-explosiones-controladas">Audio</a> ·
   <a href="#revertir">Revertir</a> ·
   <a href="docs/TWEAKS_EXPLAINED.md">Cada tweak explicado</a> ·
-  <a href="docs/FAQ.md">FAQ</a>
+  <a href="docs/FAQ.md">FAQ</a> ·
+  <a href="README.en.md">English</a>
 </p>
 
 ---
 
-Hardline es un script de PowerShell que ajusta Windows, la plataforma AMD, la red, la configuración de Warzone y el audio para oír pasos antes que nadie.
+Hardline es un script de PowerShell que ajusta Windows, tu GPU y CPU, la red, la configuración de Warzone y el audio para oír pasos antes que nadie.
 
 - **Aplica** lo que se puede hacer de forma segura y reversible.
 - **Te guía** en lo que no se puede tocar desde Windows (BIOS, Adrenalin), con la ruta de menús de **tu** placa.
 - **Registra** cada cambio con su valor anterior: se revierte con un comando.
-- **Mide** antes y después, y te lo pone en un reporte.
+- **Mide** antes y después, y te lo deja en un reporte HTML.
 
 ## Instalación
 
@@ -50,7 +52,7 @@ Primero, si quieres ver qué haría sin tocar nada:
 ```
 
 > [!NOTE]
-> Crea un restore point antes de cambiar nada y se instala en `%LOCALAPPDATA%\Hardline`. Si no abres PowerShell como admin, pide elevación (UAC) solo.
+> Descarga la **última release** y verifica su SHA256 antes de ejecutar nada. Crea un restore point, se instala en `%LOCALAPPDATA%\Hardline` y al empezar te deja marcar qué módulos aplicar. Si no abres PowerShell como admin, pide elevación (UAC) solo.
 
 <details>
 <summary><strong>Desde un clon</strong></summary>
@@ -70,10 +72,12 @@ cd Hardline
 |---|---|
 | `-DryRun` | Detecta y muestra, no cambia nada |
 | `-Unattended` | Sin preguntas (respuestas por defecto). Los instaladores de Equalizer APO y VB-CABLE siguen abriendo su ventana: combínalo con `-SkipAudio` para una ejecución sin intervención |
+| `-Channel stable\|main` | `stable` (por defecto): última release con SHA256 verificado. `main`: lo último de la rama, sin verificar |
+| `-GameSession Yes\|No` | Instalar o no el modo partida sin preguntar |
 | `-Platform battlenet\|steam\|xbox` | Plataforma desde la que juegas (por defecto se deduce de dónde está `cod.exe` y se confirma) |
 | `-Headset <id o modelo>` | Perfil incluido (`hyperx-cloud-ii`, `logitech-g-pro-x`, `steelseries-arctis-7`, `razer-blackshark-v2`, `corsair-hs80`, `astro-a40-tr`, `generic`), un archivo de `headsets\` o cualquier modelo para buscar en AutoEq (`-Headset "Kraken V3"`) |
 | `-AudioMode Full\|EqOnly` | EQ + compresor, o solo EQ (sin latencia añadida) |
-| `-SkipWindows` `-SkipNetwork` `-SkipGame` `-SkipAudio` `-SkipBenchmark` | Omitir módulos |
+| `-SkipWindows` `-SkipPlatforms` `-SkipNetwork` `-SkipGame` `-SkipAudio` `-SkipBenchmark` | Omitir módulos sin pasar por el menú |
 | `-BenchmarkOnly` | Medir otra vez y comparar con el benchmark previo (tras reiniciar) |
 
 </details>
@@ -96,13 +100,14 @@ flowchart LR
 | Área | Automático | Te lo deja en el reporte |
 |---|---|---|
 | **Plataformas** | Eliges desde dónde juegas (Battle.net, Steam, Xbox app). Las que no usas: procesos cerrados, sin arranque automático, servicios deshabilitados | |
-| **Windows** | Servicios de fondo, Game DVR off, Game Mode on, HAGS off, MMCSS, Ultimate Performance, timer 0.5 ms, widgets/Cortana fuera | LatencyMon si hay picos DPC |
+| **Modo partida** | Solo con Warzone abierto: pausa servicios de fondo, baja la prioridad de navegadores y launchers, activa el plan de energía máximo. Al cerrar el juego, todo vuelve | |
+| **Windows** | Servicios de fondo, Game DVR off, Game Mode on, MMCSS, Ultimate Performance, timer 0.5 ms, widgets/Cortana fuera | LatencyMon si hay picos DPC |
 | **CPU Ryzen** | Familia, SMT, chipset driver | PBO, Curve Optimizer -20, validación con Prime95/CoreCycler |
-| **GPU Radeon** | Driver, estado real de SAM/ReBAR, crashes TDR recientes | Anti-Lag, Chill off, RIS 80%, undervolt 1100 mV |
+| **GPU** | Radeon, GeForce y Arc: driver, estado real de ReBAR/SAM, crashes TDR recientes. HAGS off solo en Radeon | Anti-Lag / Reflex / XeLL, panel del driver, undervolt |
 | **RAM** | Velocidad y si EXPO/XMP está activo | tRFC con ZenTimings |
 | **Red** | DNS 1.1.1.1, EEE/Green Ethernet off, autotuning, QoS DSCP 46 para `cod.exe` | Test de bufferbloat, SQM en el router |
 | **Warzone** | Ajustes gráficos en `options.*.cst` / `adv_options.ini`, validados contra el propio archivo | FOV, brillo, Anti-Lag 2 |
-| **Audio** | Corrección medida de tu headset + EQ de pasos + compresor/gate | Enrutado de `cod.exe` en Windows |
+| **Audio** | Corrección medida de tu headset + EQ de pasos + compresor/gate. `Ctrl+Alt+F10` enciende/apaga el EQ en partida y hay un test de pasos A/B | Enrutado de `cod.exe` en Windows |
 
 Lo que Hardline **no** hace, y por qué: [Lo que Hardline NO hace](docs/TWEAKS_EXPLAINED.md#lo-que-hardline-no-hace).
 
@@ -135,6 +140,7 @@ flowchart LR
 - **Compresor**: baja los picos y sube lo que no lo es. Neto: pasos más altos, explosiones más bajas.
 - **Solo el juego**: Discord y el resto del sistema no pasan por el EQ.
 - **Sin latencia añadida**: `-AudioMode EqOnly` quita Voicemeeter y deja solo el EQ.
+- **Comparar al momento**: `Ctrl+Alt+F10` enciende/apaga el EQ en partida (un pitido agudo = encendido, dos graves = apagado). Inicio > Hardline > *test de pasos* reproduce la misma escena con el EQ apagado y encendido.
 
 ### Tu headset
 
@@ -145,6 +151,16 @@ flowchart LR
 Todo lo descargado se queda en `headsets\`: la próxima vez funciona sin conexión.
 
 Detalles: [audio en TWEAKS_EXPLAINED](docs/TWEAKS_EXPLAINED.md#audio).
+
+## Modo partida
+
+Una tarea al iniciar sesión vigila si Warzone está abierto. Mientras lo está:
+
+- **Servicios** (Windows Search, SysMain, Windows Update, BITS, Delivery Optimization, cola de impresión): se detienen solo si estaban en marcha y se reanudan al cerrar el juego.
+- **Procesos de fondo** (navegadores, Spotify, OneDrive, launchers): prioridad "por debajo de lo normal".
+- **Plan de energía máximo** solo durante la partida, si lo eliges: en reposo el PC consume y se calienta menos.
+
+El juego no se toca. Todo es editable en `config\gamesession.json` y queda registrado en `logs\gamesession.log`. Si el PC se apaga a mitad de partida, al volver a iniciar sesión restaura lo pendiente.
 
 ## Revertir
 
@@ -178,6 +194,7 @@ Hardline no toca el proceso del juego, no inyecta nada y no modifica archivos de
 | [SUPPORTED_HARDWARE.md](docs/SUPPORTED_HARDWARE.md) | Qué se detecta y qué se ajusta en cada plataforma |
 | [FAQ.md](docs/FAQ.md) | Anticheat, rollback, audio, problemas comunes |
 | [CHANGELOG.md](CHANGELOG.md) | Versiones |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Cómo probar, reglas y cómo publicar una versión |
 
 ## Licencia
 

@@ -13,7 +13,8 @@
 
 # Sin StrictMode: WMI/CIM devuelve propiedades opcionales según fabricante y driver.
 
-$Global:HLVersion = '1.1.0'
+$Global:HLVersion = '1.2.0'
+$Global:HLRepo = 'jhernandezl2c-hash/Hardline'
 
 # --------------------------------------------------------------------------
 # Sesión
@@ -158,6 +159,41 @@ function Read-HLChoice {
         $n = 0
         if ([int]::TryParse($a, [ref]$n) -and $n -ge 1 -and $n -le $Options.Count) { return ($n - 1) }
     }
+}
+
+<#
+    Lista de casillas. Items: objetos con Key, Label y Default.
+    Devuelve un hashtable Key -> $true/$false. En modo desatendido devuelve
+    los valores por defecto sin preguntar.
+#>
+function Read-HLChecklist {
+    param([Parameter(Mandatory)] [string] $Title, [Parameter(Mandatory)] $Items)
+    $state = [ordered]@{}
+    foreach ($i in $Items) { $state[$i.Key] = [bool]$i.Default }
+    if ($HL.Unattended) { return $state }
+
+    $list = @($Items)
+    while ($true) {
+        Write-Host ''
+        Write-Host "    $Title" -ForegroundColor Cyan
+        for ($n = 0; $n -lt $list.Count; $n++) {
+            $mark = if ($state[$list[$n].Key]) { 'x' } else { ' ' }
+            $color = if ($state[$list[$n].Key]) { 'White' } else { 'DarkGray' }
+            Write-Host ("    {0,2}) [{1}] {2}" -f ($n + 1), $mark, $list[$n].Label) -ForegroundColor $color
+        }
+        Write-Host '[?] Números para marcar/desmarcar (ej. "3 6"), Enter para continuar: ' -NoNewline -ForegroundColor Magenta
+        $a = (Read-Host).Trim()
+        if ($a -eq '') { break }
+        foreach ($tok in ($a -split '[\s,;]+')) {
+            $k = 0
+            if ([int]::TryParse($tok, [ref]$k) -and $k -ge 1 -and $k -le $list.Count) {
+                $key = $list[$k - 1].Key
+                $state[$key] = -not $state[$key]
+            }
+        }
+    }
+    Write-HLLog INFO ('CHECKLIST ' + (($state.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ' '))
+    return $state
 }
 
 # --------------------------------------------------------------------------
@@ -377,6 +413,43 @@ function Invoke-HLDownload {
 }
 
 # --------------------------------------------------------------------------
+# Actualizaciones
+# --------------------------------------------------------------------------
+
+# Compara versiones tipo "1.2.0" / "v1.10.3". Devuelve -1, 0 o 1.
+function Compare-HLVersion {
+    param([string]$A, [string]$B)
+    $pa = [version](($A -replace '^v', '') -replace '[^\d.].*$', '')
+    $pb = [version](($B -replace '^v', '') -replace '[^\d.].*$', '')
+    return $pa.CompareTo($pb)
+}
+
+# Consulta la última release publicada. Nunca bloquea la ejecución: sin red o
+# sin releases devuelve $null.
+function Get-HLLatestRelease {
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+        $r = Invoke-RestMethod -Uri "https://api.github.com/repos/$HLRepo/releases/latest" -TimeoutSec 5 -UseBasicParsing `
+            -Headers @{ 'User-Agent' = 'Hardline'; 'Accept' = 'application/vnd.github+json' }
+        return [pscustomobject]@{ Tag = $r.tag_name; Url = $r.html_url; Published = $r.published_at }
+    } catch {
+        Write-HLLog DEBUG "Sin información de releases: $($_.Exception.Message)"
+        return $null
+    }
+}
+
+function Show-HLUpdateNotice {
+    $latest = Get-HLLatestRelease
+    if (-not $latest -or -not $latest.Tag) { return }
+    try {
+        if ((Compare-HLVersion $latest.Tag $HLVersion) -gt 0) {
+            Write-HLWarn "Hay una versión nueva: $($latest.Tag) (tienes $HLVersion). Notas: $($latest.Url)"
+            Write-HLInfo 'Actualizar: vuelve a ejecutar el comando de instalación (irm ... | iex). Tus backups y perfiles se conservan.'
+        }
+    } catch { Write-HLLog DEBUG "Versión no comparable: $($latest.Tag)" }
+}
+
+# --------------------------------------------------------------------------
 # Rollback
 # --------------------------------------------------------------------------
 
@@ -449,7 +522,21 @@ function Undo-HLManifestEntry {
                     Where-Object { $_.CommandLine -like "*$($Entry.ProcessMatch)*" } |
                     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
             }
+            # Modo partida: si se mató a mitad de sesión, devolver servicios, prioridades y plan.
+            $rs = $Entry.PSObject.Properties['RestoreScript']
+            if ($rs -and $rs.Value -and (Test-Path $rs.Value)) {
+                & $rs.Value -Root $Entry.RestoreRoot -RestoreOnly
+            }
             return "Tarea programada $($Entry.Name)"
+        }
+        'Acl' {
+            if (Test-Path $Entry.Path) {
+                $acl = Get-Acl -Path $Entry.Path
+                $id = New-Object Security.Principal.NTAccount($Entry.Identity)
+                $acl.PurgeAccessRules($id)
+                Set-Acl -Path $Entry.Path -AclObject $acl
+            }
+            return "Permiso de $($Entry.Identity) en $($Entry.Path)"
         }
         'Info' { return $null }
         default { throw "Tipo de entrada desconocido: $($Entry.Type)" }

@@ -25,6 +25,7 @@ $script:AudioRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $PSScriptRoot 'eq.ps1')
 . (Join-Path $PSScriptRoot 'voicemeeter.ps1')
 . (Join-Path $PSScriptRoot 'autoeq.ps1')
+. (Join-Path $PSScriptRoot 'eqswitch.ps1')
 
 # Fuentes de descarga. Voicemeeter con hash fijado (mismo que el manifiesto de
 # winget VB-Audio.Voicemeeter.Potato 3.1.2.2). EQ APO y Peace vienen de
@@ -267,21 +268,82 @@ function Write-HLEqConfig {
     $text = ConvertTo-HLEqApoText -HeadsetProfile $HeadsetProfile -Title 'Warzone footsteps' -Intensity $Intensity
     $configPath = Join-Path $cfgDir 'config.txt'
 
+    # config.txt -> hardline\switch.txt -> preset. El atajo de teclado solo
+    # toca switch.txt (ver eqswitch.ps1).
     $config = @(
         '# Hardline - Equalizer APO'
         '# Backup del config.txt anterior en la carpeta backups/ de Hardline.'
-        '# Desactivar el EQ sin desinstalar: comenta la línea Include con #.'
+        '# Encender/apagar el EQ: atajo Ctrl+Alt+F10 (edita hardline\switch.txt).'
         ''
-        "Include: hardline\$presetName"
+        'Include: hardline\switch.txt'
     ) -join "`r`n"
+    $switchPath = Join-Path $hlDir 'switch.txt'
 
     if ($HL.DryRun) { return $presetPath }
 
+    $utf8 = New-Object Text.UTF8Encoding($false)
     Backup-HLFile -Path $presetPath -Reason 'Preset EQ de Hardline' | Out-Null
-    [IO.File]::WriteAllText($presetPath, $text.Replace("`r`n", "`n").Replace("`n", "`r`n"), (New-Object Text.UTF8Encoding($false)))
+    [IO.File]::WriteAllText($presetPath, $text.Replace("`r`n", "`n").Replace("`n", "`r`n"), $utf8)
+    Backup-HLFile -Path $switchPath -Reason 'Interruptor del EQ' | Out-Null
+    [IO.File]::WriteAllText($switchPath, (ConvertTo-HLAscii (New-HLEqSwitchText -PresetName $presetName -On $true)), $utf8)
     Backup-HLFile -Path $configPath -Reason 'config.txt de Equalizer APO' | Out-Null
-    [IO.File]::WriteAllText($configPath, (ConvertTo-HLAscii $config), (New-Object Text.UTF8Encoding($false)))
+    [IO.File]::WriteAllText($configPath, (ConvertTo-HLAscii $config), $utf8)
+    Grant-HLUserWrite -Path $hlDir
     return $presetPath
+}
+
+<#
+    Permiso de modificación para el usuario actual en config\hardline (dentro
+    de Program Files). Así el atajo de teclado cambia el EQ sin pedir admin.
+    Queda en el manifiesto: el rollback lo retira.
+#>
+function Grant-HLUserWrite {
+    param([Parameter(Mandatory)] [string] $Path)
+    $who = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $acl = Get-Acl -Path $Path
+    $rule = New-Object Security.AccessControl.FileSystemAccessRule($who, 'Modify', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
+    $acl.AddAccessRule($rule)
+    Set-Acl -Path $Path -AclObject $acl
+    Add-HLManifestEntry -Type 'Acl' -Data @{ Path = $Path; Identity = $who; Rights = 'Modify' }
+}
+
+# Acceso directo en Inicio > Hardline. Con -Hotkey funciona como atajo global
+# (Windows solo atiende atajos de accesos directos del menú Inicio o el escritorio).
+function New-HLShortcut {
+    param(
+        [Parameter(Mandatory)] [string] $Name,
+        [Parameter(Mandatory)] [string] $Target,
+        [string] $Arguments = '',
+        [string] $Hotkey = '',
+        [string] $Description = ''
+    )
+    $dir = Join-Path ([Environment]::GetFolderPath('Programs')) 'Hardline'
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    $lnk = Join-Path $dir "$Name.lnk"
+    Backup-HLFile -Path $lnk -Reason "Acceso directo $Name" | Out-Null
+    $sh = New-Object -ComObject WScript.Shell
+    $s = $sh.CreateShortcut($lnk)
+    $s.TargetPath = $Target
+    $s.Arguments = $Arguments
+    $s.WorkingDirectory = $HL.Root
+    $s.Description = $Description
+    if ($Hotkey) { $s.Hotkey = $Hotkey }
+    $s.Save()
+    return $lnk
+}
+
+function Install-HLAudioShortcuts {
+    if ($HL.DryRun) { return }
+    $audio = Join-Path $HL.Root 'src\audio'
+    $ps = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    New-HLShortcut -Name 'Hardline EQ on-off' -Target (Join-Path $env:SystemRoot 'System32\wscript.exe') `
+        -Arguments ('"{0}"' -f (Join-Path $audio 'eq_toggle.vbs')) -Hotkey 'CTRL+ALT+F10' `
+        -Description 'Enciende/apaga el EQ de pasos. Un pitido agudo = encendido, dos graves = apagado.' | Out-Null
+    New-HLShortcut -Name 'Hardline test de pasos' -Target $ps `
+        -Arguments ('-NoProfile -NoExit -ExecutionPolicy Bypass -File "{0}"' -f (Join-Path $audio 'footstep_test.ps1')) `
+        -Description 'Escena de prueba (pasos + explosión) con el EQ apagado y encendido.' | Out-Null
+    Write-HLSub 'Atajo Ctrl+Alt+F10 (EQ on/off) y test de pasos en Inicio > Hardline' 'OK'
+    Add-HLResult -Module 'Audio' -Item 'Atajos' -Status Applied -Detail 'Ctrl+Alt+F10 enciende/apaga el EQ. Inicio > Hardline > "Hardline test de pasos" para comparar.'
 }
 
 # --------------------------------------------------------------------------
@@ -353,6 +415,7 @@ function Invoke-HLAudioSetup {
     $pre = Get-HLAutoPreamp -Filters @(Get-HLChainFilters -HeadsetProfile $hp -Intensity $Intensity)
     Write-HLSub "Preset EQ ($preset, preamp $pre dB)" 'OK'
     Add-HLResult -Module 'Audio' -Item 'Preset EQ APO' -Status Applied -Detail "$preset (preamp automático $pre dB)"
+    Invoke-HLSafely 'Audio' 'Atajos de audio' { Install-HLAudioShortcuts }
 
     $target = if ($Mode -eq 'Full') { 'CABLE Input (VB-Audio Virtual Cable)' } else { 'tu headset' }
     $apo = Get-HLEqApoDir
@@ -380,6 +443,7 @@ function Invoke-HLAudioSetup {
     Add-HLManualStep 'Audio' 'Propiedades del headset en Windows: desactiva "Mejoras de audio" y "Audio espacial" (Windows Sonic/Dolby). Warzone ya aplica su propio HRTF; apilar virtualizadores destruye la localización.'
     Add-HLManualStep 'Audio' 'Software del headset (G HUB, iCUE, NGENUITY, SteelSeries GG, Synapse): EQ plano y 7.1 virtual desactivado. El EQ lo hace Hardline.'
     Add-HLManualStep 'Audio' 'Warzone > Audio: Mezcla "Auriculares", volumen de música y diálogo a 0, efectos al 100%.'
+    Add-HLManualStep 'Audio' 'Tras reiniciar: Inicio > Hardline > "Hardline test de pasos". Suena la misma escena con el EQ apagado y encendido; en la segunda, los pasos de la izquierda deben destacar sobre la explosión. En partida, Ctrl+Alt+F10 enciende/apaga el EQ (en pantalla completa exclusiva, si el atajo no responde, usa "Sin bordes").'
 }
 
 function Invoke-HLVoicemeeterPhase {

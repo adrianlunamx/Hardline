@@ -2,6 +2,25 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.2.0] - 2026-10-01
+
+### Añadido
+
+- **Releases verificadas**: el instalador descarga la última release publicada y comprueba su SHA256 antes de ejecutar nada; si no coincide, cancela. `-Channel main` para lo último de la rama. Aviso al arrancar si hay una versión nueva.
+- **Modo partida**: tarea al iniciar sesión que, solo con Warzone abierto, pausa servicios de fondo, baja la prioridad de navegadores/launchers y activa el plan de energía máximo; al cerrar el juego lo restaura todo. Configurable en `config\gamesession.json`, recuperación tras apagón, registro en `logs\gamesession.log`. Parámetro `-GameSession`.
+- **Plan de energía solo durante la partida** (opción por defecto con modo partida).
+- **Menú de módulos** al inicio para elegir qué aplicar. `-SkipPlatforms`.
+- **Atajo `Ctrl+Alt+F10`** para encender/apagar el EQ en partida, sin admin ni ventanas, con confirmación por sonido.
+- **Test de pasos**: escena sintética (pasos + explosión) reproducida con el EQ apagado y encendido por el dispositivo del juego.
+- **Módulos NVIDIA e Intel Arc**: driver (versión GeForce real), Resizable BAR, TDR e instrucciones de Reflex / panel de NVIDIA / XeLL.
+- **Reporte HTML** con resumen, antes/después, pasos manuales enlazados y detalle (el `.txt` se mantiene).
+- README en inglés, plantillas de issues y PR, CONTRIBUTING y Dependabot para las acciones del CI.
+
+### Cambiado
+
+- HAGS solo se desactiva en Radeon; en NVIDIA e Intel no se toca (Frame Generation lo necesita).
+- Las actualizaciones conservan `config\` además de `backups\`, `reports\`, `logs\` y `headsets\`.
+
 ## [1.1.0] - 2026-09-29
 
 ### Añadido

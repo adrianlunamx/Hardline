@@ -18,6 +18,10 @@ foreach ($f in @(
         'modules\windows\power.ps1',
         'modules\windows\timer.ps1',
         'modules\windows\platforms.ps1',
+        'modules\windows\gamesession.ps1',
+        'modules\gpu\shared.ps1',
+        'modules\gpu\nvidia.ps1',
+        'modules\gpu\intel.ps1',
         'modules\amd\gpu.ps1',
         'modules\amd\ryzen.ps1',
         'modules\network\optimize.ps1',
@@ -33,18 +37,39 @@ function Invoke-HLOptimization {
         [switch] $SkipWindows,
         [switch] $SkipNetwork,
         [switch] $SkipGame,
-        [string] $Platform = ''
+        [switch] $SkipPlatforms,
+        [string] $Platform = '',
+        [ValidateSet('', 'Yes', 'No')] [string] $GameSession = ''
     )
+
+    $session = Get-HLGameSessionChoice -Choice $GameSession
 
     if (-not $SkipWindows) {
         Write-HLStep 'Optimizando Windows...'
         Invoke-HLSafely 'Servicios' 'Servicios' { Invoke-HLServices -Hardware $Hardware }
-        Invoke-HLSafely 'Plataformas' 'Plataformas de juego' { Invoke-HLPlatforms -Hardware $Hardware -Platform $Platform }
         Invoke-HLSafely 'Registro' 'Registro' { Invoke-HLRegistry -Hardware $Hardware }
-        Invoke-HLSafely 'Energía' 'Plan de energía' { Invoke-HLPowerPlan -Hardware $Hardware }
+
+        # Con modo partida, el plan de energía máximo puede ir solo durante la partida.
+        $powerOnlyInGame = $false
+        if ($session) {
+            $powerOnlyInGame = Read-HLYesNo '¿Plan de energía máximo solo con Warzone abierto? (en reposo el PC consume y se calienta menos)' $true
+        }
+        Invoke-HLSafely 'Energía' 'Plan de energía' { Invoke-HLPowerPlan -Hardware $Hardware -CreateOnly:$powerOnlyInGame }
         Invoke-HLSafely 'Timer' 'Timer resolution' { Install-HLTimerResolution -Hardware $Hardware }
         Write-HLOk 'Windows optimizado'
         Add-HLManualStep 'Windows' 'Comprueba la latencia DPC con LatencyMon (enlace en la sección Benchmark).'
+    }
+
+    if (-not $SkipPlatforms) {
+        Write-HLStep 'Plataformas de juego...'
+        Invoke-HLSafely 'Plataformas' 'Plataformas de juego' { Invoke-HLPlatforms -Hardware $Hardware -Platform $Platform }
+    }
+
+    if ($session) {
+        Write-HLStep 'Modo partida...'
+        Invoke-HLSafely 'Modo partida' 'Modo partida' { Install-HLGameSession -Hardware $Hardware }
+    } else {
+        Add-HLResult -Module 'Modo partida' -Item 'Tarea' -Status Skipped -Detail 'No elegido'
     }
 
     if ($Hardware.CPU.IsRyzen) {
@@ -53,11 +78,12 @@ function Invoke-HLOptimization {
         Invoke-HLSafely 'RAM' 'Memoria' { Invoke-HLMemoryCheck -Hardware $Hardware -BiosPaths @{ EXPO = 'Busca "XMP" o "EXPO" en la sección de memoria de la BIOS' } }
     }
 
-    if ($Hardware.GPU.Primary -and $Hardware.GPU.Primary.Vendor -eq 'AMD') {
-        Invoke-HLSafely 'GPU AMD' 'Radeon' { Invoke-HLAmdGpu -Hardware $Hardware }
-    } elseif ($Hardware.GPU.Primary) {
-        Write-HLInfo "GPU $($Hardware.GPU.Primary.Name): Hardline solo trae módulo específico para Radeon. Los tweaks de Windows, red y juego se aplican igual."
-        Add-HLResult -Module 'GPU' -Item $Hardware.GPU.Primary.Name -Status Skipped -Detail 'Sin módulo específico'
+    $gpuVendor = if ($Hardware.GPU.Primary) { $Hardware.GPU.Primary.Vendor } else { '' }
+    switch ($gpuVendor) {
+        'AMD'    { Invoke-HLSafely 'GPU AMD' 'Radeon' { Invoke-HLAmdGpu -Hardware $Hardware } }
+        'NVIDIA' { Invoke-HLSafely 'GPU NVIDIA' 'GeForce' { Invoke-HLNvidiaGpu -Hardware $Hardware } }
+        'Intel'  { Invoke-HLSafely 'GPU Intel' 'Intel Arc' { Invoke-HLIntelGpu -Hardware $Hardware } }
+        default  { if ($Hardware.GPU.Primary) { Add-HLResult -Module 'GPU' -Item $Hardware.GPU.Primary.Name -Status Skipped -Detail 'Sin módulo específico' } }
     }
 
     if (-not $SkipNetwork) {

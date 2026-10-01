@@ -1,0 +1,54 @@
+name: Fallo
+description: Algo no funciona o rompió algo en tu equipo.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de nada: si algo se rompió, `rollback.ps1` (en `%LOCALAPPDATA%\Hardline`) deshace todos los cambios de la última sesión.
+  - type: textarea
+    id: que-paso
+    attributes:
+      label: Qué pasó
+      description: Qué esperabas y qué ocurrió. Si hubo un error en consola, pégalo.
+    validations:
+      required: true
+  - type: dropdown
+    id: modulo
+    attributes:
+      label: Módulo
+      options:
+        - Instalación / descarga
+        - Windows (servicios, registro, energía, timer)
+        - Plataformas (Battle.net, Steam, Xbox)
+        - Modo partida
+        - Red
+        - Warzone (config gráfica)
+        - Audio (EQ, Voicemeeter, AutoEq, atajo, test de pasos)
+        - GPU / CPU / RAM
+        - Rollback
+        - Otro
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versión de Hardline
+      description: Aparece en el banner y en el reporte (ej. 1.2.0).
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware y Windows
+      placeholder: Ryzen 5 7600X, RX 6650 XT, 32 GB DDR5, Windows 11 24H2
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Arrastra aquí el archivo más reciente de `%LOCALAPPDATA%\Hardline\logs` (o pega las líneas con ERROR/WARN). Si es del modo partida, `logs\gamesession.log`.
+      render: text
+    validations:
+      required: true

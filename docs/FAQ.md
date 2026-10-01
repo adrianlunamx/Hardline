@@ -121,7 +121,33 @@ En 6 núcleos empeora los 1% lows en Warzone. Hardline lo sugiere solo a partir 
 
 **¿Por qué HAGS off si Microsoft lo recomienda on?**
 
-Con RDNA2 y Warzone, HAGS off da frametimes más regulares en la mayoría de versiones de Adrenalin. Si usas Frame Generation en otros juegos necesitas HAGS on; cámbialo en Configuración > Pantalla > Gráficos > Configuración de gráficos predeterminada.
+Solo en Radeon: con RDNA2 y Warzone, HAGS off da frametimes más regulares en la mayoría de versiones de Adrenalin. En NVIDIA e Intel Hardline no lo toca. Si usas Frame Generation en otros juegos necesitas HAGS on; cámbialo en Configuración > Pantalla > Gráficos > Configuración de gráficos predeterminada.
+
+## Modo partida
+
+**¿Cómo sé si está funcionando?**
+
+Abre `logs\gamesession.log` en la carpeta de Hardline: cada partida deja una línea `INICIO` con lo que pausó y otra `FIN` al cerrar el juego. La tarea se llama `Hardline-GameSession` en el Programador de tareas.
+
+**Quiero que no toque X / que cierre Y.**
+
+Edita `config\gamesession.json`: quita X de `pause_services` o `lower_priority`, o añade Y a `close_processes` (nombre del proceso sin `.exe`). Se aplica en la siguiente partida.
+
+**Se fue la luz a mitad de partida y Windows Search no arranca.**
+
+Al iniciar sesión, el modo partida restaura lo que quedó pendiente. Si lo desinstalaste antes, ejecuta `src\modules\windows\gamesession_watcher.ps1 -Root <carpeta de Hardline> -RestoreOnly` como administrador.
+
+## Atajo del EQ
+
+**Ctrl+Alt+F10 no hace nada.**
+
+- Comprueba que existe Inicio > Hardline > "Hardline EQ on-off" (el atajo vive en ese acceso directo).
+- En pantalla completa exclusiva algunos juegos capturan el teclado: usa "Pantalla completa sin bordes".
+- Un pitido largo y grave significa error: mira `logs\eq_toggle.log`.
+
+**¿El test de pasos se oye por el headset?**
+
+Sí, por el mismo camino que el juego: en modo Completo sale por `CABLE Input`, pasa por el EQ y Voicemeeter lo manda al headset. Si no oyes nada, Voicemeeter no está abierto o A1 no es tu headset.
 
 ## Desarrollo
 

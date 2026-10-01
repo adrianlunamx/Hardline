@@ -1,0 +1,17 @@
+name: Propuesta
+description: Un tweak, un headset, una mejora.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Qué propones
+    validations:
+      required: true
+  - type: textarea
+    id: por-que
+    attributes:
+      label: Por qué funciona
+      description: Hardline solo incluye cambios con efecto medible o documentado. Enlaza la fuente (documentación oficial, medición, benchmark) o explica cómo medirlo.
+    validations:
+      required: true

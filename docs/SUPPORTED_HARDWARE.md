@@ -7,7 +7,7 @@ Hardline funciona en cualquier PC con Windows 10 22H2 / 11. Lo que cambia según
 | Componente | Soporte completo | Parcial | Qué pasa en el resto |
 |---|---|---|---|
 | CPU | Ryzen 7000 / 9000 (Zen 4 / Zen 5) | Ryzen 5000 y anteriores | Intel: se omite el módulo Ryzen; RAM, Windows, red, juego y audio igual |
-| GPU | Radeon RX 6000 / 7000 / 9000 | Radeon RX 5000 | NVIDIA / Intel Arc: sin módulo específico; el resto igual |
+| GPU | Radeon RX 6000 / 7000 / 9000, GeForce RTX, Intel Arc | Radeon RX 5000, GeForce GTX | Gráficos integrados: solo los ajustes comunes |
 | RAM | DDR5 en AM5 | DDR4 (AM4, Intel) | Detección de EXPO/XMP en todas |
 | Red | Intel I225/I226, Realtek 8125/8111, cualquier NIC con `*EEE` estándar | Wi-Fi (solo DNS y QoS) | |
 | Placa (rutas de BIOS) | ASUS, MSI, Gigabyte, ASRock | Otras | Instrucciones genéricas |
