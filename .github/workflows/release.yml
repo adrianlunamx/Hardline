@@ -8,6 +8,12 @@ on:
   # Release creada desde la web de GitHub: también adjunta el ZIP + SHA256.
   release:
     types: [published]
+  # Reempaquetar una versión a mano (Actions > validate-and-release > Run workflow).
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag de la release (ej. v1.2.0). Si no existe, se crea sobre main.'
+        required: true
 
 permissions:
   contents: read
@@ -56,11 +62,15 @@ jobs:
 
   release:
     needs: validate
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && startsWith(inputs.tag, 'v'))
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
     # Una release creada en la web dispara "push" del tag y "release": que no corran a la vez.
     concurrency:
-      group: release-${{ github.ref }}
+      group: release-${{ inputs.tag || github.ref_name }}
     permissions:
       contents: write
     steps:
@@ -68,7 +78,7 @@ jobs:
 
       - name: Empaquetar
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${TAG#v}"
           mkdir -p dist
           zip -r "dist/hardline-${VERSION}.zip" . \
             -x '.git/*' '.github/*' 'dist/*' \
@@ -79,17 +89,21 @@ jobs:
 
       - name: Notas de la versión desde CHANGELOG
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${TAG#v}"
           awk -v v="$VERSION" '
             $0 ~ "^## \\[" v "\\]" { on=1; next }
             on && /^## \[/ { exit }
             on { print }
           ' CHANGELOG.md > dist/notes.md
-          test -s dist/notes.md || echo "Hardline ${GITHUB_REF_NAME}" > dist/notes.md
+          test -s dist/notes.md || echo "Hardline ${TAG}" > dist/notes.md
 
       - name: Publicar release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG }}
+          name: Hardline ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
           body_path: dist/notes.md
           files: |
             dist/hardline-*.zip
