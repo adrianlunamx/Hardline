@@ -717,6 +717,15 @@ try {
     Assert-True ($vmStd -match 'Strip\[2\]\.Label="HL SISTEMA"' -and $vmStd -notmatch 'Strip\[5\]' -and $vmPot -match 'Strip\[5\]\.Label="HL SISTEMA"' -and $vmStd -match 'Strip\[0\]\.device\.wdm="CABLE Output \(VB-Audio Virtual Cable\)"') 'Voicemeeter: entrada virtual correcta en cada edición (básica 2, Potato 5)'
     . (Join-HLPath @($root, 'src', 'audio', 'endpoints.ps1'))
     Assert-True ((Get-HLCableDefaultName 'VB-Audio Virtual Cable' 0) -eq 'CABLE Input' -and (Get-HLCableDefaultName 'VB-Audio Virtual Cable' 1) -eq 'CABLE Output' -and (Get-HLCableDefaultName 'VB-Audio Voicemeeter VAIO' 0) -eq 'Voicemeeter Input' -and (Get-HLCableDefaultName 'VB-Audio Voicemeeter VAIO' 1) -eq 'Voicemeeter Output' -and (Get-HLCableDefaultName 'VB-Audio Voicemeeter AUX VAIO' 0) -eq '' -and (Get-HLCableDefaultName 'Sound BlasterX G1' 0) -eq '') 'nombres de fábrica de VB-CABLE y Voicemeeter ("Virtual Mix" -> "Voicemeeter Output"; AUX y otros dispositivos no se tocan)'
+    $vaio = 'VB-Audio Voicemeeter VAIO'; $cab = 'VB-Audio Virtual Cable'
+    # Edición básica renombrada por Art Tune: un VAIO por sentido.
+    $std = @(@('a', '0', 'Normal Audio', $vaio), @('b', '1', 'Virtual Mix', $vaio), @('c', '0', 'Art Tune +', $cab), @('d', '0', 'Speakers', 'Sound BlasterX G1'))
+    $rs = @(Select-HLRenamedEndpoints -List $std)
+    # Potato (caso real): 15 dispositivos VAIO con nombres propios; ninguno se toca.
+    $pot = @(@('p1', '0', 'Voicemeeter In 1', $vaio), @('p2', '0', 'Voicemeeter AUX Input', $vaio), @('p3', '0', 'Voicemeeter VAIO3 Input', $vaio),
+        @('p4', '1', 'Voicemeeter Out A1', $vaio), @('p5', '1', 'Voicemeeter Out B2', $vaio), @('p6', '0', 'Mi mezcla', $vaio), @('p7', '1', 'CABLE Output', $cab))
+    $rp = @(Select-HLRenamedEndpoints -List $pot)
+    Assert-True ($rs.Count -eq 3 -and (($rs | ForEach-Object { "$($_.Id)=$($_.Default)" }) -join '|') -eq 'a=Voicemeeter Input|b=Voicemeeter Output|c=CABLE Input' -and $rp.Count -eq 0) 'Voicemeeter Potato: sus dispositivos (In 1-5, AUX, Out A1-B3) nunca se renombran; la edición básica renombrada sí vuelve' "$(($rp | ForEach-Object { $_.Name }) -join '|')"
     $epOk = $true; try { Initialize-HLEndpointApi } catch { $epOk = $false }
     Assert-True ($epOk -and ('Hardline.AudioEndpoints' -as [type])) 'API de nombres de audio compila'
     $devs = @('HDMI (AMD High Definition Audio Device)', 'DP (AMD High Definition Audio Device)', 'Speakers (Sound BlasterX G1)')

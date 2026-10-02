@@ -189,13 +189,35 @@ function Get-HLRenderDeviceScore {
     return $score
 }
 
-# Dispositivos de VB-CABLE / VAIO renombrados: Id, Flow, Name, Default.
+<#
+    Dispositivos de VB-CABLE / VAIO renombrados: Id, Flow, Name, Default.
+    $List: filas de [Hardline.AudioEndpoints]::List() (id, flujo, nombre, driver).
+
+    VAIO: Banana y Potato registran varios dispositivos con el mismo driver
+    ("Voicemeeter In 1", "Voicemeeter Out B2", "Voicemeeter AUX Input"...):
+    cada uno tiene su nombre y no se puede saber cuál era el principal. Solo
+    se renombra con un único dispositivo VAIO en ese sentido (edición
+    básica) y si su nombre no empieza por "Voicemeeter"; un nombre de
+    Voicemeeter nunca se cambia.
+#>
+function Select-HLRenamedEndpoints {
+    param([Parameter(Mandatory)] [AllowEmptyCollection()] [object[]] $List)
+    foreach ($d in $List) {
+        $flow = [int]$d[1]
+        $def = Get-HLCableDefaultName -InterfaceName $d[3] -Flow $flow
+        if (-not $def -or $d[2] -eq $def) { continue }
+        if ($d[3] -eq 'VB-Audio Voicemeeter VAIO') {
+            if ($d[2] -match '^Voicemeeter') { continue }
+            $same = @($List | Where-Object { $_[3] -eq $d[3] -and [int]$_[1] -eq $flow }).Count
+            if ($same -ne 1) { continue }
+        }
+        [pscustomobject]@{ Id = $d[0]; Flow = $flow; Name = $d[2]; Default = $def }
+    }
+}
+
 function Get-HLRenamedCables {
     Initialize-HLEndpointApi
-    foreach ($d in [Hardline.AudioEndpoints]::List()) {
-        $def = Get-HLCableDefaultName -InterfaceName $d[3] -Flow ([int]$d[1])
-        if ($def -and $d[2] -ne $def) { [pscustomobject]@{ Id = $d[0]; Flow = [int]$d[1]; Name = $d[2]; Default = $def } }
-    }
+    Select-HLRenamedEndpoints -List @([Hardline.AudioEndpoints]::List())
 }
 
 function Set-HLEndpointName {
