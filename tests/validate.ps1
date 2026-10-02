@@ -727,6 +727,11 @@ try {
     $pot = @(@('p1', '0', 'Voicemeeter In 1', $vaio), @('p2', '0', 'Voicemeeter AUX Input', $vaio), @('p3', '0', 'Voicemeeter VAIO3 Input', $vaio),
         @('p4', '1', 'Voicemeeter Out A1', $vaio), @('p5', '1', 'Voicemeeter Out B2', $vaio), @('p6', '0', 'Mi mezcla', $vaio), @('p7', '1', 'CABLE Output', $cab))
     $rp = @(Select-HLRenamedEndpoints -List $pot)
+    # Sin uso: todo el VAIO salvo "Voicemeeter Input" y los predeterminados (caso real: micro en "Out B3").
+    $potAll = @(@('vi', '0', 'Voicemeeter Input', $vaio), @('in1', '0', 'Voicemeeter In 1', $vaio), @('aux', '0', 'Voicemeeter AUX Input', $vaio),
+        @('a1', '1', 'Voicemeeter Out A1', $vaio), @('b3', '1', 'Voicemeeter Out B3', $vaio), @('ci', '0', 'CABLE Input', $cab), @('sp', '0', 'Speakers', 'Sound BlasterX G1'))
+    $unused = @(Select-HLUnusedVaioEndpoints -List $potAll -DefaultIds @('b3', 'sp'))
+    Assert-True ((($unused | ForEach-Object { $_.Id }) -join '|') -eq 'in1|aux|a1' -and $comSrc -match "'PnpDevice' \{" -and $setupSrc -match 'Disable-HLUnusedVaioEndpoints') 'Voicemeeter: dispositivos sin uso desactivados (se quedan Voicemeeter Input, los predeterminados y VB-CABLE); el rollback los reactiva'
     Assert-True ($rs.Count -eq 3 -and (($rs | ForEach-Object { "$($_.Id)=$($_.Default)" }) -join '|') -eq 'a=Voicemeeter Input|b=Voicemeeter Output|c=CABLE Input' -and $rp.Count -eq 0) 'Voicemeeter Potato: sus dispositivos (In 1-5, AUX, Out A1-B3) nunca se renombran; la edición básica renombrada sí vuelve' "$(($rp | ForEach-Object { $_.Name }) -join '|')"
     $epOk = $true; try { Initialize-HLEndpointApi } catch { $epOk = $false }
     Assert-True ($epOk -and ('Hardline.AudioEndpoints' -as [type])) 'API de nombres de audio compila'

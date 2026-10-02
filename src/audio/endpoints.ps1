@@ -111,6 +111,13 @@ namespace Hardline {
             return iface.Length > 0 ? desc + " (" + iface + ")" : desc;
         }
 
+        // Id del predeterminado: flow 0/1, role 0 = general, 2 = comunicaciones. "" si no hay.
+        public static string DefaultId(int flow, int role) {
+            var e = (IMMDeviceEnumerator)new MMDeviceEnumeratorCom();
+            IMMDevice d; if (e.GetDefaultAudioEndpoint(flow, role, out d) != 0) return "";
+            string id; d.GetId(out id); return id;
+        }
+
         // 0 = correcto; si no, el HRESULT (acceso denegado sin administrador).
         public static int Rename(string id, string name) { return SetString(id, DeviceDesc, name); }
 
@@ -213,6 +220,52 @@ function Select-HLRenamedEndpoints {
         }
         [pscustomobject]@{ Id = $d[0]; Flow = $flow; Name = $d[2]; Default = $def }
     }
+}
+
+<#
+    Dispositivos virtuales de Voicemeeter que nadie usa. Banana y Potato crean
+    hasta 15 (In 1-5, AUX, VAIO3, Out A1-A5, B1-B3) que llenan las listas de
+    Windows, Discord y el juego. Hardline solo usa "Voicemeeter Input" (el
+    sonido del sistema); se conserva además cualquiera que sea predeterminado
+    en Windows (general o comunicaciones). $List: filas de List();
+    $DefaultIds: ids de los predeterminados.
+#>
+function Select-HLUnusedVaioEndpoints {
+    param([Parameter(Mandatory)] [AllowEmptyCollection()] [object[]] $List, [string[]] $DefaultIds = @())
+    foreach ($d in $List) {
+        if ($d[3] -notlike 'VB-Audio Voicemeeter*') { continue }
+        if ($d[2] -eq 'Voicemeeter Input') { continue }
+        if ($DefaultIds -contains $d[0]) { continue }
+        [pscustomobject]@{ Id = $d[0]; Flow = [int]$d[1]; Name = $d[2] }
+    }
+}
+
+<#
+    Desactiva esos dispositivos (como "Deshabilitar" en Administrador de
+    dispositivos). Revertible: el rollback los vuelve a activar. Hace falta
+    administrador. Devuelve cuántos se desactivaron.
+#>
+function Disable-HLUnusedVaioEndpoints {
+    if ($HL.DryRun) { return 0 }
+    try {
+        Initialize-HLEndpointApi
+        $list = @([Hardline.AudioEndpoints]::List())
+        $defaults = @(foreach ($f in 0, 1) { foreach ($r in 0, 2) { [Hardline.AudioEndpoints]::DefaultId($f, $r) } }) | Where-Object { $_ }
+    } catch { Write-HLLog WARN "No se pudieron leer los dispositivos de audio: $($_.Exception.Message)"; return 0 }
+    $count = 0
+    foreach ($e in @(Select-HLUnusedVaioEndpoints -List $list -DefaultIds $defaults)) {
+        $pnp = "SWD\MMDEVAPI\$($e.Id)"
+        try {
+            Disable-PnpDevice -InstanceId $pnp -Confirm:$false -ErrorAction Stop
+            Add-HLManifestEntry -Type 'PnpDevice' -Data @{ InstanceId = $pnp; Name = $e.Name; Action = 'Disabled' }
+            $count++
+        } catch { Write-HLLog WARN "No se pudo desactivar $($e.Name): $($_.Exception.Message)" }
+    }
+    if ($count) {
+        Write-HLSub "Dispositivos virtuales de Voicemeeter sin uso desactivados: $count" 'OK'
+        Add-HLResult -Module 'Audio' -Item 'Voicemeeter: dispositivos sin uso' -Status Applied -Detail "$count desactivados (In 1-5, AUX, Out A/B...). Se conservan Voicemeeter Input y los predeterminados. El rollback los reactiva."
+    }
+    return $count
 }
 
 function Get-HLRenamedCables {

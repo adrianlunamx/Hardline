@@ -622,6 +622,10 @@ function Undo-HLManifestEntry {
             if ((Invoke-HLReg @('import', "`"$($Entry.BackupFile)`"")) -ne 0) { throw "reg import falló para $($Entry.Key)." }
             return "Clave $($Entry.Key)"
         }
+        'PnpDevice' {
+            Enable-PnpDevice -InstanceId $Entry.InstanceId -Confirm:$false -ErrorAction Stop
+            return "Dispositivo $($Entry.Name) reactivado"
+        }
         'AudioEndpointIcon' {
             . $Entry.ModulePath
             Initialize-HLEndpointApi
