@@ -2,11 +2,13 @@
 <#
     Hardline - panel del EQ.
 
-    Encender/apagar el EQ de pasos y cambiar la intensidad sin abrir nada
-    más. No necesita administrador: solo edita config\hardline\switch.txt de
-    Equalizer APO (la instalación da permiso de escritura a tu usuario), igual
-    que el atajo Ctrl+Alt+F10. El estado se relee cada segundo, así que si
-    usas el atajo en partida el panel lo refleja.
+    Encender/apagar el EQ de pasos, su intensidad (deslizador de 0 a 150 %) y
+    el nivel del compresor (Suave, Normal, Fuerte, Rush). Todo se aplica al
+    momento y sin administrador: la intensidad escribe un preset en
+    config\hardline\ de Equalizer APO (la instalación da permiso de escritura
+    a tu usuario) y el compresor va por la Remote API de Voicemeeter. El
+    estado se relee cada segundo, así que si usas Ctrl+Alt+F10 en partida el
+    panel lo refleja.
 
     Se abre con:  Inicio > Hardline > Hardline EQ,  o el botón de la interfaz.
 #>
@@ -14,85 +16,127 @@ param([string] $Root = '')
 
 if (-not $Root) { $Root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent }
 . (Join-Path $Root 'src\core\common.ps1')
+. (Join-Path $Root 'src\audio\eq.ps1')
 . (Join-Path $Root 'src\audio\eqswitch.ps1')
 . (Join-Path $Root 'src\audio\voicemeeter.ps1')
 
-# Texto del estado para la ventana (sin WPF: se prueba en tests).
+# Texto del estado para la ventana (sin WPF: se prueba en tests). $Intensity: 0-1.5 o $null.
 function Get-HLEqPanelView {
-    param($On, [string] $Preset, $Variants)
-    $label = ($Variants | Where-Object { $_.Name -eq $Preset } | Select-Object -First 1).Label
+    param($On, $Intensity)
     if ($null -eq $On) {
         return [pscustomobject]@{ State = 'Sin configurar'; Detail = 'Ejecuta la configuración de audio de Hardline (casilla Audio).'; Button = 'Encender'; Color = '#8A93A3'; Enabled = $false }
     }
-    $detail = if ($label) { "Intensidad: $label" } else { "Preset: $Preset" }
-    if ($On) { return [pscustomobject]@{ State = 'Encendido'; Detail = $detail; Button = 'Apagar'; Color = '#3FB950'; Enabled = $true } }
-    return [pscustomobject]@{ State = 'Apagado'; Detail = "$detail. Suena tal cual, sin corrección."; Button = 'Encender'; Color = '#8A93A3'; Enabled = $true }
+    $detail = if ($null -ne $Intensity) { 'Intensidad {0} %' -f [int][Math]::Round($Intensity * 100) } else { 'Preset de Hardline' }
+    if ($On) { return [pscustomobject]@{ State = 'Encendido'; Detail = "$detail. Se aplica al momento."; Button = 'Apagar'; Color = '#3FB950'; Enabled = $true } }
+    return [pscustomobject]@{ State = 'Apagado'; Detail = "$detail. Ahora suena tal cual, sin corrección."; Button = 'Encender'; Color = '#8A93A3'; Enabled = $true }
+}
+
+# Qué se oye con cada intensidad (0-150).
+function Get-HLEqIntensityHint {
+    param([int] $Percent)
+    if ($Percent -eq 0) { return 'Solo la corrección de tu headset: sonido neutro, sin realce de pasos.' }
+    if ($Percent -lt 70) { return 'Realce ligero: pasos algo más claros y sonido casi natural.' }
+    if ($Percent -lt 100) { return 'Realce moderado: pasos claros sin sonido tan metálico.' }
+    if ($Percent -eq 100) { return 'Preset completo: 2,2-3,6 kHz (pisadas) muy por encima del resto.' }
+    return 'Más que el preset: pasos todavía más marcados, sonido más metálico y cansado. El volumen general baja para no saturar.'
 }
 
 function Show-HLEqPanel {
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
     [xml]$x = Get-Content (Join-Path $PSScriptRoot 'eq_panel.xaml') -Raw -Encoding UTF8
     $w = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $x))
+    Set-HLWindowIcon -Window $w -Root $Root
     $c = @{}
-    foreach ($n in @('eqBadge', 'eqState', 'eqDetail', 'eqToggle', 'eqIntensity', 'eqTest', 'eqTopmost', 'eqDynamics', 'eqDynHint')) { $c[$n] = $w.FindName($n) }
-
-    # Compresor: se aplica al momento con Voicemeeter abierto y se recuerda para la próxima instalación.
-    $settings = Get-HLAudioSettings -Root $Root
-    $view0 = @{ Busy = $true }
-    foreach ($item in $c.eqDynamics.Items) { if ($item.Tag -eq $settings.Dynamics) { $c.eqDynamics.SelectedItem = $item } }
-    $view0.Busy = $false
-    $c.eqDynHint.Text = 'Bajar lo fuerte y subir lo flojo: tus disparos son lo más fuerte que suena, por eso son lo que más baja.'
-    $c.eqDynamics.Add_SelectionChanged({
-            if ($view0.Busy -or -not $c.eqDynamics.SelectedItem) { return }
-            $mode = "$($c.eqDynamics.SelectedItem.Tag)"
-            $st = Get-HLAudioSettings -Root $Root
-            try {
-                $r = Set-HLVoicemeeterDynamics -XmlPath (Join-Path $Root 'src\audio\configs\voicemeeter_comp.xml') -Mode $mode -PreampDb $st.PreampDb -Overrides $st.Overrides
-                Save-HLAudioSettings -Root $Root -Set @{ Dynamics = $mode }
-                $c.eqDynHint.Text = if ($r.Type -lt 3) { 'Aplicado en parte: tu Voicemeeter no es Potato y solo acepta los mandos básicos.' } else { "Aplicado. Umbral $($r.Values.Threshold) dB, $($r.Values.Ratio):1, ganancia +$($r.Values.GainOut) dB." }
-            } catch {
-                $c.eqDynHint.Text = "No aplicado: $($_.Exception.Message) Abre Voicemeeter y vuelve a elegirlo."
-            }
-        })
-
+    foreach ($n in @('eqDot', 'eqState', 'eqDetail', 'eqToggle', 'eqIntValue', 'eqIntSlider', 'eqIntHint', 'eqDynValue', 'eqDynSlider', 'eqDynHint', 'eqTest', 'eqTopmost')) { $c[$n] = $w.FindName($n) }
+    $brush = { param($hex) New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($hex)) }
+    $xml = Join-Path $Root 'src\audio\configs\voicemeeter_comp.xml'
     $sw = Get-HLEqSwitchPath
-    $view = @{ Busy = $false; Last = '' }
-    $variants = @()
-    if ($sw -and (Test-Path $sw)) {
-        $names = @(Get-ChildItem (Split-Path $sw -Parent) -Filter 'warzone_footsteps_*.txt' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
-        $variants = @(Get-HLEqPresetVariants -Names $names -Current (Get-HLEqPreset -SwitchPath $sw))
-    }
-    foreach ($v in $variants) {
-        $item = New-Object System.Windows.Controls.ComboBoxItem
-        $item.Content = $v.Label; $item.Tag = $v.Name
-        [void]$c.eqIntensity.Items.Add($item)
-    }
-    $c.eqIntensity.IsEnabled = $variants.Count -gt 1
+    $view = @{ Busy = $false; Last = ''; PendingInt = $false }
 
+    # --- Compresor -------------------------------------------------------------
+    $modes = $script:HLDynamicsModes
+    $names = @{ suave = 'Suave'; normal = 'Normal'; pasos = 'Fuerte'; rush = 'Rush' }
+    $showDyn = {
+        $m = $modes[[int]$c.eqDynSlider.Value]
+        $c.eqDynValue.Text = $names[$m]
+        return $m
+    }
+    $applyDyn = {
+        $mode = & $showDyn
+        $st = Get-HLAudioSettings -Root $Root
+        try {
+            $r = Set-HLVoicemeeterDynamics -XmlPath $xml -Mode $mode -PreampDb $st.PreampDb -Overrides $st.Overrides
+            Save-HLAudioSettings -Root $Root -Set @{ Dynamics = $mode }
+            $desc = ($script:HLDynamicsProfiles[$mode] -split ': ', 2)[-1]
+            $c.eqDynHint.Text = if ($r.Type -lt 3) { "$desc. Aplicado en parte: tu Voicemeeter no es Potato y solo acepta los mandos básicos." } else { "$desc. $($r.Values.Ratio):1 desde $($r.Values.Threshold) dB, recuperación $($r.Values.Release) ms, ganancia +$($r.Values.GainOut) dB." }
+        } catch {
+            Save-HLAudioSettings -Root $Root -Set @{ Dynamics = $mode }
+            $c.eqDynHint.Text = "Guardado, pero no aplicado: $($_.Exception.Message) Se aplica cuando abras Voicemeeter y lo elijas de nuevo."
+        }
+    }
+    $settings = Get-HLAudioSettings -Root $Root
+    $view.Busy = $true
+    $c.eqDynSlider.Value = [Math]::Max(0, [array]::IndexOf($modes, $settings.Dynamics))
+    $view.Busy = $false
+    [void](& $showDyn)
+    $c.eqDynHint.Text = ($script:HLDynamicsProfiles[$settings.Dynamics] -split ': ', 2)[-1] + '.'
+    $c.eqDynSlider.Add_ValueChanged({ if (-not $view.Busy) { & $applyDyn } })
+
+    # --- Intensidad del EQ -------------------------------------------------------
+    # Se aplica 350 ms después del último movimiento: arrastrar no reescribe el preset 30 veces.
+    $debounce = New-Object System.Windows.Threading.DispatcherTimer
+    $debounce.Interval = [TimeSpan]::FromMilliseconds(350)
+    $applyInt = {
+        $debounce.Stop()
+        $view.PendingInt = $false
+        $pct = [int]$c.eqIntSlider.Value
+        try {
+            $pre = Set-HLEqIntensity -Intensity ($pct / 100.0) -SwitchPath $sw
+            Save-HLAudioSettings -Root $Root -Set @{ PreampDb = [double]$pre }
+            $c.eqIntHint.Text = (Get-HLEqIntensityHint -Percent $pct) + " Preamp $pre dB."
+            # Los umbrales del compresor dependen del preamp: se reajustan si Voicemeeter está abierto.
+            $st = Get-HLAudioSettings -Root $Root
+            try { [void](Set-HLVoicemeeterDynamics -XmlPath $xml -Mode $st.Dynamics -PreampDb $pre -Overrides $st.Overrides) } catch { Write-Verbose 'Voicemeeter cerrado' }
+        } catch {
+            $c.eqIntHint.Text = "No aplicado: $($_.Exception.Message)"
+        }
+        $view.Last = ''
+    }
+    $debounce.Add_Tick({ & $applyInt })
+    $c.eqIntSlider.Add_ValueChanged({
+            $pct = [int]$c.eqIntSlider.Value
+            $c.eqIntValue.Text = "$pct %"
+            if ($view.Busy) { return }
+            $c.eqIntHint.Text = Get-HLEqIntensityHint -Percent $pct
+            $view.PendingInt = $true
+            $debounce.Stop(); $debounce.Start()
+        })
+    $c.eqIntSlider.IsEnabled = [bool]($sw -and (Test-Path $sw))
+
+    # --- Estado (se relee cada segundo) ----------------------------------------------
     $refresh = {
         $on = Get-HLEqState -SwitchPath $sw
-        $preset = Get-HLEqPreset -SwitchPath $sw
-        $key = "$on|$preset"
+        $int = Get-HLEqIntensity -SwitchPath $sw
+        $key = "$on|$int"
         if ($key -eq $view.Last) { return }
         $view.Last = $key
-        $v = Get-HLEqPanelView -On $on -Preset $preset -Variants $variants
+        $v = Get-HLEqPanelView -On $on -Intensity $int
         $c.eqState.Text = $v.State
-        $c.eqState.Foreground = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($v.Color))
+        $c.eqDot.Fill = & $brush $v.Color
         $c.eqDetail.Text = $v.Detail
         $c.eqToggle.Content = $v.Button
         $c.eqToggle.IsEnabled = $v.Enabled
-        $view.Busy = $true
-        foreach ($item in $c.eqIntensity.Items) { if ($item.Tag -eq $preset) { $c.eqIntensity.SelectedItem = $item } }
-        $view.Busy = $false
+        $c.eqIntSlider.IsEnabled = $v.Enabled
+        if ($null -ne $int -and -not $view.PendingInt -and -not $c.eqIntSlider.IsMouseCaptureWithin) {
+            $view.Busy = $true
+            $c.eqIntSlider.Value = [Math]::Round($int * 20) * 5
+            $view.Busy = $false
+            if (-not $c.eqIntHint.Text) { $c.eqIntHint.Text = Get-HLEqIntensityHint -Percent ([int]$c.eqIntSlider.Value) }
+        }
     }
 
     $c.eqToggle.Add_Click({
             try { Set-HLEqState -On (-not (Get-HLEqState -SwitchPath $sw)) -SwitchPath $sw } catch { [System.Windows.MessageBox]::Show($_.Exception.Message, 'Hardline EQ') | Out-Null }
-            & $refresh
-        })
-    $c.eqIntensity.Add_SelectionChanged({
-            if ($view.Busy -or -not $c.eqIntensity.SelectedItem) { return }
-            try { Set-HLEqPreset -PresetName "$($c.eqIntensity.SelectedItem.Tag)" -SwitchPath $sw } catch { [System.Windows.MessageBox]::Show($_.Exception.Message, 'Hardline EQ') | Out-Null }
             & $refresh
         })
     $c.eqTest.Add_Click({
@@ -105,7 +149,11 @@ function Show-HLEqPanel {
     $timer.Interval = [TimeSpan]::FromSeconds(1)
     $timer.Add_Tick({ & $refresh })
     $timer.Start()
-    $w.Add_Closed({ $timer.Stop() })
+    $w.Add_Closed({
+            $timer.Stop()
+            # Si se cierra justo después de mover el deslizador, se aplica igual.
+            if ($view.PendingInt) { & $applyInt }
+        })
     & $refresh
     [void]$w.ShowDialog()
 }

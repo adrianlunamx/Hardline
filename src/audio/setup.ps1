@@ -375,6 +375,9 @@ function New-HLShortcut {
     $s.WorkingDirectory = $HL.Root
     $s.Description = $Description
     if ($Hotkey) { $s.Hotkey = $Hotkey }
+    # Icono de Hardline: sin él, Inicio muestra el de PowerShell o el de wscript.
+    $ico = Join-Path $HL.Root 'assets\hardline.ico'
+    if (Test-Path -LiteralPath $ico) { $s.IconLocation = "$ico,0" }
     $s.Save()
     return $lnk
 }
@@ -408,7 +411,7 @@ function Invoke-HLAudioSetup {
         [double] $Intensity = 0,
         [switch] $CleanAudio,
         [string] $OutputDevice = '',
-        [ValidateSet('', 'normal', 'pasos')] [string] $Dynamics = ''
+        [ValidateSet('', 'suave', 'normal', 'pasos', 'rush')] [string] $Dynamics = ''
     )
     # Sin elección explícita se mantiene la última (config\audio.json) o "normal".
     if (-not $Dynamics) { $Dynamics = (Get-HLAudioSettings -Root $HL.Root).Dynamics }
@@ -436,7 +439,8 @@ function Invoke-HLAudioSetup {
     Add-HLResult -Module 'Audio' -Item 'Perfil' -Status Info -Detail "$($hp.name), modo $Mode, intensidad $([int]($Intensity*100))%"
 
     # --- Audio anterior: limpieza antes de instalar -----------------------------
-    $keepPreset = @("warzone_footsteps_$($hp.id).txt", "warzone_footsteps_$($hp.id)_70.txt")
+    # _live: la intensidad elegida con el deslizador del panel del EQ.
+    $keepPreset = @("warzone_footsteps_$($hp.id).txt", "warzone_footsteps_$($hp.id)_70.txt", "warzone_footsteps_$($hp.id)_live.txt")
     $apo0 = Get-HLEqApoDir
     $inv = Get-HLAudioInventory -ConfigDir $(if ($apo0) { Get-HLEqApoConfigDir -InstallDir $apo0 } else { '' })
     if (Test-HLAudioInventoryClean -Inventory $inv -KeepPreset $keepPreset) {
@@ -566,7 +570,7 @@ function Invoke-HLAudioSetup {
     Add-HLManualStep 'Audio' 'Propiedades del headset en Windows: desactiva "Mejoras de audio" y "Audio espacial" (Windows Sonic/Dolby). Warzone ya aplica su propio HRTF; apilar virtualizadores destruye la localización.'
     Add-HLManualStep 'Audio' 'Software del headset (G HUB, iCUE, NGENUITY, SteelSeries GG, Synapse): EQ plano y 7.1 virtual desactivado. El EQ lo hace Hardline.'
     Add-HLManualStep 'Audio' 'Warzone > Audio: Mezcla "Auriculares", volumen de música y diálogo a 0, efectos al 100%. Si aparece "Reducción del sonido de tinnitus", actívala: quita el pitido tras explosiones cercanas.'
-    Add-HLManualStep 'Audio' 'Pasos más altos y disparos más bajos: panel del EQ (Inicio > Hardline > Hardline EQ) > Compresor > "Pasos al máximo". Se aplica al momento con Voicemeeter abierto; compáralo en partida con "Normal".'
+    Add-HLManualStep 'Audio' 'Pasos más altos y disparos más bajos: panel del EQ (Inicio > Hardline > Hardline EQ) > deslizador del compresor en "Fuerte", o "Rush" para tiroteos seguidos. La intensidad del EQ también se ajusta ahí (0-150 %). Se aplica al momento con Voicemeeter abierto; compáralo en partida con "Normal".'
     Add-HLManualStep 'Audio' 'Tras reiniciar: Inicio > Hardline > "Hardline test de pasos". Suena la misma escena con el EQ apagado y encendido; en la segunda, los pasos de la izquierda deben destacar sobre la explosión. En partida, Ctrl+Alt+F10 enciende/apaga el EQ (en pantalla completa exclusiva, si el atajo no responde, usa "Sin bordes").'
 }
 

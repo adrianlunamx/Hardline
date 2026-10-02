@@ -502,6 +502,9 @@ function Install-HLAppShortcut {
         $s.Arguments = ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -Gui' -f (Join-Path $Root 'install.ps1'))
         $s.WorkingDirectory = $Root
         $s.Description = 'Hardline: optimizaciones para Warzone'
+        # Icono de Hardline: sin él, Inicio muestra el de PowerShell.
+        $ico = Join-Path $Root 'assets\hardline.ico'
+        if (Test-Path -LiteralPath $ico) { $s.IconLocation = "$ico,0" }
         $s.Save()
         # La guía es una página local: se abre en el navegador, sin admin.
         $g = $sh.CreateShortcut((Join-Path $dir 'Guía de pasos.lnk'))
@@ -514,6 +517,23 @@ function Install-HLAppShortcut {
         Write-HLLog WARN "No se pudo crear el acceso directo: $($_.Exception.Message)"
         return $null
     }
+}
+
+<#
+    Icono de Hardline en una ventana WPF y grupo propio en la barra de tareas.
+    Las ventanas las abre powershell.exe: sin un AppUserModelID propio, la barra
+    de tareas las agrupa con PowerShell y muestra su icono.
+#>
+function Set-HLWindowIcon {
+    param([Parameter(Mandatory)] $Window, [Parameter(Mandatory)] [string] $Root)
+    try {
+        if (-not ('Hardline.Shell' -as [type])) {
+            Add-Type -Namespace Hardline -Name Shell -MemberDefinition '[DllImport("shell32.dll", CharSet = CharSet.Unicode)] public static extern int SetCurrentProcessExplicitAppUserModelID(string id);'
+        }
+        [void][Hardline.Shell]::SetCurrentProcessExplicitAppUserModelID('Hardline.Warzone')
+        $ico = Join-Path $Root 'assets\hardline.ico'
+        if (Test-Path -LiteralPath $ico) { $Window.Icon = [System.Windows.Media.Imaging.BitmapFrame]::Create((New-Object System.Uri $ico)) }
+    } catch { Write-HLLog DEBUG "Icono de ventana: $($_.Exception.Message)" }
 }
 
 # --------------------------------------------------------------------------

@@ -433,10 +433,20 @@ Archivo: `src/audio/cleanup.ps1`.
 
 | Perfil | Gate | Compresor | Ganancia | Limitador |
 |---|---|---|---|---|
+| Suave | Desactivado | 2:1 desde -14 dB + preamp, ataque 10 ms, release 120 ms | 2 dB + la mitad del preamp | -3 dB |
 | Normal | -45 dB + preamp, atenúa 20 dB | 4:1 desde -25 dB + preamp, ataque 5 ms | makeup + la mitad del preamp | -3 dB |
-| Pasos al máximo | Desactivado | 8:1 desde -20 dB + preamp, ataque 1 ms, release 50 ms | 4 dB - preamp (hasta +24) | -6 dB |
+| Fuerte | Desactivado | 8:1 desde -20 dB + preamp, ataque 1 ms, release 50 ms | 4 dB - preamp (hasta +24) | -6 dB |
+| Rush | Desactivado | 8:1 desde -16 dB + preamp, ataque 0,5 ms, release 20 ms | 6 dB - preamp (hasta +24) | -6 dB |
 
-"Pasos al máximo" baja lo fuerte y sube lo flojo: con preamp -20, un disparo a -20 dBFS sale a unos -14 y un paso a -55 sale a unos -31, cuando antes los separaban 35 dB. Se cambia al momento desde el panel del EQ.
+"Fuerte" baja lo fuerte y sube lo flojo: con preamp -20, un disparo a -20 dBFS sale a unos -14 y un paso a -55 sale a unos -31, cuando antes los separaban 35 dB.
+
+"Rush" es para tiroteos seguidos. Un compresor de una banda baja toda la mezcla mientras suena un disparo, pasos incluidos. Un arma automática dispara cada 60-100 ms: con los 50 ms de recuperación de "Fuerte" el volumen no llega a volver entre disparos y los pasos se quedan hundidos todo el rato. Con 20 ms vuelve antes del siguiente disparo, y el umbral más alto evita que los pasos activen el compresor. A cambio, el audio "bombea" algo más. Lo que el propio juego atenúa (prioriza los sonidos fuertes cercanos) no lo recupera ningún procesador.
+
+Los cuatro se cambian al momento con el deslizador del panel del EQ.
+
+### Intensidad del EQ (panel)
+
+El deslizador va de 0 a 150 %. Escala las ganancias del preset de pasos (mismas frecuencias y Q) y deja intacta la corrección del headset: 0 % es solo la corrección (sonido neutro). Se escribe `warzone_footsteps_<headset>_live.txt` a partir del preset completo, con el preamp recalculado para no saturar, y los umbrales del compresor se reajustan a ese preamp. Equalizer APO lo recarga al momento.
 
 
 Voicemeeter Potato, configurado por su [Remote API](https://github.com/vburel2018/Voicemeeter-SDK) (no se edita ningún archivo interno de Voicemeeter).

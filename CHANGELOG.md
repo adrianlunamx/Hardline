@@ -6,6 +6,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 
 ### Añadido
 
+- **Panel del EQ renovado**: deslizador de **intensidad del EQ de 0 a 150 %** (0 % = solo la corrección del headset; se aplica al momento, con el preamp recalculado y el compresor reajustado a él) y deslizador del **compresor con 4 niveles**: Suave, Normal, Fuerte (el antiguo "Pasos al máximo") y **Rush**, para tiroteos seguidos (recupera el volumen en 20 ms, antes del siguiente disparo). Cada nivel explica qué hace y muestra los valores aplicados.
+- **Icono de Hardline** en los accesos directos de Inicio (antes salía el de PowerShell) y en las ventanas; la barra de tareas las agrupa como Hardline. `assets\make_icon.ps1` genera `hardline.ico` desde el diseño de `icon.svg`.
+
 - **Limpieza completa de Art Tune y HeSuVi** antes de instalar el audio. Art Tune no se registra en Aplicaciones, así que se busca su rastro y se aparta entero a `backups\<sesión>\apartado\` (el rollback lo devuelve): la biblioteca `ArtTuneDB` y sus copias `_backup_*` en Equalizer APO, HeSuVi (virtualizador surround que se apila con el HRTF de Warzone), el VST `ArtTuneKit`, los iconos de `ProgramData\ArtTune`, LEQ Control Panel y los accesos directos. ReaPlugs se ofrece desinstalar si hay rastro de Art Tune. Las copias que Art Tune dejó en Documentos y Descargas solo se listan.
 - Si algo de eso está en uso (un VST cargado por Equalizer APO), se deja `config.txt` neutro, se reinicia el audio de Windows y se reintenta.
 - **Nombres e iconos de fábrica**: además de VB-CABLE, la entrada de Voicemeeter vuelve a llamarse "Voicemeeter Input" / "Voicemeeter Output" ("Normal Audio" / "Virtual Mix" con Art Tune) solo en la edición básica: los dispositivos de Banana y Potato ("Voicemeeter In 1", "Out B2", AUX...) tienen nombre propio y nunca se tocan, y los cables recuperan el icono de su driver si apuntaba a algo que ya no existe. Revertible.
@@ -20,6 +23,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 ### Corregido
 
 - **Voicemeeter no arrancaba con Windows** con la edición básica o Banana: la entrada de inicio apuntaba siempre a `voicemeeter8.exe` (Potato), aunque no estuviera instalado. Ahora apunta a la edición instalada; si no encuentra ninguna, lo avisa en la guía.
+- **Decimales perdidos**: `[Math]::Min(0, -20.5)` en PowerShell elige la versión de enteros y da -20. Pasaba con el preamp en el compresor, la latencia añadida del diagnóstico de red y la zona muerta del test de mando.
 - **Potato instalado pero se usaba la edición básica**: si estaba abierto Voicemeeter básico (o Banana) con Potato instalado, Hardline configuraba la edición abierta, sin el compresor completo. Ahora la cierra y abre Potato; el arranque con Windows también apunta a Potato.
 - **Instalación de Potato repetida en cada aplicación**: si falla encima de otra edición, no se reintenta con el mismo instalador (cada intento cerraba Voicemeeter y cortaba el audio). En consola se pregunta; con un instalador nuevo se vuelve a probar.
 - **"Desinstalar Peace" fallaba siempre** cuando Peace se había borrado a mano y quedaba su entrada en Aplicaciones apuntando a un desinstalador que ya no existe. Esas entradas huérfanas se ignoran.

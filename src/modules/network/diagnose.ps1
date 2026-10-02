@@ -108,7 +108,7 @@ function Measure-HLBufferbloat {
 
     $added = $null; $grade = $null
     if ($null -ne $idle.MedianMs -and $null -ne $loaded.MedianMs) {
-        $added = [math]::Max(0, [double]$loaded.MedianMs - [double]$idle.MedianMs)
+        $added = [math]::Max([double]0, [double]$loaded.MedianMs - [double]$idle.MedianMs)
         $grade = Get-HLBufferbloatGrade -AddedMs $added
     }
     [pscustomobject]@{ Idle = $idle; Loaded = $loaded; AddedMs = $added; Grade = $grade; DownloadMbps = $mbps }

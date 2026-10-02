@@ -100,6 +100,7 @@ function Show-HLGuideWindow {
     }
     [xml]$gx = Get-Content (Join-Path $PSScriptRoot 'guide.xaml') -Raw -Encoding UTF8
     $w = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $gx))
+    Set-HLWindowIcon -Window $w -Root $Root
     if ($Owner) { $w.Owner = $Owner }
     $g = @{}
     foreach ($n in @('gPhase', 'gHint', 'gCount', 'gProgress', 'gArea', 'gText', 'gState', 'gLink', 'gPrev', 'gSkip', 'gDone', 'gList')) { $g[$n] = $w.FindName($n) }
@@ -156,6 +157,7 @@ function Show-HLGui {
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
     [xml]$xaml = Get-Content (Join-Path $PSScriptRoot 'main.xaml') -Raw -Encoding UTF8
     $window = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
+    Set-HLWindowIcon -Window $window -Root $Root
     $ui = @{}
     # Los nombres dentro de plantillas (ControlTemplate) viven en otro ámbito: FindName no los ve.
     foreach ($n in ($xaml.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]'))) {

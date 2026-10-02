@@ -75,6 +75,51 @@ function Get-HLEqPresetVariants {
     return @($out | Sort-Object { -$_.Intensity })
 }
 
+# Preset completo (100%) del que sale cada variante: quita _70 / _live.
+function Get-HLEqBasePreset {
+    param([string] $Current)
+    if ($Current -match '^(warzone_footsteps_.+?)(_70|_live)?\.txt$') { return "$($Matches[1]).txt" }
+    return $null
+}
+
+# Intensidad del preset activo (0-1.5) leída de su cabecera, o $null.
+function Get-HLEqIntensity {
+    param([string]$SwitchPath = (Get-HLEqSwitchPath))
+    $cur = Get-HLEqPreset -SwitchPath $SwitchPath
+    if (-not $cur) { return $null }
+    $f = Join-Path (Split-Path $SwitchPath -Parent) $cur
+    if (-not (Test-Path -LiteralPath $f)) { return $null }
+    foreach ($l in (Get-Content -LiteralPath $f -TotalCount 5)) { if ($l -match 'intensidad (\d+)%') { return [int]$Matches[1] / 100.0 } }
+    return $null
+}
+
+<#
+    Intensidad libre del EQ de pasos (0 = solo la corrección del headset,
+    1 = preset completo, hasta 1.5). Escribe warzone_footsteps_<id>_live.txt
+    a partir del preset completo y apunta el interruptor a él, sin tocar el
+    estado encendido/apagado. Equalizer APO recarga al momento. Sin
+    administrador: la carpeta hardline\ tiene permiso de escritura para el
+    usuario. Devuelve el preamp del nuevo preset.
+#>
+function Set-HLEqIntensity {
+    param([Parameter(Mandatory)] [double] $Intensity, [string]$SwitchPath = (Get-HLEqSwitchPath))
+    if (-not $SwitchPath -or -not (Test-Path $SwitchPath)) { throw 'No hay interruptor de EQ (ejecuta la configuración de audio de Hardline).' }
+    # [double] explícito: con un 0 entero, [Math]::Max elige la versión de enteros y 0.85 pasa a ser 1.
+    $Intensity = [Math]::Min([double]1.5, [Math]::Max([double]0, $Intensity))
+    $dir = Split-Path $SwitchPath -Parent
+    $base = Get-HLEqBasePreset -Current (Get-HLEqPreset -SwitchPath $SwitchPath)
+    if (-not $base -or -not (Test-Path -LiteralPath (Join-Path $dir $base))) { throw 'No se encuentra el preset completo: vuelve a aplicar el audio de Hardline.' }
+    $r = New-HLEqIntensityPreset -BaseText ([IO.File]::ReadAllText((Join-Path $dir $base))) -Intensity $Intensity
+    if ([Math]::Abs($Intensity - 1.0) -lt 0.001) {
+        Set-HLEqPreset -PresetName $base -SwitchPath $SwitchPath
+    } else {
+        $live = $base -replace '\.txt$', '_live.txt'
+        [IO.File]::WriteAllText((Join-Path $dir $live), $r.Text, [Text.Encoding]::ASCII)
+        Set-HLEqPreset -PresetName $live -SwitchPath $SwitchPath
+    }
+    return $r.PreampDb
+}
+
 # Cambia el preset sin tocar el estado encendido/apagado. Equalizer APO recarga al momento.
 function Set-HLEqPreset {
     param([Parameter(Mandatory)] [string] $PresetName, [string]$SwitchPath = (Get-HLEqSwitchPath))

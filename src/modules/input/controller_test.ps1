@@ -64,7 +64,7 @@ function Measure-HLStickRest {
 function Get-HLRecommendedDeadzone {
     param([Parameter(Mandatory)] [double] $MaxRadius)
     $pct = [int][Math]::Ceiling([Math]::Round($MaxRadius * 100, 2)) + 2
-    $pct = [Math]::Min(30, [Math]::Max(2, $pct))
+    $pct = [Math]::Min([double]30, [Math]::Max([double]2, [double]$pct))
     return [pscustomobject]@{ Percent = $pct; Worn = ($MaxRadius -gt 0.15) }
 }
 

@@ -5,3 +5,5 @@
 *.ini text
 *.txt text
 *.md text
+*.ico binary
+*.png binary
