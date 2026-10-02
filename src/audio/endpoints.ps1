@@ -71,6 +71,28 @@ namespace Hardline {
     [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
     class MMDeviceEnumeratorCom { }
 
+    // IPolicyConfig: la interfaz que usa el panel de Sonido de Windows para
+    // "Establecer como predeterminado". No está documentada, pero es estable
+    // desde Windows 7 (la usan SoundSwitch, EarTrumpet, nircmd...).
+    [ComImport, Guid("F8679F50-850A-41CF-9C72-430F290290C8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IPolicyConfig {
+        int GetMixFormat([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr fmt);
+        int GetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string id, int def, IntPtr fmt);
+        int ResetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string id);
+        int SetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr a, IntPtr b);
+        int GetProcessingPeriod([MarshalAs(UnmanagedType.LPWStr)] string id, int def, IntPtr a, IntPtr b);
+        int SetProcessingPeriod([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr a);
+        int GetShareMode([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr m);
+        int SetShareMode([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr m);
+        int GetPropertyValue([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr key, IntPtr pv);
+        int SetPropertyValue([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr key, IntPtr pv);
+        int SetDefaultEndpoint([MarshalAs(UnmanagedType.LPWStr)] string id, int role);
+        int SetEndpointVisibility([MarshalAs(UnmanagedType.LPWStr)] string id, int visible);
+    }
+
+    [ComImport, Guid("870AF99C-171D-4F9E-AF0D-E63DF40C2BC9")]
+    class PolicyConfigCom { }
+
     public static class AudioEndpoints {
         [DllImport("ole32.dll")] static extern int PropVariantClear(ref PropVariant pv);
         static readonly PropKey DeviceDesc = new PropKey("a45c254e-df1c-4efd-8020-67d146a850e0", 2);
@@ -116,6 +138,18 @@ namespace Hardline {
             var e = (IMMDeviceEnumerator)new MMDeviceEnumeratorCom();
             IMMDevice d; if (e.GetDefaultAudioEndpoint(flow, role, out d) != 0) return "";
             string id; d.GetId(out id); return id;
+        }
+
+        // Predeterminado para un rol (0 = consola, 1 = multimedia, 2 = comunicaciones). 0 = correcto.
+        public static int SetDefault(string id, int role) {
+            var p = (IPolicyConfig)new PolicyConfigCom();
+            return p.SetDefaultEndpoint(id, role);
+        }
+
+        // "Permitir" / "No permitir" del panel de Sonido (DeviceState activo / deshabilitado). 0 = correcto.
+        public static int SetVisibility(string id, bool visible) {
+            var p = (IPolicyConfig)new PolicyConfigCom();
+            return p.SetEndpointVisibility(id, visible ? 1 : 0);
         }
 
         // 0 = correcto; si no, el HRESULT (acceso denegado sin administrador).
@@ -223,6 +257,119 @@ function Select-HLRenamedEndpoints {
 }
 
 <#
+    ¿El micro predeterminado no lleva tu voz? Devuelve el motivo, o '' si está bien.
+      - CABLE Output: es el audio del juego.
+      - "Voicemeeter Out A*": la mezcla que oyes tú (mandaría el juego al chat).
+      - "Voicemeeter Out B*" / "Voicemeeter Output" con Voicemeeter cerrado o sin
+        ningún canal que envíe a ese bus: silencio (tus compañeros no te oyen).
+    $FedBuses: buses B que reciben algo ('B1', 'B3'...); $null = Voicemeeter cerrado.
+#>
+function Get-HLMicProblem {
+    param([string] $Name, [string] $Interface, $FedBuses)
+    if ($Interface -eq 'VB-Audio Virtual Cable') { return 'es CABLE Output, el audio del juego, no tu voz' }
+    if ($Interface -notlike 'VB-Audio Voicemeeter*') { return '' }
+    if ($Name -match 'Out A\d') { return 'es la mezcla que oyes tú: mandaría el juego al chat de voz' }
+    if ($null -eq $FedBuses) { return 'Voicemeeter está cerrado: no lleva audio' }
+    $bus = if ($Name -match 'Out (B\d)') { $Matches[1] } elseif ($Name -eq 'Voicemeeter Output') { 'B1' } else { '' }
+    if ($bus -and $bus -notin @($FedBuses)) { return "ningún canal de Voicemeeter envía al bus ${bus}: no lleva audio" }
+    return ''
+}
+
+# Micro físico: el del mismo aparato que el headset si lo hay; si no, el primero que no sea virtual.
+function Select-HLPhysicalMic {
+    param([AllowEmptyCollection()] [object[]] $List, [string] $HeadsetInterface = '')
+    $mics = @($List | Where-Object { [int]$_[1] -eq 1 -and $_[3] -notlike 'VB-Audio*' -and $_[3] -notmatch 'Steam Streaming|Virtual|Voicemod|NVIDIA Broadcast' })
+    if ($mics.Count -eq 0) { return $null }
+    if ($HeadsetInterface) {
+        $m = @($mics | Where-Object { $_[3] -eq $HeadsetInterface }) | Select-Object -First 1
+        if ($m) { return , $m }
+    }
+    return , $mics[0]
+}
+
+<#
+    Pone un dispositivo como predeterminado en los tres roles (general,
+    multimedia, comunicaciones) y guarda los anteriores: el rollback los
+    devuelve. $false si ya lo era.
+#>
+function Set-HLDefaultEndpoint {
+    param([Parameter(Mandatory)] [string] $Id, [Parameter(Mandatory)] [int] $Flow, [string] $Name = '')
+    if ($HL.DryRun) { return $true }
+    Initialize-HLEndpointApi
+    $prev = foreach ($r in 0, 1, 2) { [Hardline.AudioEndpoints]::DefaultId($Flow, $r) }
+    if (@($prev | Where-Object { $_ -ne $Id }).Count -eq 0) { return $false }
+    foreach ($r in 0, 1, 2) {
+        $hr = [Hardline.AudioEndpoints]::SetDefault($Id, $r)
+        if ($hr -ne 0) { throw ("Windows no dejó poner {0} como predeterminado (0x{1:X8})." -f $Name, $hr) }
+    }
+    Add-HLManifestEntry -Type 'DefaultEndpoint' -Data @{ Flow = $Flow; Id = $Id; Name = $Name; Prev = @($prev); ModulePath = $script:HLEndpointModule }
+    return $true
+}
+
+<#
+    Salida y micro predeterminados de Windows, según el modo de audio.
+      Full:   salida = "Voicemeeter Input" (Discord y el sistema pasan por
+              Voicemeeter hacia el headset, sin el EQ del juego).
+      EqOnly: salida = el headset, si estaba en un dispositivo virtual.
+      Micro:  si no lleva tu voz (Get-HLMicProblem), el micro físico.
+    Lo que no se puede arreglar queda en la guía. $FedBuses: ver Get-HLMicProblem.
+#>
+function Repair-HLAudioDefaults {
+    param([ValidateSet('Full', 'EqOnly')] [string] $Mode = 'Full', [string] $HeadsetDevice = '', $FedBuses)
+    if ($HL.DryRun) { return }
+    try { Initialize-HLEndpointApi; $list = @([Hardline.AudioEndpoints]::List()) } catch { Write-HLLog WARN "No se pudieron leer los dispositivos de audio: $($_.Exception.Message)"; return }
+    $full = { param($d) if ($d[3]) { '{0} ({1})' -f $d[2], $d[3] } else { $d[2] } }
+    $headset = @($list | Where-Object { [int]$_[1] -eq 0 -and (& $full $_) -eq $HeadsetDevice }) | Select-Object -First 1
+
+    # --- Salida
+    $want = if ($Mode -eq 'Full') { @($list | Where-Object { [int]$_[1] -eq 0 -and $_[3] -like 'VB-Audio Voicemeeter*' -and $_[2] -eq 'Voicemeeter Input' }) | Select-Object -First 1 } else { $headset }
+    $curOut = [Hardline.AudioEndpoints]::DefaultId(0, 0)
+    $curOutRow = @($list | Where-Object { $_[0] -eq $curOut }) | Select-Object -First 1
+    $outWrong = if ($Mode -eq 'Full') { $true } else { $curOutRow -and $curOutRow[3] -like 'VB-Audio*' }
+    if ($want -and $outWrong) {
+        try {
+            if (Set-HLDefaultEndpoint -Id $want[0] -Flow 0 -Name (& $full $want)) {
+                Write-HLSub "Salida predeterminada de Windows: $(& $full $want)" 'OK'
+                Add-HLResult -Module 'Audio' -Item 'Salida predeterminada' -Status Applied -Detail ("{0} (antes: {1}). El rollback la devuelve." -f (& $full $want), $(if ($curOutRow) { & $full $curOutRow } else { 'ninguna' }))
+            }
+        } catch {
+            Add-HLResult -Module 'Audio' -Item 'Salida predeterminada' -Status Failed -Detail $_.Exception.Message
+            Add-HLManualStep 'Audio' "Configuración > Sistema > Sonido > Salida: ""$(& $full $want)""."
+        }
+    } elseif (-not $want -and $Mode -eq 'Full') {
+        Add-HLManualStep 'Audio' 'Configuración > Sistema > Sonido > Salida: "Voicemeeter Input". Así Discord y el resto pasan por Voicemeeter sin procesar.'
+    }
+
+    # --- Micro
+    $curMic = [Hardline.AudioEndpoints]::DefaultId(1, 0)
+    $curComm = [Hardline.AudioEndpoints]::DefaultId(1, 2)
+    foreach ($id in @($curMic, $curComm | Select-Object -Unique)) {
+        $row = @($list | Where-Object { $_[0] -eq $id }) | Select-Object -First 1
+        if (-not $row) { continue }
+        $why = Get-HLMicProblem -Name $row[2] -Interface $row[3] -FedBuses $FedBuses
+        if (-not $why) { continue }
+        $mic = Select-HLPhysicalMic -List $list -HeadsetInterface $(if ($headset) { $headset[3] } else { '' })
+        if (-not $mic) {
+            Write-HLWarn "Tu micrófono predeterminado ($(& $full $row)) $why, y no hay otro micrófono conectado."
+            Add-HLResult -Module 'Audio' -Item 'Micrófono predeterminado' -Status Failed -Detail "$(& $full $row): $why"
+            Add-HLManualStep 'Audio' "Tu micrófono predeterminado es ""$(& $full $row)"" y $why. Conecta tu micro y elígelo en Configuración > Sistema > Sonido > Entrada, en Warzone y en Discord."
+            break
+        }
+        try {
+            if (Set-HLDefaultEndpoint -Id $mic[0] -Flow 1 -Name (& $full $mic)) {
+                Write-HLSub "Micrófono predeterminado: $(& $full $mic) (el anterior $why)" 'OK'
+                Add-HLResult -Module 'Audio' -Item 'Micrófono predeterminado' -Status Applied -Detail ("{0}. Antes: {1}, que {2}. El rollback lo devuelve." -f (& $full $mic), (& $full $row), $why)
+                Add-HLManualStep 'Audio' "Si en Warzone o en Discord elegiste el micrófono a mano, pon ""$(& $full $mic)"" (o ""Predeterminado"")."
+            }
+        } catch {
+            Add-HLResult -Module 'Audio' -Item 'Micrófono predeterminado' -Status Failed -Detail $_.Exception.Message
+            Add-HLManualStep 'Audio' "Configuración > Sistema > Sonido > Entrada: ""$(& $full $mic)"". El actual ($(& $full $row)) $why."
+        }
+        break
+    }
+}
+
+<#
     Dispositivos virtuales de Voicemeeter que nadie usa. Banana y Potato crean
     hasta 15 (In 1-5, AUX, VAIO3, Out A1-A5, B1-B3) que llenan las listas de
     Windows, Discord y el juego. Hardline solo usa "Voicemeeter Input" (el
@@ -241,9 +388,12 @@ function Select-HLUnusedVaioEndpoints {
 }
 
 <#
-    Desactiva esos dispositivos (como "Deshabilitar" en Administrador de
-    dispositivos). Revertible: el rollback los vuelve a activar. Hace falta
-    administrador. Devuelve cuántos se desactivaron.
+    Desactiva esos dispositivos como "No permitir" en Configuración > Sonido
+    (IPolicyConfig::SetEndpointVisibility). Deshabilitarlos en el
+    Administrador de dispositivos (Disable-PnpDevice) no basta: el sistema de
+    audio los sigue dando por activos y siguen saliendo en las listas.
+    Revertible: el rollback los vuelve a permitir. Hace falta administrador.
+    Devuelve cuántos se desactivaron.
 #>
 function Disable-HLUnusedVaioEndpoints {
     if ($HL.DryRun) { return 0 }
@@ -254,12 +404,10 @@ function Disable-HLUnusedVaioEndpoints {
     } catch { Write-HLLog WARN "No se pudieron leer los dispositivos de audio: $($_.Exception.Message)"; return 0 }
     $count = 0
     foreach ($e in @(Select-HLUnusedVaioEndpoints -List $list -DefaultIds $defaults)) {
-        $pnp = "SWD\MMDEVAPI\$($e.Id)"
-        try {
-            Disable-PnpDevice -InstanceId $pnp -Confirm:$false -ErrorAction Stop
-            Add-HLManifestEntry -Type 'PnpDevice' -Data @{ InstanceId = $pnp; Name = $e.Name; Action = 'Disabled' }
-            $count++
-        } catch { Write-HLLog WARN "No se pudo desactivar $($e.Name): $($_.Exception.Message)" }
+        $hr = [Hardline.AudioEndpoints]::SetVisibility($e.Id, $false)
+        if ($hr -ne 0) { Write-HLLog WARN ("No se pudo desactivar {0} (0x{1:X8})" -f $e.Name, $hr); continue }
+        Add-HLManifestEntry -Type 'EndpointVisibility' -Data @{ Id = $e.Id; Name = $e.Name; ModulePath = $script:HLEndpointModule }
+        $count++
     }
     if ($count) {
         Write-HLSub "Dispositivos virtuales de Voicemeeter sin uso desactivados: $count" 'OK'

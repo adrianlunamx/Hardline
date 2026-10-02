@@ -44,6 +44,14 @@ namespace Hardline {
         [DllImport("$dll")] public static extern int VBVMR_IsParametersDirty();
         [DllImport("$dll", CharSet = CharSet.Ansi)] public static extern int VBVMR_SetParameters(string script);
         [DllImport("$dll", CharSet = CharSet.Ansi)] public static extern int VBVMR_GetParameterFloat(string name, out float value);
+        [DllImport("$dll", CharSet = CharSet.Ansi)] public static extern int VBVMR_GetParameterStringW(string name, IntPtr value);
+
+        // Texto de un parámetro (p. ej. "Bus[0].device.name"), o null si la API no lo da.
+        public static string GetString(string name) {
+            IntPtr buf = Marshal.AllocHGlobal(1024);
+            try { return VBVMR_GetParameterStringW(name, buf) == 0 ? Marshal.PtrToStringUni(buf) : null; }
+            finally { Marshal.FreeHGlobal(buf); }
+        }
     }
 }
 "@
@@ -134,6 +142,41 @@ function Get-HLRunningVoicemeeterType {
         Start-Sleep -Milliseconds 500
     }
     return $t
+}
+
+# Canales y buses B de cada edición: 1 = Voicemeeter, 2 = Banana, 3 = Potato.
+function Get-HLVoicemeeterLayout {
+    param([int] $Type)
+    switch ($Type) { 1 { @{ Strips = 3; BBuses = 1 } } 2 { @{ Strips = 5; BBuses = 2 } } 3 { @{ Strips = 8; BBuses = 3 } } default { @{ Strips = 0; BBuses = 0 } } }
+}
+
+<#
+    Estado de Voicemeeter abierto, sin cambiar nada: edición, buses B que
+    reciben algo de algún canal, dispositivo de A1 y del canal del juego.
+    $null si no está abierto.
+#>
+function Get-HLVoicemeeterState {
+    $dir = Get-HLVoicemeeterDir
+    if (-not $dir) { return $null }
+    try { $t = Connect-HLVoicemeeter -Dir $dir -NoLaunch } catch { return $null }
+    try {
+        $lay = Get-HLVoicemeeterLayout -Type $t
+        $fed = @(for ($b = 1; $b -le $lay.BBuses; $b++) {
+                $on = $false
+                for ($s = 0; $s -lt $lay.Strips; $s++) {
+                    $v = [single]0
+                    if ([Hardline.VMR]::VBVMR_GetParameterFloat("Strip[$s].B$b", [ref]$v) -eq 0 -and $v -ge 0.5) { $on = $true; break }
+                }
+                if ($on) { "B$b" }
+            })
+        return [pscustomobject]@{
+            Type = $t; FedBuses = $fed
+            # $null = la API no lo dio (no se sabe); '' = sin dispositivo.
+            A1 = [Hardline.VMR]::GetString('Bus[0].device.name')
+            GameStrip = [Hardline.VMR]::GetString('Strip[0].device.name')
+            BestType = $(if ($dir) { $b = Get-HLVoicemeeterRunType -Files @(Get-ChildItem $dir -Filter 'voicemeeter*.exe' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }); if ($b -gt 0) { (($b - 1) % 3) + 1 } else { 0 } } else { 0 })
+        }
+    } finally { Disconnect-HLVoicemeeter }
 }
 
 function Disconnect-HLVoicemeeter {

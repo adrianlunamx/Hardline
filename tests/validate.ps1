@@ -730,8 +730,22 @@ try {
     # Sin uso: todo el VAIO salvo "Voicemeeter Input" y los predeterminados (caso real: micro en "Out B3").
     $potAll = @(@('vi', '0', 'Voicemeeter Input', $vaio), @('in1', '0', 'Voicemeeter In 1', $vaio), @('aux', '0', 'Voicemeeter AUX Input', $vaio),
         @('a1', '1', 'Voicemeeter Out A1', $vaio), @('b3', '1', 'Voicemeeter Out B3', $vaio), @('ci', '0', 'CABLE Input', $cab), @('sp', '0', 'Speakers', 'Sound BlasterX G1'))
+    # Micro predeterminado que no lleva tu voz (caso real: "Voicemeeter Out B3" sin ningún canal enviando a B3).
+    $mp1 = Get-HLMicProblem -Name 'Voicemeeter Out B3' -Interface $vaio -FedBuses @('B1')
+    $mp2 = Get-HLMicProblem -Name 'Voicemeeter Out B1' -Interface $vaio -FedBuses @('B1')
+    $mp3 = Get-HLMicProblem -Name 'Voicemeeter Out A1' -Interface $vaio -FedBuses @('B1')
+    $mp4 = Get-HLMicProblem -Name 'CABLE Output' -Interface $cab -FedBuses @()
+    $mp5 = Get-HLMicProblem -Name 'Voicemeeter Output' -Interface $vaio -FedBuses $null
+    $mp6 = Get-HLMicProblem -Name 'Microphone' -Interface 'Sound BlasterX G1' -FedBuses $null
+    Assert-True ($mp1 -match 'B3' -and $mp2 -eq '' -and $mp3 -match 'oyes' -and $mp4 -match 'juego' -and $mp5 -match 'cerrado' -and $mp6 -eq '') 'micrófono: bus sin audio, mezcla A, CABLE Output o Voicemeeter cerrado se detectan; un micro real o un bus con audio, no'
+    $micList = @(@('b3', '1', 'Voicemeeter Out B3', $vaio), @('steam', '1', 'Microphone', 'Steam Streaming Microphone'), @('usb', '1', 'Micrófono', 'USB Audio Device'), @('g1', '1', 'Microphone', 'Sound BlasterX G1'), @('sp', '0', 'Speakers', 'Sound BlasterX G1'))
+    $pm1 = Select-HLPhysicalMic -List $micList -HeadsetInterface 'Sound BlasterX G1'
+    $pm2 = Select-HLPhysicalMic -List $micList
+    $pm3 = Select-HLPhysicalMic -List @(@('b3', '1', 'Voicemeeter Out B3', $vaio))
+    Assert-True ($pm1[0] -eq 'g1' -and $pm2[0] -eq 'usb' -and $null -eq $pm3) 'micrófono físico: el del mismo aparato que el headset; si no, el primero real (ni virtuales ni Steam)'
+    Assert-True ($setupSrc -match 'Repair-HLAudioDefaults' -and $setupSrc -match 'Test-HLAudioChain' -and $comSrc -match "'DefaultEndpoint' \{" -and ($setupSrc.IndexOf('Repair-HLAudioDefaults -Mode') -lt $setupSrc.IndexOf('[void](Disable-HLUnusedVaioEndpoints)'))) 'predeterminados arreglados antes de desactivar dispositivos, comprobación final y rollback'
     $unused = @(Select-HLUnusedVaioEndpoints -List $potAll -DefaultIds @('b3', 'sp'))
-    Assert-True ((($unused | ForEach-Object { $_.Id }) -join '|') -eq 'in1|aux|a1' -and $comSrc -match "'PnpDevice' \{" -and $setupSrc -match 'Disable-HLUnusedVaioEndpoints') 'Voicemeeter: dispositivos sin uso desactivados (se quedan Voicemeeter Input, los predeterminados y VB-CABLE); el rollback los reactiva'
+    Assert-True ((($unused | ForEach-Object { $_.Id }) -join '|') -eq 'in1|aux|a1' -and $comSrc -match "'EndpointVisibility' \{" -and (Get-Content (Join-HLPath @($root, 'src', 'audio', 'endpoints.ps1')) -Raw) -match 'SetVisibility\(\$e\.Id, \$false\)' -and $setupSrc -match 'Disable-HLUnusedVaioEndpoints') 'Voicemeeter: dispositivos sin uso desactivados (se quedan Voicemeeter Input, los predeterminados y VB-CABLE); el rollback los reactiva'
     Assert-True ($rs.Count -eq 3 -and (($rs | ForEach-Object { "$($_.Id)=$($_.Default)" }) -join '|') -eq 'a=Voicemeeter Input|b=Voicemeeter Output|c=CABLE Input' -and $rp.Count -eq 0) 'Voicemeeter Potato: sus dispositivos (In 1-5, AUX, Out A1-B3) nunca se renombran; la edición básica renombrada sí vuelve' "$(($rp | ForEach-Object { $_.Name }) -join '|')"
     $epOk = $true; try { Initialize-HLEndpointApi } catch { $epOk = $false }
     Assert-True ($epOk -and ('Hardline.AudioEndpoints' -as [type])) 'API de nombres de audio compila'

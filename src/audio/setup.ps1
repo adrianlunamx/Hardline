@@ -453,6 +453,7 @@ function Invoke-HLAudioSetup {
     }
 
     # --- Instalación ------------------------------------------------------------
+    $installedNow = $false   # drivers nuevos: la comprobación final se hace tras reiniciar
     $needed = @('EqualizerAPO')
     if ($Mode -eq 'Full') { $needed = @('VBCable', 'Voicemeeter') + $needed }
     foreach ($c in $needed) {
@@ -480,6 +481,7 @@ function Invoke-HLAudioSetup {
         $ok = Install-HLComponent -Name $c
         if ($c -eq 'Voicemeeter') { Set-HLPotatoInstallFailed -Failed (-not $ok) }
         if ($ok) {
+            $installedNow = $true
             Write-HLSub "$c" 'OK'
             if (-not $HL.DryRun) { Add-HLManifestEntry -Type 'Info' -Data @{ Note = "Hardline instaló $c. El rollback no desinstala software: quítalo desde Configuración > Aplicaciones si no lo quieres." } }
             Add-HLResult -Module 'Audio' -Item $c -Status Applied -Detail 'Instalado (desinstalar desde Aplicaciones si reviertes)'
@@ -526,18 +528,39 @@ function Invoke-HLAudioSetup {
     Add-HLManualStep 'Audio' "Equalizer APO Configurator: el único dispositivo marcado debe ser $target. Reinicia después."
 
     # --- Voicemeeter ----------------------------------------------------------------
+    $dev = Select-HLRenderDevice -HeadsetId $id -Database $db -Preferred $OutputDevice
     if ($Mode -eq 'Full') {
-        $dev = Select-HLRenderDevice -HeadsetId $id -Database $db -Preferred $OutputDevice
         if (-not $dev) {
             Write-HLWarn 'No se encontró ningún dispositivo de salida para A1.'
             Add-HLResult -Module 'Audio' -Item 'Voicemeeter' -Status Failed -Detail 'Sin dispositivo de salida'
         } else {
             Invoke-HLVoicemeeterPhase -HeadsetProfile $hp -HeadsetDevice $dev -Dynamics $Dynamics -PreampDb ([double]$pre)
         }
-        # Banana / Potato: fuera los dispositivos virtuales que nadie usa (revertible).
-        [void](Disable-HLUnusedVaioEndpoints)
-        Add-HLManualStep 'Audio' 'Configuración > Sistema > Sonido > Salida: "Voicemeeter Input". Así Discord y el resto pasan por Voicemeeter sin procesar.'
         Add-HLManualStep 'Audio' 'Con Warzone abierto: Configuración > Sistema > Sonido > Mezclador de volumen > cod.exe > Dispositivo de salida: "CABLE Input". Windows lo recuerda para siguientes sesiones.'
+    }
+
+    # --- Salida y micrófono predeterminados ----------------------------------------
+    # Antes de desactivar dispositivos: los predeterminados se conservan siempre.
+    $vmState = if (-not $HL.DryRun) { Get-HLVoicemeeterState } else { $null }
+    Invoke-HLSafely 'Audio' 'Predeterminados de Windows' { Repair-HLAudioDefaults -Mode $Mode -HeadsetDevice "$dev" -FedBuses $(if ($vmState) { $vmState.FedBuses } else { $null }) }
+    if ($Mode -eq 'Full') {
+        # Banana / Potato: fuera los dispositivos virtuales que nadie usa (revertible).
+        Invoke-HLSafely 'Audio' 'Dispositivos de Voicemeeter sin uso' { [void](Disable-HLUnusedVaioEndpoints) }
+    }
+
+    # --- Comprobación final ----------------------------------------------------------
+    if (-not $HL.DryRun) {
+        if ($installedNow) {
+            Add-HLManualStep 'Audio' 'Tras reiniciar, vuelve a aplicar solo Audio: Hardline comprueba la cadena entera (Voicemeeter, EQ, micrófono) y te dice si falta algo.'
+        } else {
+            $issues = @(Test-HLAudioChain -Mode $Mode -HeadsetDevice "$dev")
+            if ($issues.Count -eq 0) {
+                Write-HLSub 'Comprobación de la cadena de audio' 'OK'
+                Add-HLResult -Module 'Audio' -Item 'Comprobación de audio' -Status Info -Detail 'Sin fallos: EQ, Voicemeeter, arranque, salida y micrófono correctos.'
+            } else {
+                foreach ($i in $issues) { Write-HLWarn $i; Add-HLResult -Module 'Audio' -Item 'Comprobación de audio' -Status Failed -Detail $i; Add-HLManualStep 'Audio' $i }
+            }
+        }
     }
 
     Add-HLManualStep 'Audio' 'Propiedades del headset en Windows: desactiva "Mejoras de audio" y "Audio espacial" (Windows Sonic/Dolby). Warzone ya aplica su propio HRTF; apilar virtualizadores destruye la localización.'
@@ -545,6 +568,50 @@ function Invoke-HLAudioSetup {
     Add-HLManualStep 'Audio' 'Warzone > Audio: Mezcla "Auriculares", volumen de música y diálogo a 0, efectos al 100%. Si aparece "Reducción del sonido de tinnitus", actívala: quita el pitido tras explosiones cercanas.'
     Add-HLManualStep 'Audio' 'Pasos más altos y disparos más bajos: panel del EQ (Inicio > Hardline > Hardline EQ) > Compresor > "Pasos al máximo". Se aplica al momento con Voicemeeter abierto; compáralo en partida con "Normal".'
     Add-HLManualStep 'Audio' 'Tras reiniciar: Inicio > Hardline > "Hardline test de pasos". Suena la misma escena con el EQ apagado y encendido; en la segunda, los pasos de la izquierda deben destacar sobre la explosión. En partida, Ctrl+Alt+F10 enciende/apaga el EQ (en pantalla completa exclusiva, si el atajo no responde, usa "Sin bordes").'
+}
+
+<#
+    Comprobación final de la cadena de audio, sin cambiar nada. Devuelve cada
+    fallo con su arreglo, para el reporte y la guía. Son los fallos que dejan
+    sin EQ, sin sonido o sin micro y que antes solo se veían jugando.
+#>
+function Test-HLAudioChain {
+    param([ValidateSet('Full', 'EqOnly')] [string] $Mode = 'Full', [string] $HeadsetDevice = '')
+    $out = New-Object System.Collections.Generic.List[string]
+    $apo = @(Get-HLEqApoDevices | ForEach-Object { $_.Name })
+    $st = Get-HLVoicemeeterState
+
+    if ($Mode -eq 'Full') {
+        if (-not ($apo | Where-Object { $_ -match 'VB-Audio Virtual Cable' })) {
+            $out.Add('Equalizer APO no está en CABLE Input: el EQ de pasos no se aplica. Abre Equalizer APO Configurator, marca solo CABLE Input y reinicia.')
+        }
+        if (-not $st) {
+            $out.Add('Voicemeeter no está abierto: el juego (que sale por CABLE Input) no se oye. Ábrelo desde Inicio o reinicia.')
+        } else {
+            if ($st.BestType -gt $st.Type) { $out.Add("Está abierta una edición de Voicemeeter peor que la instalada (abierta $($st.Type), instalada $($st.BestType)). Ciérrala y vuelve a aplicar el audio.") }
+            if ($null -ne $st.A1 -and $st.A1 -eq '') { $out.Add('Voicemeeter: A1 no tiene dispositivo, no sale nada. Vuelve a aplicar el audio eligiendo tu headset en "Salida del headset".') }
+            elseif ($st.A1 -match 'HDMI|DisplayPort|\bDP\b') { $out.Add("Voicemeeter: A1 es ""$($st.A1)"", el audio del monitor. Vuelve a aplicar el audio eligiendo tu headset en ""Salida del headset"".") }
+            if ($st.GameStrip -and $st.GameStrip -notmatch 'CABLE Output') { $out.Add("Voicemeeter: el canal del juego usa ""$($st.GameStrip)"" en vez de CABLE Output: el EQ y el compresor no se aplican. Vuelve a aplicar el audio.") }
+        }
+        $run = "$((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue).HardlineVoicemeeter)".Trim('"', ' ')
+        if (-not $run) { $out.Add('Voicemeeter no arranca con Windows: tras reiniciar, el juego no se oirá hasta abrirlo. Vuelve a aplicar el audio.') }
+        elseif (-not (Test-Path -LiteralPath $run)) { $out.Add("El arranque de Voicemeeter apunta a ""$run"", que no existe. Vuelve a aplicar el audio.") }
+    } elseif ($HeadsetDevice -and -not ($apo -contains $HeadsetDevice)) {
+        $out.Add("Equalizer APO no está en tu headset ($HeadsetDevice): el EQ de pasos no se aplica. Abre Equalizer APO Configurator, marca solo ese dispositivo y reinicia.")
+    }
+
+    try {
+        foreach ($r in @(Get-HLRenamedCables)) { $out.Add("""$($r.Name)"" debería llamarse ""$($r.Default)"": las instrucciones no coinciden. Configuración > Sonido > ese dispositivo > Cambiar nombre.") }
+        $list = @([Hardline.AudioEndpoints]::List())
+        $fed = if ($st) { $st.FedBuses } else { $null }
+        foreach ($role in 0, 2) {
+            $row = @($list | Where-Object { $_[0] -eq [Hardline.AudioEndpoints]::DefaultId(1, $role) }) | Select-Object -First 1
+            if (-not $row) { continue }
+            $why = Get-HLMicProblem -Name $row[2] -Interface $row[3] -FedBuses $fed
+            if ($why) { $out.Add("Tu micrófono predeterminado (""$($row[2])"") $why. Configuración > Sistema > Sonido > Entrada: tu micrófono real."); break }
+        }
+    } catch { Write-HLLog WARN "Comprobación de dispositivos: $($_.Exception.Message)" }
+    return $out.ToArray()
 }
 
 function Invoke-HLVoicemeeterPhase {

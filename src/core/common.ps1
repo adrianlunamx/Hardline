@@ -622,6 +622,22 @@ function Undo-HLManifestEntry {
             if ((Invoke-HLReg @('import', "`"$($Entry.BackupFile)`"")) -ne 0) { throw "reg import falló para $($Entry.Key)." }
             return "Clave $($Entry.Key)"
         }
+        'DefaultEndpoint' {
+            . $Entry.ModulePath
+            Initialize-HLEndpointApi
+            $prev = @($Entry.Prev)
+            for ($r = 0; $r -lt [Math]::Min(3, $prev.Count); $r++) {
+                if ($prev[$r]) { [void][Hardline.AudioEndpoints]::SetDefault($prev[$r], $r) }
+            }
+            return "Predeterminado anterior ($(@('salida', 'micrófono')[[int]$Entry.Flow]))"
+        }
+        'EndpointVisibility' {
+            . $Entry.ModulePath
+            Initialize-HLEndpointApi
+            $hr = [Hardline.AudioEndpoints]::SetVisibility($Entry.Id, $true)
+            if ($hr -ne 0) { throw ("Windows no dejó volver a permitir {0} (0x{1:X8})." -f $Entry.Name, $hr) }
+            return "Dispositivo $($Entry.Name) permitido de nuevo"
+        }
         'PnpDevice' {
             Enable-PnpDevice -InstanceId $Entry.InstanceId -Confirm:$false -ErrorAction Stop
             return "Dispositivo $($Entry.Name) reactivado"
