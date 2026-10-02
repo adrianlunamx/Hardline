@@ -105,12 +105,34 @@ function Connect-HLVoicemeeter {
         [void][Hardline.VMR]::VBVMR_RunVoicemeeter($type)
         Start-Sleep -Seconds 3
     }
-    $t = 0
-    for ($i = 0; $i -lt 20; $i++) {
-        if ([Hardline.VMR]::VBVMR_GetVoicemeeterType([ref]$t) -eq 0) { break }
-        Start-Sleep -Milliseconds 500
+    $t = Get-HLRunningVoicemeeterType
+    # Abierta una edición peor que la instalada (p. ej. Voicemeeter básico con Potato
+    # instalado encima): se cierra y se abre la mejor. Si no, la API configura la
+    # que está abierta y el compresor completo de Potato no se usa.
+    $best = Get-HLVoicemeeterRunType -Files @(Get-ChildItem $Dir -Filter 'voicemeeter*.exe' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
+    $bestEdition = if ($best -gt 0) { (($best - 1) % 3) + 1 } else { 0 }
+    if (-not $NoLaunch -and $t -gt 0 -and $bestEdition -gt $t) {
+        Write-HLLog INFO "Voicemeeter abierto: edición $t; instalada: $bestEdition. Se cambia a la instalada."
+        [void][Hardline.VMR]::VBVMR_Logout()
+        Get-Process -Name 'voicemeeter*' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+        [void][Hardline.VMR]::VBVMR_Login()
+        [void][Hardline.VMR]::VBVMR_RunVoicemeeter($best)
+        Start-Sleep -Seconds 3
+        $t = Get-HLRunningVoicemeeterType -Expect $bestEdition
     }
     # 1 = Voicemeeter, 2 = Banana, 3 = Potato
+    return $t
+}
+
+# Edición abierta según la Remote API (espera hasta 10 s, o a la esperada).
+function Get-HLRunningVoicemeeterType {
+    param([int] $Expect = 0)
+    $t = 0
+    for ($i = 0; $i -lt 20; $i++) {
+        if ([Hardline.VMR]::VBVMR_GetVoicemeeterType([ref]$t) -eq 0 -and ($Expect -eq 0 -or $t -eq $Expect)) { break }
+        Start-Sleep -Milliseconds 500
+    }
     return $t
 }
 

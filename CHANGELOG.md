@@ -71,6 +71,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 - En `rollback.ps1 -All`, el conteo de entradas OK por módulo ya no se duplica.
 - Los contadores de resumen del GUI ya no se duplican.
 - **Voicemeeter no arrancaba con Windows** con la edición básica o Banana: la entrada de inicio apuntaba siempre a `voicemeeter8.exe` (Potato), aunque no estuviera instalado. Ahora apunta a la edición instalada; si no encuentra ninguna, lo avisa en la guía.
+- **Potato instalado pero se usaba la edición básica**: si estaba abierto Voicemeeter básico (o Banana) con Potato instalado, Hardline configuraba la edición abierta, sin el compresor completo. Ahora la cierra y abre Potato; el arranque con Windows también apunta a Potato.
 - **Instalación de Potato repetida en cada aplicación**: si falla encima de otra edición, no se reintenta con el mismo instalador (cada intento cerraba Voicemeeter y cortaba el audio). En consola se pregunta; con un instalador nuevo se vuelve a probar.
 - **"Desinstalar Peace" fallaba siempre** cuando Peace se había borrado a mano y quedaba su entrada en Aplicaciones apuntando a un desinstalador que ya no existe. Esas entradas huérfanas se ignoran.
 - **Servicios relajados**: un servicio que ya estaba deshabilitado (p. ej. PcaSvc) pasaba a Manual. Ahora Hardline solo restringe el tipo de inicio, nunca lo afloja, y no toca drivers de arranque.
