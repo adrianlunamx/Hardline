@@ -461,7 +461,11 @@ function Invoke-HLAudioSetup {
             'VBCable'      { Test-HLVBCable }
             'Voicemeeter'  { Test-HLVoicemeeterPotato }
         }
-        if ($present) { Write-HLSub "$c" 'OK (ya instalado)'; continue }
+        if ($present) {
+            # Potato instalado (a mano o por Hardline): el aviso de un intento fallido ya no vale.
+            if ($c -eq 'Voicemeeter') { Set-HLPotatoInstallFailed -Failed $false }
+            Write-HLSub "$c" 'OK (ya instalado)'; continue
+        }
         $potatoPage = $script:HLAudioSources.Voicemeeter.Page
         if ($c -eq 'Voicemeeter' -and (Get-HLVoicemeeterDir) -and (Test-HLPotatoInstallFailed)) {
             $retry = if ($HL.Unattended) { $false } else { Read-HLYesNo 'La instalación de Voicemeeter Potato ya falló antes con este instalador. ¿Reintentarla? (cierra Voicemeeter mientras tanto)' $false }

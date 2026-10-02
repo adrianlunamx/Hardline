@@ -709,6 +709,8 @@ try {
         Set-HLPotatoInstallFailed -Failed $false; $pf3 = Test-HLPotatoInstallFailed
         Assert-True (-not $pf0 -and $pf1 -and -not $pf2 -and -not $pf3) 'Potato: no se reintenta con el mismo instalador que ya falló; con otro, sí'
     } finally { $HL.Root = $oldRoot }
+    $vmSrc = Get-Content (Join-HLPath @($root, 'src', 'audio', 'voicemeeter.ps1')) -Raw
+    Assert-True ($vmSrc -match '\$bestEdition -gt \$t' -and $vmSrc -match 'Get-HLRunningVoicemeeterType -Expect \$bestEdition' -and (((6 - 1) % 3) + 1) -eq 3 -and (((4 - 1) % 3) + 1) -eq 1) 'Voicemeeter: con Potato instalado se usa Potato aunque esté abierta la edición básica'
     $rbSrc = Get-Content (Join-HLPath @($root, 'rollback.ps1')) -Raw
     Assert-True ($rbSrc -match '\[switch\] \$All' -and $rbSrc -match "if \(\`$All\) \{ \`$a \+= '-All' \}" -and $appSrc -match "'-All', '-Unattended'") 'rollback -All: todas las sesiones (también al relanzar elevado y desde la interfaz)'
     $vmXml = Join-HLPath @($root, 'src', 'audio', 'configs', 'voicemeeter_comp.xml')
