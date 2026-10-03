@@ -230,14 +230,22 @@ function Get-HLArtTuneFootprint {
 }
 
 function Get-HLAudioInventory {
-    param([string]$ConfigDir)
+    param([string]$ConfigDir, [switch]$KeepHeSuVi)
     $inv = [ordered]@{ ConfigDir = $ConfigDir; ForeignConfig = $false; ForeignFiles = @(); StalePresets = @(); ApoDevices = @(); Enhancers = @(); VoicemeeterNoPotato = $false
         Footprint = @(); UserCopies = @(); Orphans = @() }
 
     $userDirs = @([Environment]::GetFolderPath('MyDocuments'), (Join-Path $env:USERPROFILE 'Downloads'))
     $linkDirs = @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('CommonDesktopDirectory'), [Environment]::GetFolderPath('Programs'), [Environment]::GetFolderPath('CommonPrograms'))
     $fp = Get-HLArtTuneFootprint -ConfigDir $ConfigDir -LinkDirs $linkDirs -UserDirs $userDirs
-    $inv.Footprint = @($fp.Items)
+    $fpItems = @($fp.Items)
+    if ($KeepHeSuVi) {
+        # HeSuVi pedido por el usuario (instalado por Hardline o a mano):
+        # se conserva la carpeta y sus accesos directos; Art Tune sí se aparta.
+        $fpItems = @($fpItems | Where-Object {
+            -not ($_.What -match '^HeSuVi' -or [IO.Path]::GetFileNameWithoutExtension($_.Path) -match '^HeSuVi$')
+        })
+    }
+    $inv.Footprint = @($fpItems)
     $inv.UserCopies = @($fp.UserCopies)
 
     if ($ConfigDir -and (Test-Path $ConfigDir)) {
@@ -249,6 +257,7 @@ function Get-HLAudioInventory {
             # Lo que se aparta como carpeta entera (ArtTuneDB, HeSuVi) no se mueve archivo a archivo.
             $whole = @($inv.Footprint | ForEach-Object { $_.Path } | Where-Object { $_.StartsWith($ConfigDir.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase) } |
                     ForEach-Object { $_.Substring($ConfigDir.TrimEnd('\').Length + 1) + '\' })
+            if ($KeepHeSuVi) { $whole += @('HeSuVi\') }
             $files = @($files | Where-Object { $f = $_; -not ($whole | Where-Object { $f.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) }) })
             $inv.ForeignFiles = @(Select-HLEqApoForeignFiles -Files $files -Includes (Get-HLEqApoIncludes $text) | Where-Object { $f = $_; (Test-Path (Join-Path $ConfigDir $f)) -and -not ($whole | Where-Object { $f.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) }) })
         }
@@ -383,7 +392,7 @@ function Invoke-HLUninstallProgram {
     con preguntas, se confirma programa a programa.
 #>
 function Invoke-HLAudioCleanup {
-    param([Parameter(Mandatory)] $Inventory, [string[]] $KeepPreset = @(), [bool] $AllowUninstall = $false)
+    param([Parameter(Mandatory)] $Inventory, [string[]] $KeepPreset = @(), [bool] $AllowUninstall = $false, [switch] $KeepHeSuVi)
     $cfgDir = $Inventory.ConfigDir
     $moved = 0
 
@@ -398,7 +407,8 @@ function Invoke-HLAudioCleanup {
     # Art Tune / HeSuVi: carpetas enteras a backups\<sesión>\apartado\.
     $footprint = @($Inventory.Footprint | Where-Object { $_ })
     if ($footprint.Count -gt 0) {
-        if (-not $HL.DryRun) { Get-Process -Name 'HeSuVi', 'LEQControlPanel' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }
+        if (-not $HL.DryRun -and -not $KeepHeSuVi) { Get-Process -Name 'HeSuVi', 'LEQControlPanel' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }
+        elseif (-not $HL.DryRun) { Get-Process -Name 'LEQControlPanel' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }
         $audioRestarted = $false
         $aside = 0
         foreach ($f in $footprint) {
