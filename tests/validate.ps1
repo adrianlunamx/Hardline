@@ -763,6 +763,43 @@ try {
 }
 
 # ---------------------------------------------------------------------------
+Write-Host "`n[18] Correcciones del code review (1.10.2)" -ForegroundColor Cyan
+$comSrc = Get-Content (Join-HLPath @($root, 'src', 'core', 'common.ps1')) -Raw
+$rbSrc = Get-Content (Join-HLPath @($root, 'rollback.ps1')) -Raw
+$gsSrc = Get-Content (Join-HLPath @($root, 'src', 'modules', 'windows', 'gamesession.ps1')) -Raw
+$pwSrc = Get-Content (Join-HLPath @($root, 'src', 'modules', 'windows', 'power.ps1')) -Raw
+$auSetupSrc = Get-Content (Join-HLPath @($root, 'src', 'audio', 'setup.ps1')) -Raw
+$instMainSrc = Get-Content (Join-HLPath @($root, 'install.ps1')) -Raw
+# C1: stamp con segundos (sin colisiones dentro del mismo minuto)
+Assert-True ($comSrc -match "Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'") 'stamp de sesión con segundos'
+# C2: el manifiesto solo se marca como revertido si no hubo fallos
+Assert-True ($rbSrc -match 'if \(\$r\.Fail -eq 0\)' -and $rbSrc.IndexOf('$r.Fail -eq 0') -lt $rbSrc.IndexOf("NewName 'manifest.rolledback.json'")) 'rollback: rename del manifiesto solo sin fallos'
+# S1: firma Authenticode exigida antes de ejecutar VB-CABLE / Equalizer APO
+Assert-True ($auSetupSrc -match 'function Test-HLInstallerSignature' -and $auSetupSrc -match "Status -ne 'Valid'" -and $auSetupSrc -match "Test-HLInstallerSignature -Path .* -Name 'VB-CABLE'" -and $auSetupSrc -match "Test-HLInstallerSignature -Path .* -Name 'Equalizer APO'") 'S1: firma válida exigida en VB-CABLE y Equalizer APO'
+# S2: watcher endurecido en cada instalación (antes del early-return) y con undo FileAcl
+$gsInstall = $gsSrc.Substring($gsSrc.IndexOf('function Install-HLGameSession'))
+$protectAt = $gsInstall.IndexOf('Protect-HLGameSessionWatcher -Path $watcher')
+$taskCheckAt = $gsInstall.IndexOf('Get-ScheduledTask -TaskName')
+Assert-True ($gsSrc -match 'function Protect-HLGameSessionWatcher' -and $protectAt -ge 0 -and $taskCheckAt -ge 0 -and $protectAt -lt $taskCheckAt -and $comSrc -match "'FileAcl' \{") 'S2: ACL solo-lectura del watcher con rollback'
+# S3: sin release verificable se aborta (no cae a main sin verificar)
+Assert-True ($instMainSrc -notmatch 'se usa la rama main' -and $instMainSrc -match 'Hardline no descarga codigo sin verificar') 'S3: fail-closed sin release verificable'
+# S5: default No al continuar sin restore point + abort en -Unattended
+Assert-True ($instMainSrc -match "Read-HLYesNo 'Continuar sin restore point' \$false" -and $instMainSrc -match 'Sin restore point el modo desatendido no continua') 'S5: sin restore point, default No y abort en desatendido'
+# Q4: defaults no agresivos
+Assert-True ($gsSrc -match "Read-HLYesNo '¿Activar el modo partida\?' \$false" -and (Get-Content (Join-HLPath @($root, 'src', 'modules', 'windows', 'registry.ps1')) -Raw) -match '¿Desinstalar \$names\? \(se reinstala desde la Store\)" \$false' -and (Get-Content (Join-HLPath @($root, 'src', 'modules', 'windows', 'display.ps1')) -Raw) -match 'el rollback lo devuelve a \$\(\$d\.Hz\) Hz\)" \$false') 'Q4: Game Bar/Cortana, refresco y modo partida con default No'
+# Q1: backup fallido no se registra como OK
+Assert-True ($comSrc -match 'Copy-Item -LiteralPath \$Path -Destination \$copy -Force -ErrorAction Stop') 'Q1: Backup-HLFile con -ErrorAction Stop'
+# S6: registrar antes de cambiar (orden correcto en los 4 puntos)
+$qosSrc = Get-Content (Join-HLPath @($root, 'src', 'modules', 'network', 'optimize.ps1')) -Raw
+$epSrc = Get-Content (Join-HLPath @($root, 'src', 'audio', 'endpoints.ps1')) -Raw
+$expSrc = Get-Content (Join-HLPath @($root, 'src', 'modules', 'windows', 'experimental.ps1')) -Raw
+Assert-True ($qosSrc.IndexOf("Type 'QosPolicy'") -lt $qosSrc.IndexOf('New-NetQosPolicy') -and $epSrc.IndexOf("Type 'AudioEndpointName'") -lt $epSrc.IndexOf('::Rename(') -and $expSrc.IndexOf("Type 'Bcd'") -lt $expSrc.IndexOf('bcdedit.exe /set') -and $comSrc.IndexOf("Type 'MovedPath'") -lt $comSrc.IndexOf('Move-HLPath -From $Path -To $dest')) 'S6: QoS, endpoints, BCD y Move-HLPathAside registran antes de cambiar'
+# Q2: undo de ACL quirúrgico
+Assert-True ($comSrc -match 'RemoveAccessRule' -and $comSrc -notmatch 'PurgeAccessRules' -and $auSetupSrc -match "Inheritance = 'ContainerInherit,ObjectInherit'") 'Q2: undo quita solo la regla añadida'
+# Q3: valores previos de power settings registrados y restaurados
+Assert-True ($pwSrc -match 'function Get-HLPowerSettingValue' -and $pwSrc -match 'PrevSettings = @\(\$prevSettings\)' -and $comSrc -match 'foreach \(\$ps in @\(\$Entry\.PrevSettings\)\)') 'Q3: power settings previos registrados y restaurados en el undo'
+
+# ---------------------------------------------------------------------------
 Write-Host ''
 $color = if ($script:fails -eq 0) { 'Green' } else { 'Red' }
 Write-Host ("Resultado: {0} OK, {1} fallos" -f $script:passes, $script:fails) -ForegroundColor $color
