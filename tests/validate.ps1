@@ -784,9 +784,9 @@ Assert-True ($gsSrc -match 'function Protect-HLGameSessionWatcher' -and $protect
 # S3: sin release verificable se aborta (no cae a main sin verificar)
 Assert-True ($instMainSrc -notmatch 'se usa la rama main' -and $instMainSrc -match 'Hardline no descarga codigo sin verificar') 'S3: fail-closed sin release verificable'
 # S5: default No al continuar sin restore point + abort en -Unattended
-Assert-True ($instMainSrc -match "Read-HLYesNo 'Continuar sin restore point' \$false" -and $instMainSrc -match 'Sin restore point el modo desatendido no continua') 'S5: sin restore point, default No y abort en desatendido'
+Assert-True ($instMainSrc -match "Read-HLYesNo 'Continuar sin restore point' \`$false" -and $instMainSrc -match 'Sin restore point el modo desatendido no continua') 'S5: sin restore point, default No y abort en desatendido'
 # Q4: defaults no agresivos
-Assert-True ($gsSrc -match "Read-HLYesNo '¿Activar el modo partida\?' \$false" -and (Get-Content (Join-HLPath @($root, 'src', 'modules', 'windows', 'registry.ps1')) -Raw) -match '¿Desinstalar \$names\? \(se reinstala desde la Store\)" \$false' -and (Get-Content (Join-HLPath @($root, 'src', 'modules', 'windows', 'display.ps1')) -Raw) -match 'el rollback lo devuelve a \$\(\$d\.Hz\) Hz\)" \$false') 'Q4: Game Bar/Cortana, refresco y modo partida con default No'
+Assert-True ($gsSrc -match "Read-HLYesNo '¿Activar el modo partida\?' \`$false" -and (Get-Content (Join-HLPath @($root, 'src', 'modules', 'windows', 'registry.ps1')) -Raw) -match '¿Desinstalar \$names\? \(se reinstala desde la Store\)" \$false' -and (Get-Content (Join-HLPath @($root, 'src', 'modules', 'windows', 'display.ps1')) -Raw) -match 'el rollback lo devuelve a \$\(\$d\.Hz\) Hz\)" \$false') 'Q4: Game Bar/Cortana, refresco y modo partida con default No'
 # Q1: backup fallido no se registra como OK
 Assert-True ($comSrc -match 'Copy-Item -LiteralPath \$Path -Destination \$copy -Force -ErrorAction Stop') 'Q1: Backup-HLFile con -ErrorAction Stop'
 # S6: registrar antes de cambiar (orden correcto en los 4 puntos)
