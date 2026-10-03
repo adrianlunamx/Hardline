@@ -1,20 +1,44 @@
-# Changelog
+﻿# Changelog
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.10.2] - 2026-10-03
+
 ### Añadido
 
+- Verificación de firma Authenticode (`Get-AuthenticodeSignature`, exige `Status -eq 'Valid'`) de los instaladores de VB-CABLE y Equalizer APO después de descargar y antes de ejecutarlos como admin; el firmante queda en el log.
+- Endurecimiento de la tarea `Hardline-GameSession`: ACL de solo-lectura para no-admins (SYSTEM y Administradores con control total, BUILTIN\Users con lectura+ejecución) sobre `gamesession_watcher.ps1` en cada instalación/actualización. La ACL previa queda en el manifiesto (nuevo tipo `FileAcl`) para que el rollback la restaure.
+- Registro de los valores previos de los tres ajustes de energía (`USB selective suspend`, `PCIe Link State`, estado mínimo del procesador) leídos con `powercfg /query` antes de aplicarlos, incluso cuando el plan ya existía; el undo los restaura.
 - **Limpieza completa de Art Tune y HeSuVi** antes de instalar el audio. Art Tune no se registra en Aplicaciones, así que se busca su rastro y se aparta entero a `backups\<sesión>\apartado\` (el rollback lo devuelve): la biblioteca `ArtTuneDB` y sus copias `_backup_*` en Equalizer APO, HeSuVi (virtualizador surround que se apila con el HRTF de Warzone), el VST `ArtTuneKit`, los iconos de `ProgramData\ArtTune`, LEQ Control Panel y los accesos directos. ReaPlugs se ofrece desinstalar si hay rastro de Art Tune. Las copias que Art Tune dejó en Documentos y Descargas solo se listan.
 - Si algo de eso está en uso (un VST cargado por Equalizer APO), se deja `config.txt` neutro, se reinicia el audio de Windows y se reintenta.
 - **Nombres e iconos de fábrica**: además de VB-CABLE, la entrada de Voicemeeter vuelve a llamarse "Voicemeeter Input" / "Voicemeeter Output" ("Normal Audio" / "Virtual Mix" con Art Tune), y los cables recuperan el icono de su driver si apuntaba a algo que ya no existe. Revertible.
 - **Entradas huérfanas de Aplicaciones** (p. ej. Peace borrado a mano): se quitan de la lista con copia (`reg export`); el rollback la importa.
-
 - **`rollback.ps1 -All`**: revierte todas las sesiones pendientes, de la más nueva a la más antigua. Cada aplicación crea su propia sesión y revertir solo la última dejaba puestos servicios, registro, DNS y QoS de las anteriores. El botón de la interfaz pasa a ser **"Revertir todo"** e indica cuántas sesiones hay.
+
+### Cambiado
+
+- El stamp de sesión ahora incluye segundos (`yyyy-MM-dd_HH-mm-ss`) para no colisionar si se ejecuta dos veces en el mismo minuto.
+- `Grant-HLUserWrite` es idempotente (ya no duplica la ACE en re-ejecuciones) y guarda la regla exacta añadida; el undo de ACL quita solo esa regla con `RemoveAccessRule` en vez de `PurgeAccessRules`.
+- El manifiesto de rollback solo se renombra a `manifest.rolledback.json` si el rollback terminó sin fallos; con errores se conserva para reintentar.
+- `Backup-HLFile` ahora usa `-ErrorAction Stop` en el `Copy-Item`: un backup fallido aborta en vez de registrarse como OK.
+- Orden "registrar antes de cambiar" corregido en: política QoS, renombrado de endpoints de audio, BCD experimental y `Move-HLPathAside`.
+- Defaults agresivos en modo desatendido cambiados a No: desinstalar Game Bar/Cortana, subir el refresco del monitor y crear la tarea del modo partida.
+- Sin restore point: el default de "¿Continuar?" pasa a No; en `-Unattended` se aborta con mensaje claro (se puede optar por `-NoRestorePoint` explícito).
+
+### Seguridad
+
+- `install.ps1` (canal stable): si no hay release publicada o la release no trae ZIP + `.sha256` verificables, la instalación se aborta con error claro en vez de caer a descargar la rama `main` sin verificar. `-Channel main` explícito sigue permitido (opt-in).
 
 ### Corregido
 
+- Auditoría local: las pruebas de `tests/validate.ps1` vuelven a cubrir `src/` real y no `backups/` (ruta canónica `src/`, excluyendo `backups/` por si se restaura algo ahí).
+- La prueba de QoS ya no falla cuando `New-NetQosPolicy` no existe en la edición de Windows.
+- `Read-HLChecklist` ya no descarta respuestas negativas.
+- El reporte HTML ya no duplica la fila de resumen por módulo.
+- En `rollback.ps1 -All`, el conteo de entradas OK por módulo ya no se duplica.
+- Los contadores de resumen del GUI ya no se duplican.
 - **Voicemeeter no arrancaba con Windows** con la edición básica o Banana: la entrada de inicio apuntaba siempre a `voicemeeter8.exe` (Potato), aunque no estuviera instalado. Ahora apunta a la edición instalada; si no encuentra ninguna, lo avisa en la guía.
 - **Instalación de Potato repetida en cada aplicación**: si falla encima de otra edición, no se reintenta con el mismo instalador (cada intento cerraba Voicemeeter y cortaba el audio). En consola se pregunta; con un instalador nuevo se vuelve a probar.
 - **"Desinstalar Peace" fallaba siempre** cuando Peace se había borrado a mano y quedaba su entrada en Aplicaciones apuntando a un desinstalador que ya no existe. Esas entradas huérfanas se ignoran.

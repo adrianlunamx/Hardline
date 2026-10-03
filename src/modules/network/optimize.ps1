@@ -156,9 +156,11 @@ function Set-HLQos {
     Set-HLRegistryValue -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\QoS' -Name 'Do not use NLA' -Value '1' -Type String `
         -Reason 'Permite que las políticas QoS marquen DSCP fuera de un dominio.' | Out-Null
 
+    # Se registra antes de crear: si el proceso muere entre ambas líneas, el
+    # rollback sabe que la política es nuestra (el undo tolera que no exista).
+    Add-HLManifestEntry -Type 'QosPolicy' -Data @{ Name = $name }
     New-NetQosPolicy -Name $name -AppPathNameMatchCondition 'cod.exe' -IPProtocolMatchCondition Both `
         -DSCPAction 46 -NetworkProfile All -ErrorAction Stop | Out-Null
-    Add-HLManifestEntry -Type 'QosPolicy' -Data @{ Name = $name }
 
     Write-HLSub 'QoS DSCP 46 para cod.exe' 'OK'
     Add-HLResult -Module 'Red' -Item 'QoS cod.exe' -Status Applied -Detail 'DSCP 46 (EF). Efectivo solo si el router respeta DSCP.'

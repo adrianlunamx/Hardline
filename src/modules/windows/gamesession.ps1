@@ -30,7 +30,53 @@ function Get-HLGameSessionChoice {
     if ($Choice -eq 'No') { return $false }
     if (Get-ScheduledTask -TaskName $script:HLGameSessionTask -ErrorAction SilentlyContinue) { return $true }
     Write-HLInfo 'Modo partida: con Warzone abierto pausa servicios de fondo, baja la prioridad de navegadores/launchers y activa el plan de energía máximo. Al cerrar el juego, todo vuelve a su estado.'
-    return (Read-HLYesNo '¿Activar el modo partida?' $true)
+    return (Read-HLYesNo '¿Activar el modo partida?' $false)
+}
+
+<#
+    Endurece gamesession_watcher.ps1: la tarea Hardline-GameSession lo ejecuta
+    con -RunLevel Highest al iniciar sesión, pero el script vive en
+    %LOCALAPPDATA%\Hardline, escribible por el usuario sin elevar. Sin esto,
+    cualquier proceso como usuario estándar podría modificarlo y obtener
+    ejecución silenciosa como administrador (bypass de UAC).
+
+    Se quita la herencia y se deja: SYSTEM y Administradores con control
+    total, BUILTIN\Users con solo lectura+ejecución. La ACL previa queda en
+    el manifiesto (tipo FileAcl) para que el rollback la restaure.
+    El watcher no carga ningún otro .ps1 con dot-sourcing (verificado):
+    basta con proteger este archivo.
+#>
+function Protect-HLGameSessionWatcher {
+    param([Parameter(Mandatory)] [string] $Path)
+    if ($HL.DryRun) { return }
+    $acl = Get-Acl -LiteralPath $Path
+    $usersSid = 'S-1-5-32-545'  # BUILTIN\Users
+    $writeMask = [Security.AccessControl.FileSystemRights]'Write, Modify, FullControl, Delete, ChangePermissions, TakeOwnership'
+    $userCanWrite = $false
+    foreach ($r in $acl.Access) {
+        try { $sid = $r.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value } catch { $sid = '' }
+        if ($sid -eq $usersSid -and $r.AccessControlType -eq 'Allow' -and ($r.FileSystemRights -band $writeMask)) {
+            $userCanWrite = $true; break
+        }
+    }
+    if (-not $userCanWrite -and $acl.AreAccessRulesProtected) {
+        Write-HLLog DEBUG "Watcher ya endurecido: $Path"
+        return
+    }
+    $prevSddl = $acl.Sddl
+    $acl.SetAccessRuleProtection($true, $false)
+    $acl.SetAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(
+        (New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')), 'FullControl', 'Allow')))
+    $acl.SetAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(
+        (New-Object Security.Principal.SecurityIdentifier('S-1-5-18')), 'FullControl', 'Allow')))
+    $acl.SetAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(
+        (New-Object Security.Principal.SecurityIdentifier($usersSid)), 'ReadAndExecute', 'Allow')))
+    Set-Acl -LiteralPath $Path -AclObject $acl
+    Add-HLManifestEntry -Type 'FileAcl' -Data @{
+        Path = $Path; PrevSddl = $prevSddl
+        Reason = 'Solo-lectura para no-admins: el watcher corre elevado al iniciar sesión'
+    }
+    Write-HLLog INFO "Watcher endurecido (solo-lectura no-admins): $Path"
 }
 
 function Install-HLGameSession {
@@ -38,6 +84,9 @@ function Install-HLGameSession {
 
     $watcher = Join-Path $HL.Root 'src\modules\windows\gamesession_watcher.ps1'
     if (-not (Test-Path $watcher)) { throw "No se encuentra $watcher" }
+
+    # Se endurece en cada instalación/actualización aunque la tarea ya exista.
+    Protect-HLGameSessionWatcher -Path $watcher
 
     if (Get-ScheduledTask -TaskName $script:HLGameSessionTask -ErrorAction SilentlyContinue) {
         Write-HLSub 'Modo partida' 'OK (ya instalado)'

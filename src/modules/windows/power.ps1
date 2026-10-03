@@ -34,6 +34,26 @@ function Find-HLPowerScheme {
 }
 
 <#
+    Lee el valor AC actual de un ajuste de energia (powercfg /query) para
+    guardarlo antes de cambiarlo. Devuelve $null si no se puede leer.
+#>
+function Get-HLPowerSettingValue {
+    param(
+        [Parameter(Mandatory)] [string] $Scheme,
+        [Parameter(Mandatory)] [string] $SubGroup,
+        [Parameter(Mandatory)] [string] $Setting
+    )
+    try { $out = & powercfg.exe /query $Scheme $SubGroup $Setting 2>$null } catch { return $null }
+    foreach ($line in $out) {
+        # powercfg localiza la etiqueta: ingles "Current AC Power Setting Index:",
+        # espanol "Indice de configuracion de energia de CA actual:".
+        $m = [regex]::Match($line, '(?i)(?:current ac power setting index|energia de ca actual)\s*:\s*0x([0-9a-fA-F]+)')
+        if ($m.Success) { return [Convert]::ToInt32($m.Groups[1].Value, 16) }
+    }
+    return $null
+}
+
+<#
     -CreateOnly: crea el plan pero no lo activa. Lo usa el modo partida, que lo
     activa al abrir Warzone y devuelve el plan anterior al cerrarlo.
 #>
@@ -75,22 +95,31 @@ function Invoke-HLPowerPlan {
         & powercfg.exe /changename $guid $script:HLPlanName 'Hardline: sin aparcamiento de nucleos, sin ASPM, sin suspension USB.' | Out-Null
     }
 
-    # Ajustes dentro del plan creado (se borran junto con el plan en el rollback).
-    # USB selective suspend: OFF. Evita micro-desconexiones de ratón/headset USB.
-    & powercfg.exe /setacvalueindex $guid 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0 | Out-Null
-    # PCI Express Link State Power Management: OFF.
-    & powercfg.exe /setacvalueindex $guid 501a4d13-42af-4429-9fd1-a8218c268e20 ee12f906-d277-404b-b6da-e5fa1a576df5 0 | Out-Null
-    # Estado mínimo del procesador: 100%.
-    & powercfg.exe /setacvalueindex $guid 54533251-82be-4824-96c1-47b60b740d00 893dee8e-2bef-41e0-89c6-b55d0929964c 100 | Out-Null
+    # Los tres ajustes se guardan ANTES de cambiarlos, aunque el plan ya existiera
+    # de una corrida anterior: el plan se borra en el rollback, pero si ya existia
+    # habia que restaurar sus valores previos.
+    $powerTweaks = @(
+        # USB selective suspend: OFF. Evita micro-desconexiones de raton/headset USB.
+        @{ Sub = '2a737441-1930-4402-8d77-b2bebba308a3'; Set = '48e6b7a6-50f5-4782-a5d4-53bb8f07e226'; Val = 0 }
+        # PCI Express Link State Power Management: OFF.
+        @{ Sub = '501a4d13-42af-4429-9fd1-a8218c268e20'; Set = 'ee12f906-d277-404b-b6da-e5fa1a576df5'; Val = 0 }
+        # Estado minimo del procesador: 100%.
+        @{ Sub = '54533251-82be-4824-96c1-47b60b740d00'; Set = '893dee8e-2bef-41e0-89c6-b55d0929964c'; Val = 100 }
+    )
+    $prevSettings = foreach ($t in $powerTweaks) {
+        $v = Get-HLPowerSettingValue -Scheme $guid -SubGroup $t.Sub -Setting $t.Set
+        [pscustomobject]@{ SubGroup = $t.Sub; Setting = $t.Set; PrevValue = $v; NewValue = $t.Val }
+        & powercfg.exe /setacvalueindex $guid $t.Sub $t.Set $t.Val | Out-Null
+    }
 
     if ($CreateOnly) {
-        Add-HLManifestEntry -Type 'PowerScheme' -Data @{ PrevActive = $prev; Created = $created; NewActive = $prev }
+        Add-HLManifestEntry -Type 'PowerScheme' -Data @{ PrevActive = $prev; Created = $created; NewActive = $prev; Scheme = $guid; PrevSettings = @($prevSettings) }
         Write-HLSub 'Plan Ultimate Performance (solo durante la partida)' 'OK'
         Add-HLResult -Module 'Energía' -Item 'Plan Ultimate Performance' -Status Applied -Detail "Creado ($guid). Se activa solo con Warzone abierto; el resto del tiempo sigue tu plan actual."
         return
     }
 
-    Add-HLManifestEntry -Type 'PowerScheme' -Data @{ PrevActive = $prev; Created = $created; NewActive = $guid }
+    Add-HLManifestEntry -Type 'PowerScheme' -Data @{ PrevActive = $prev; Created = $created; NewActive = $guid; Scheme = $guid; PrevSettings = @($prevSettings) }
     & powercfg.exe /setactive $guid | Out-Null
 
     Write-HLSub 'Ultimate Performance plan' 'OK'

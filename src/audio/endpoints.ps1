@@ -202,9 +202,11 @@ function Set-HLEndpointName {
     param([Parameter(Mandatory)] [string] $Id, [Parameter(Mandatory)] [string] $Name, [string] $PrevName = '')
     if ($HL.DryRun) { return $true }
     Initialize-HLEndpointApi
+    # Se registra antes de renombrar (mismo patrón que Set-HLRegistryValue):
+    # si Rename() falla, el undo devuelve el nombre previo, que es el actual.
+    Add-HLManifestEntry -Type 'AudioEndpointName' -Data @{ Id = $Id; PrevName = $PrevName; NewName = $Name; ModulePath = $script:HLEndpointModule }
     $hr = [Hardline.AudioEndpoints]::Rename($Id, $Name)
     if ($hr -ne 0) { throw ("Windows no dejó cambiar el nombre (0x{0:X8})." -f $hr) }
-    Add-HLManifestEntry -Type 'AudioEndpointName' -Data @{ Id = $Id; PrevName = $PrevName; NewName = $Name; ModulePath = $script:HLEndpointModule }
     return $true
 }
 

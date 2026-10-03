@@ -13,7 +13,7 @@
 
 # Sin StrictMode: WMI/CIM devuelve propiedades opcionales según fabricante y driver.
 
-$Global:HLVersion = '1.10.1'
+$Global:HLVersion = '1.10.2'
 $Global:HLRepo = 'adrianlunamx/Hardline'
 
 # --------------------------------------------------------------------------
@@ -28,7 +28,7 @@ function Initialize-HLSession {
         [switch] $NoBackup
     )
 
-    $stamp = Get-Date -Format 'yyyy-MM-dd_HH-mm'
+    $stamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
 
     $Global:HL = [ordered]@{
         Root        = $Root
@@ -379,7 +379,9 @@ function Backup-HLFile {
         $filesDir = Join-Path $HL.BackupDir 'files'
         if (-not (Test-Path $filesDir)) { New-Item -ItemType Directory -Path $filesDir -Force | Out-Null }
         $copy = Join-Path $filesDir ('{0:D3}_{1}' -f $HL.Manifest.Count, (Split-Path $Path -Leaf))
-        Copy-Item -LiteralPath $Path -Destination $copy -Force
+        # Si la copia falla, que reviente aquí: un backup fallido no debe
+        # registrarse en el manifiesto como si existiera (Q1).
+        Copy-Item -LiteralPath $Path -Destination $copy -Force -ErrorAction Stop
     }
     if (-not $HL.DryRun) {
         Add-HLManifestEntry -Type 'File' -Data @{ Path = $Path; PrevExists = $existed; BackupCopy = $copy; Reason = $Reason }
@@ -412,8 +414,10 @@ function Move-HLPathAside {
     $dir = Join-Path $HL.BackupDir 'apartado'
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
     $dest = Join-Path $dir ('{0:D3}_{1}' -f $HL.Manifest.Count, (Split-Path $Path -Leaf))
-    Move-HLPath -From $Path -To $dest
+    # Se registra antes de mover: si el movimiento falla, el undo ve que MovedTo
+    # no existe y no hace nada.
     Add-HLManifestEntry -Type 'MovedPath' -Data @{ Path = $Path; MovedTo = $dest; Reason = $Reason }
+    Move-HLPath -From $Path -To $dest
     return $dest
 }
 
@@ -632,6 +636,13 @@ function Undo-HLManifestEntry {
         'PowerScheme' {
             if ($Entry.PrevActive) { & powercfg.exe /setactive $Entry.PrevActive | Out-Null }
             if ($Entry.Created) { & powercfg.exe /delete $Entry.Created 2>$null | Out-Null }
+            # Si el plan ya existia, sus ajustes no se borran con el: se restauran
+            # los valores previos leidos antes de aplicar (Q3).
+            foreach ($ps in @($Entry.PrevSettings)) {
+                if ($null -ne $ps.PrevValue -and $Entry.Scheme) {
+                    & powercfg.exe /setacvalueindex $Entry.Scheme $ps.SubGroup $ps.Setting $ps.PrevValue 2>$null | Out-Null
+                }
+            }
             return "Plan de energía -> $($Entry.PrevActive)"
         }
         'PowerSetting' {
@@ -678,13 +689,29 @@ function Undo-HLManifestEntry {
             return "Tarea programada $($Entry.Name)"
         }
         'Acl' {
+            # Quirúrgico: se quita solo la regla exacta que añadió Hardline, sin
+            # borrar las demás reglas de la identidad.
             if (Test-Path $Entry.Path) {
                 $acl = Get-Acl -Path $Entry.Path
-                $id = New-Object Security.Principal.NTAccount($Entry.Identity)
-                $acl.PurgeAccessRules($id)
+                $inherit = if ($Entry.Inheritance) { [string]$Entry.Inheritance } else { 'ContainerInherit,ObjectInherit' }
+                $prop = if ($Entry.Propagation) { [string]$Entry.Propagation } else { 'None' }
+                $allow = if ($Entry.AccessType) { [string]$Entry.AccessType } else { 'Allow' }
+                $rule = New-Object Security.AccessControl.FileSystemAccessRule(
+                    (New-Object Security.Principal.NTAccount($Entry.Identity)),
+                    [string]$Entry.Rights, $inherit, $prop, $allow)
+                $acl.RemoveAccessRule($rule) | Out-Null
                 Set-Acl -Path $Entry.Path -AclObject $acl
             }
             return "Permiso de $($Entry.Identity) en $($Entry.Path)"
+        }
+        'FileAcl' {
+            # Restaura la ACL completa guardada en SDDL (endurecimiento S2).
+            if ((Test-Path -LiteralPath $Entry.Path) -and $Entry.PrevSddl) {
+                $acl = Get-Acl -LiteralPath $Entry.Path
+                $acl.SetSecurityDescriptorSddlForm([string]$Entry.PrevSddl)
+                Set-Acl -LiteralPath $Entry.Path -AclObject $acl
+            }
+            return "ACL restaurada en $($Entry.Path)"
         }
         'Bcd' {
             if ($Entry.Created) { & bcdedit.exe /deletevalue '{current}' $Entry.Element | Out-Null }

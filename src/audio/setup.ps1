@@ -111,6 +111,29 @@ function Set-HLPotatoInstallFailed {
     }
 }
 
+<#
+    Verifica la firma Authenticode de un instalador descargado ANTES de
+    ejecutarlo con privilegios de administrador. Fail-closed: sin firma
+    válida no se ejecuta nada. El firmante queda en el log para auditoría.
+    (El chequeo de magic bytes de Invoke-HLDownload se mantiene.)
+#>
+function Test-HLInstallerSignature {
+    param([Parameter(Mandatory)] [string] $Path, [Parameter(Mandatory)] [string] $Name)
+    try {
+        $sig = Get-AuthenticodeSignature -FilePath $Path -ErrorAction Stop
+    } catch {
+        Write-HLErr "No se pudo leer la firma del instalador de $Name : $($_.Exception.Message)"
+        return $false
+    }
+    if ($sig.Status -ne 'Valid') {
+        Write-HLErr "El instalador de $Name no trae firma Authenticode válida (estado: $($sig.Status)). No se ejecuta."
+        return $false
+    }
+    $signer = "$($sig.SignerCertificate.Subject)"
+    Write-HLLog INFO "Firma válida de $Name : $signer"
+    return $true
+}
+
 function Install-HLComponent {
     param([Parameter(Mandatory)] [ValidateSet('Voicemeeter', 'VBCable', 'EqualizerAPO')] [string] $Name)
 
@@ -153,6 +176,8 @@ function Install-HLComponent {
             Expand-Archive -Path $zip -DestinationPath $x -Force
             $exe = Get-ChildItem $x -Recurse -Filter 'VBCABLE_Setup_x64.exe' | Select-Object -First 1
             if (-not $exe) { return $false }
+            # La firma se verifica ANTES de ejecutar el instalador elevado.
+            if (-not (Test-HLInstallerSignature -Path $exe.FullName -Name 'VB-CABLE')) { return $false }
             Write-HLInfo 'Se abre el instalador de VB-CABLE: pulsa "Install Driver" y acepta el aviso de Windows.'
             $p = Start-Process -FilePath $exe.FullName -Wait -PassThru -Verb RunAs
             $HL.NeedsReboot = $true
@@ -161,6 +186,8 @@ function Install-HLComponent {
         'EqualizerAPO' {
             $exe = Join-Path $tmp 'EqualizerAPO-setup.exe'
             if (-not (Invoke-HLDownload -Urls $src.Urls -OutFile $exe -ExpectPE)) { return $false }
+            # La firma se verifica ANTES de ejecutar el instalador.
+            if (-not (Test-HLInstallerSignature -Path $exe -Name 'Equalizer APO')) { return $false }
             Write-HLInfo 'Se abre el instalador de Equalizer APO. Al final aparece el Configurator: NO marques nada todavía, Hardline te dirá qué dispositivo.'
             $p = Start-Process -FilePath $exe -Wait -PassThru
             $HL.NeedsReboot = $true
@@ -349,9 +376,22 @@ function Grant-HLUserWrite {
     $who = [Security.Principal.WindowsIdentity]::GetCurrent().Name
     $acl = Get-Acl -Path $Path
     $rule = New-Object Security.AccessControl.FileSystemAccessRule($who, 'Modify', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
-    $acl.AddAccessRule($rule)
-    Set-Acl -Path $Path -AclObject $acl
-    Add-HLManifestEntry -Type 'Acl' -Data @{ Path = $Path; Identity = $who; Rights = 'Modify' }
+    # Idempotente: AddAccessRule duplicaba la ACE en re-ejecuciones.
+    $already = @($acl.Access | Where-Object {
+        $_.IdentityReference.Value -eq $who -and $_.FileSystemRights -eq 'Modify' -and
+        $_.InheritanceFlags -eq ([Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit') -and
+        $_.PropagationFlags -eq 'None' -and $_.AccessControlType -eq 'Allow'
+    }).Count -gt 0
+    if (-not $already) {
+        $acl.AddAccessRule($rule)
+        Set-Acl -Path $Path -AclObject $acl
+    }
+    # Se guarda la regla exacta añadida: el undo la quita con RemoveAccessRule
+    # en vez de purgar todas las reglas de la identidad.
+    Add-HLManifestEntry -Type 'Acl' -Data @{
+        Path = $Path; Identity = $who; Rights = 'Modify'
+        Inheritance = 'ContainerInherit,ObjectInherit'; Propagation = 'None'; AccessType = 'Allow'
+    }
 }
 
 # Acceso directo en Inicio > Hardline. Con -Hotkey funciona como atajo global
