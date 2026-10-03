@@ -1,4 +1,4 @@
-# Tweaks explicados
+﻿# Tweaks explicados
 
 Cada cambio de Hardline, qué hace y por qué está (o no está). El orden sigue el de ejecución.
 
@@ -422,10 +422,36 @@ Archivo: `src/audio/cleanup.ps1`.
 | SteelSeries Sonar, Dolby Atmos, DTS | Van dentro de otras apps: instrucciones en la guía de pasos. |
 | VB-CABLE o Voicemeeter renombrados por otro programa ("Art Tune +", "Virtual Mix") | Vuelven a "CABLE Input" / "CABLE Output" y "Voicemeeter Input" / "Voicemeeter Output" con IMMDevice/IPropertyStore (lo mismo que Cambiar nombre en Configuración > Sonido). Revertible. Voicemeeter se reabre para leer los nombres nuevos. |
 | Art Tune | No tiene desinstalador en Aplicaciones: se busca su rastro y se aparta entero a `backups\<sesión>\apartado\` (revertible): `config\ArtTuneDB`, sus copias `config\_backup_*`, `ProgramData\ArtTune` (iconos), el VST `VSTPlugins\ArtTuneKit`, LEQ Control Panel y los accesos directos. Los iconos de VB-CABLE que apuntaban a `ProgramData\ArtTune` vuelven a los del driver. ReaPlugs (VST de la cadena "Art Tune +") se ofrece desinstalar solo si hay rastro de Art Tune. Las copias que Art Tune guardó en Documentos y Descargas son tuyas: solo se listan. Si algo está en uso (un VST cargado por Equalizer APO), se deja `config.txt` neutro, se reinicia el audio de Windows y se reintenta. |
-| HeSuVi | Virtualizador surround dentro de Equalizer APO: Warzone ya aplica su HRTF y apilarlos destruye la localización. `config\HeSuVi` y su acceso directo se apartan enteros (revertible). |
+| HeSuVi | Virtualizador surround dentro de Equalizer APO. Sin la opción `-HeSuVi`, se aparta entero (`config\HeSuVi` y su acceso directo, revertible) porque apilado sobre el HRTF de Warzone destruye la localización. Con `-HeSuVi` se conserva e integra (ver sección). |
 | Entradas de Aplicaciones sin programa (p. ej. Peace borrado a mano) | Solo si la entrada apunta a un `.exe` que ya no existe (RunDll32, msiexec o rutas raras cuentan como instaladas). Se exporta la clave con `reg export` y se borra; el rollback la importa. |
 | Sound Blaster (Acoustic Engine / Command) | Aviso: apagar SBX, Crystalizer, Smart Volume y su EQ. No se desinstala (es el software de la tarjeta). |
 | Voicemeeter Banana o Standard | Se instala Potato encima: mismo programa y desinstalador; solo Potato expone el compresor completo. |
+
+### HeSuVi: 7.1 virtual opcional
+
+Archivo: `src/audio/hesuvi.ps1`. Parámetro `-HeSuVi` (casilla en la interfaz, default No).
+
+**Qué es.** HeSuVi (Headphone Surround Virtualization, [SourceForge](https://sourceforge.net/projects/hesuvi/)) convoluciona los 8 canales de un flujo 7.1 con respuestas al impulso binaurales (HRIR/HRTF) dentro de Equalizer APO, y saca estéreo para audífonos normales. Es lo que hacía por hardware una tarjeta USB 7.1: sirve para oír de dónde vienen los pasos (adelante/atrás/arriba/abajo), no para que suenen más claros (eso lo hace el EQ).
+
+**Cómo funciona el HRTF (resumen).** Tu cerebro localiza un sonido por tres pistas: diferencia de tiempo entre oídos (ITD), diferencia de volumen (ILD) y el filtrado del pabellón auditivo según el ángulo (HRTF). Un impulso grabado con micrófonos en oídos artificiales (HRIR) captura las tres. HeSuVi aplica un HRIR distinto por cada uno de los 7.1 canales y mezcla el resultado a 2 canales: tus audífonos estéreo reciben una señal que el cerebro interpreta como envolvente.
+
+**Requisitos (los pone la guía de pasos al instalar).**
+1. Equalizer APO instalado (Hardline lo instala primero si falta).
+2. Dispositivo de Windows configurado en **7.1 Surround** (Panel de sonido > tu headset > Configurar). Si tu tarjeta no lo permite, en HeSuVi > Additional > Matrix Upmix: Stereo y 5.1 activados.
+3. Warzone con salida **7.1 / home theater** (NO la mezcla "Auriculares"): HeSuVi necesita los 8 canales; con mezcla estéreo no hay nada que virtualizar.
+4. En la interfaz de HeSuVi, elegir un perfil HRIR (prueba `ooyh_0`) y Actions > Restart Audio Service.
+5. "Audio espacial" de Windows (Sonic/Dolby) y el 7.1 del software del headset, **apagados**: no se apilan virtualizadores.
+
+**Integración con el EQ de Hardline.** El `config.txt` queda así (orden: pre, HeSuVi, EQ):
+
+```
+Include: HeSuVi\hesuvi.txt
+Include: hardline\switch.txt
+```
+
+La convolución va primero y el EQ de pasos después: el atajo Ctrl+Alt+F10 (y el panel del EQ) enciende/apaga solo el EQ sin perder la virtualización. Combinación recomendada: **Solo EQ + HeSuVi** (directo al headset, sin la latencia de Voicemeeter). Con modo Completo también funciona si Equalizer APO apunta al headset final, pero es configuración avanzada.
+
+**Seguridad de la descarga.** `HeSuVi_2.0.0.1.exe` desde el proyecto oficial de SourceForge con SHA256 fijado en el código (fail-closed: si no coincide no se ejecuta nada) y verificación de firma Authenticode cuando el binario la trae. La instalación queda registrada como `Info` en el manifiesto (el rollback no desinstala software, igual que Voicemeeter/VB-CABLE).
 
 ### Compresor y gate (modo Completo)
 
@@ -466,8 +492,8 @@ Pasos que el script no puede hacer por ti (Windows no tiene API pública para el
 1. Configuración > Sistema > Sonido > Salida: `Voicemeeter Input`.
 2. Con Warzone abierto: Mezclador de volumen > `cod.exe` > Salida: `CABLE Input`.
 3. En el Configurator de Equalizer APO, marca solo el dispositivo que indica el script.
-4. Desactiva "Audio espacial" y "Mejoras de audio" en el headset, y el 7.1 virtual del software del fabricante. Warzone ya aplica su propio HRTF; apilar virtualizadores destruye la localización.
-5. En Warzone: mezcla de audio "Auriculares", música y diálogos a 0.
+4. Desactiva "Audio espacial" de Windows (Sonic/Dolby) y "Mejoras de audio" en el headset, y el 7.1 virtual del software del fabricante. No se apilan virtualizadores (con HeSuVi instalado por Hardline, este paso ya lo cubre la guía).
+5. En Warzone: mezcla de audio "Auriculares" (o salida 7.1 / home theater si usas HeSuVi), música y diálogos a 0.
 
 ### Atajo EQ on/off y test de pasos [auto]
 

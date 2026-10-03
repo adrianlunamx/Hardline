@@ -26,6 +26,7 @@ $script:AudioRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $PSScriptRoot 'voicemeeter.ps1')
 . (Join-Path $PSScriptRoot 'autoeq.ps1')
 . (Join-Path $PSScriptRoot 'eqswitch.ps1')
+. (Join-Path $PSScriptRoot 'hesuvi.ps1')
 . (Join-Path $PSScriptRoot 'cleanup.ps1')
 . (Join-Path $PSScriptRoot 'endpoints.ps1')
 
@@ -320,7 +321,7 @@ function Select-HLRenderDevice {
 # --------------------------------------------------------------------------
 
 function Write-HLEqConfig {
-    param([Parameter(Mandatory)] $HeadsetProfile, [double]$Intensity = 1.0)
+    param([Parameter(Mandatory)] $HeadsetProfile, [double]$Intensity = 1.0, [switch]$WithHeSuVi)
 
     $apo = Get-HLEqApoDir
     if (-not $apo) { throw 'Equalizer APO no está instalado.' }
@@ -339,15 +340,26 @@ function Write-HLEqConfig {
     }
     $configPath = Join-Path $cfgDir 'config.txt'
 
-    # config.txt -> hardline\switch.txt -> preset. El atajo de teclado solo
-    # toca switch.txt (ver eqswitch.ps1).
-    $config = @(
+    # config.txt -> [HeSuVi] -> hardline\switch.txt -> preset. El atajo de
+    # teclado solo toca switch.txt (ver eqswitch.ps1); HeSuVi queda aparte
+    # y el EQ se puede encender/apagar sin perder la virtualización.
+    # Orden: primero la convolución 7.1->estéreo de HeSuVi y después el EQ
+    # de pasos de Hardline (convención de la comunidad: pre, HeSuVi, EQ).
+    $lines = @(
         '# Hardline - Equalizer APO'
         '# Backup del config.txt anterior en la carpeta backups/ de Hardline.'
         '# Encender/apagar el EQ: atajo Ctrl+Alt+F10 (edita hardline\switch.txt).'
         ''
-        'Include: hardline\switch.txt'
-    ) -join "`r`n"
+    )
+    if ($WithHeSuVi) {
+        if (Test-Path -LiteralPath (Join-Path $cfgDir 'HeSuVi\hesuvi.txt')) {
+            $lines += @('# HeSuVi: virtualización 7.1 -> estéreo (HRTF). Va ANTES del EQ.', 'Include: HeSuVi\hesuvi.txt', '')
+        } else {
+            Write-HLWarn 'HeSuVi pedido pero no se encontró HeSuVi\hesuvi.txt: el EQ se escribe sin virtualización. Abre la interfaz de HeSuVi una vez y vuelve a aplicar el audio.'
+        }
+    }
+    $lines += 'Include: hardline\switch.txt'
+    $config = $lines -join "`r`n"
     $switchPath = Join-Path $hlDir 'switch.txt'
 
     if ($HL.DryRun) { return $presetPath }
@@ -448,7 +460,8 @@ function Invoke-HLAudioSetup {
         [double] $Intensity = 0,
         [switch] $CleanAudio,
         [string] $OutputDevice = '',
-        [ValidateSet('', 'normal', 'pasos')] [string] $Dynamics = ''
+        [ValidateSet('', 'normal', 'pasos')] [string] $Dynamics = '',
+        [switch] $HeSuVi
     )
     # Sin elección explícita se mantiene la última (config\audio.json) o "normal".
     if (-not $Dynamics) { $Dynamics = (Get-HLAudioSettings -Root $HL.Root).Dynamics }
@@ -478,14 +491,14 @@ function Invoke-HLAudioSetup {
     # --- Audio anterior: limpieza antes de instalar -----------------------------
     $keepPreset = @("warzone_footsteps_$($hp.id).txt", "warzone_footsteps_$($hp.id)_70.txt")
     $apo0 = Get-HLEqApoDir
-    $inv = Get-HLAudioInventory -ConfigDir $(if ($apo0) { Get-HLEqApoConfigDir -InstallDir $apo0 } else { '' })
+    $inv = Get-HLAudioInventory -ConfigDir $(if ($apo0) { Get-HLEqApoConfigDir -InstallDir $apo0 } else { '' }) -KeepHeSuVi:$HeSuVi
     if (Test-HLAudioInventoryClean -Inventory $inv -KeepPreset $keepPreset) {
         Write-HLSub 'Audio personalizado anterior' 'OK (nada que limpiar)'
     } else {
         Show-HLAudioInventory -Inventory $inv -KeepPreset $keepPreset
         $doClean = if ($HL.Unattended) { $true } else { Read-HLYesNo 'Limpiar el audio anterior antes de instalar (recomendado; lo que se aparta vuelve con el rollback)' $true }
         if ($doClean) {
-            Invoke-HLSafely 'Audio' 'Limpieza del audio anterior' { Invoke-HLAudioCleanup -Inventory $inv -KeepPreset $keepPreset -AllowUninstall ([bool]$CleanAudio) }
+            Invoke-HLSafely 'Audio' 'Limpieza del audio anterior' { Invoke-HLAudioCleanup -Inventory $inv -KeepPreset $keepPreset -AllowUninstall ([bool]$CleanAudio) -KeepHeSuVi:$HeSuVi }
         } else {
             Add-HLResult -Module 'Audio' -Item 'Audio anterior' -Status Manual -Detail 'Se mantiene: puede haber dos cadenas de EQ a la vez'
             Add-HLManualStep 'Audio' 'Mantuviste tu audio anterior. Si los pasos no suenan como en el test, vuelve a aplicar con la limpieza: puede haber dos EQ actuando a la vez.'
@@ -531,6 +544,12 @@ function Invoke-HLAudioSetup {
         }
     }
 
+    # --- HeSuVi (opcional): después de los componentes, antes del EQ ---------------
+    # El EQ (Write-HLEqConfig) reescribe config.txt; HeSuVi debe estar
+    # instalado antes para que su include quede en su sitio.
+    $heSuViOk = $false
+    if ($HeSuVi) { $heSuViOk = Install-HLHeSuVi }
+
     # --- Nombres e iconos de VB-CABLE y Voicemeeter --------------------------------
     # Otros programas los renombran ("Art Tune +", "Virtual Mix"): las instrucciones
     # dejan de coincidir y Voicemeeter no encuentra "CABLE Output" por su nombre.
@@ -542,7 +561,7 @@ function Invoke-HLAudioSetup {
     [void](Restore-HLCableIcons)
 
     # --- EQ -----------------------------------------------------------------------
-    $preset = Write-HLEqConfig -HeadsetProfile $hp -Intensity $Intensity
+    $preset = Write-HLEqConfig -HeadsetProfile $hp -Intensity $Intensity -WithHeSuVi:$heSuViOk
     $pre = Get-HLAutoPreamp -Filters @(Get-HLChainFilters -HeadsetProfile $hp -Intensity $Intensity)
     if (-not $HL.DryRun) { Save-HLAudioSettings -Root $HL.Root -Set @{ HeadsetId = "$($hp.vmProfileId)"; PreampDb = [double]$pre; Dynamics = $Dynamics; Overrides = $hp.voicemeeter } }
     Write-HLSub "Preset EQ ($preset, preamp $pre dB)" 'OK'
@@ -576,7 +595,14 @@ function Invoke-HLAudioSetup {
 
     Add-HLManualStep 'Audio' 'Propiedades del headset en Windows: desactiva "Mejoras de audio" y "Audio espacial" (Windows Sonic/Dolby). Warzone ya aplica su propio HRTF; apilar virtualizadores destruye la localización.'
     Add-HLManualStep 'Audio' 'Software del headset (G HUB, iCUE, NGENUITY, SteelSeries GG, Synapse): EQ plano y 7.1 virtual desactivado. El EQ lo hace Hardline.'
-    Add-HLManualStep 'Audio' 'Warzone > Audio: Mezcla "Auriculares", volumen de música y diálogo a 0, efectos al 100%. Si aparece "Reducción del sonido de tinnitus", actívala: quita el pitido tras explosiones cercanas.'
+    if ($heSuViOk) {
+        Add-HLManualStep 'Audio' 'HeSuVi: en su interfaz elige un perfil HRIR (prueba "ooyh_0") y en Actions > Restart Audio Service (evita reiniciar).'
+        Add-HLManualStep 'Audio' 'Panel de sonido de Windows: tu headset > Configurar > 7.1 Surround (o 5.1). Si tu tarjeta no lo permite, en HeSuVi pestaña Additional > Matrix Upmix: Stereo y 5.1 activados.'
+        Add-HLManualStep 'Audio' 'Warzone > Audio: salida 7.1 / home theater (NO la mezcla "Auriculares"). HeSuVi necesita los 8 canales para virtualizar; con "Auriculares" no hay nada que convertir.'
+        Add-HLManualStep 'Audio' 'Con HeSuVi, el EQ de pasos de Hardline sigue aplicando encima (va después en config.txt). Ctrl+Alt+F10 apaga solo el EQ, la virtualización queda.'
+    } else {
+        Add-HLManualStep 'Audio' 'Warzone > Audio: Mezcla "Auriculares", volumen de música y diálogo a 0, efectos al 100%. Si aparece "Reducción del sonido de tinnitus", actívala: quita el pitido tras explosiones cercanas.'
+    }
     Add-HLManualStep 'Audio' 'Pasos más altos y disparos más bajos: panel del EQ (Inicio > Hardline > Hardline EQ) > Compresor > "Pasos al máximo". Se aplica al momento con Voicemeeter abierto; compáralo en partida con "Normal".'
     Add-HLManualStep 'Audio' 'Tras reiniciar: Inicio > Hardline > "Hardline test de pasos". Suena la misma escena con el EQ apagado y encendido; en la segunda, los pasos de la izquierda deben destacar sobre la explosión. En partida, Ctrl+Alt+F10 enciende/apaga el EQ (en pantalla completa exclusiva, si el atajo no responde, usa "Sin bordes").'
 }

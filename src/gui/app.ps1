@@ -44,6 +44,7 @@ function ConvertTo-HLGuiArguments {
         if ($State.AudioMode) { $a.Add('-AudioMode'); $a.Add($State.AudioMode) }
         if ($State.Intensity) { $a.Add('-EqIntensity'); $a.Add($State.Intensity) }
         if ($State.CleanAudio) { $a.Add('-CleanAudio') }
+        if ($State.HeSuVi) { $a.Add('-HeSuVi') }
         if ($State.OutputDevice) { $a.Add('-AudioDevice'); $a.Add($State.OutputDevice) }
         if ($State.Dynamics) { $a.Add('-AudioDynamics'); $a.Add($State.Dynamics) }
     }
@@ -202,6 +203,7 @@ function Show-HLGui {
             Platform = "$($ui.cmbPlatform.SelectedItem.Tag)"; DisableOthers = [bool]$ui.chkDisableOthers.IsChecked
             Headset = $ui.txtHeadset.Text.Trim(); AudioMode = "$($ui.cmbAudioMode.SelectedItem.Tag)"
             Intensity = "$($ui.cmbIntensity.SelectedItem.Tag)"; CleanAudio = [bool]$ui.chkCleanAudio.IsChecked
+            HeSuVi = [bool]$ui.chkHeSuVi.IsChecked
             OutputDevice = "$($ui.cmbOutput.SelectedItem.Tag)"; Dynamics = "$($ui.cmbDynamics.SelectedItem.Tag)"
         }
     }
@@ -356,7 +358,7 @@ function Show-HLGui {
     $ui.btnGuide.Add_Click({ Show-HLGuideWindow -Owner $window })
     $ui.btnFolder.Add_Click({ Start-Process explorer.exe -ArgumentList "`"$Root`"" })
     $ui.chkAudio.Add_Click({
-            foreach ($c in @('txtHeadset', 'cmbAudioMode', 'cmbIntensity', 'chkCleanAudio', 'cmbOutput', 'cmbDynamics')) { $ui[$c].IsEnabled = [bool]$ui.chkAudio.IsChecked }
+            foreach ($c in @('txtHeadset', 'cmbAudioMode', 'cmbIntensity', 'chkCleanAudio', 'chkHeSuVi', 'cmbOutput', 'cmbDynamics')) { $ui[$c].IsEnabled = [bool]$ui.chkAudio.IsChecked }
         })
 
     $window.Add_Closing({

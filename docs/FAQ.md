@@ -1,4 +1,4 @@
-# FAQ
+﻿# FAQ
 
 ## Ricochet
 
@@ -94,6 +94,14 @@ Hardline ya no lo instala. Al guardar un preset en Peace se reescribe `config.tx
 **Quiero cero latencia añadida.**
 
 Modo Solo EQ (`-AudioMode EqOnly`). Sin Voicemeeter ni VB-CABLE: Equalizer APO va directo en el headset. Pierdes la compresión de explosiones.
+
+**¿Qué es la opción HeSuVi y me conviene?**
+
+HeSuVi virtualiza 7.1 en audífonos estéreo (es lo que hacía tu tarjeta USB 7.1, pero por software, sobre Equalizer APO). Conviene si quieres distinguir de dónde vienen los pasos (adelante/atrás/arriba/abajo). No hace que los pasos suenen más claros —eso lo hace el EQ— y no es magia: necesita que Windows tenga el headset en 7.1 y que Warzone saque 7.1 (no la mezcla "Auriculares"). Se instala con `-HeSuVi` o la casilla en la interfaz (default No). El EQ de Hardline sigue aplicando encima y Ctrl+Alt+F10 lo apaga sin perder la virtualización.
+
+**Ya tenía HeSuVi instalado. ¿Hardline lo borra?**
+
+Solo si no usas la opción `-HeSuVi`: antes se apartaba entero como "audio anterior" (revertible). Con `-HeSuVi`, Hardline lo detecta, lo conserva y lo integra en el `config.txt` junto al EQ de pasos.
 
 **Mi headset no está en la lista.**
 

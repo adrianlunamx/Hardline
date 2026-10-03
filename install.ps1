@@ -63,6 +63,10 @@
     Si hay un audio personalizado anterior (Peace, FxSound, Boom 3D...),
     desinstalarlo sin preguntar. Sin este parametro, en modo desatendido
     solo se aparta su configuracion (revertible).
+.PARAMETER HeSuVi
+    Instala HeSuVi (virtualizacion 7.1 para audifonos, sobre Equalizer APO).
+    Sin el parametro se pregunta (default No); en modo desatendido no se
+    instala salvo que se pase explicito.
 .PARAMETER SkipDisplay
     No toca la pantalla (refresco, optimizaciones de ventana, overlays).
 .PARAMETER GameplayBenchOnly
@@ -94,6 +98,7 @@ param(
     [switch] $SkipController,
     [switch] $SkipDisplay,
     [switch] $CleanAudio,
+    [switch] $HeSuVi,
     [string] $AudioDevice = '',
     [ValidateSet('', 'normal', 'pasos')] [string] $AudioDynamics = '',
     [switch] $Update,
@@ -511,7 +516,10 @@ Invoke-HLOptimization -Hardware $hw -SkipWindows:$SkipWindows -SkipNetwork:$Skip
 # --- Audio ---------------------------------------------------------------------
 if (-not $SkipAudio) {
     Write-HLStep 'Audio competitivo (pasos claros, explosiones controladas)...'
-    Invoke-HLSafely 'Audio' 'Audio' { Invoke-HLAudioSetup -Hardware $hw -HeadsetId $Headset -Mode $AudioMode -Intensity $EqIntensity -CleanAudio:$CleanAudio -OutputDevice $AudioDevice -Dynamics $AudioDynamics }
+    if (-not $PSBoundParameters.ContainsKey('HeSuVi')) {
+        $HeSuVi = if ($HL.Unattended) { $false } else { Read-HLYesNo 'Instalar HeSuVi (audio espacial 7.1 virtual para audifonos)?' $false }
+    }
+    Invoke-HLSafely 'Audio' 'Audio' { Invoke-HLAudioSetup -Hardware $hw -HeadsetId $Headset -Mode $AudioMode -Intensity $EqIntensity -CleanAudio:$CleanAudio -OutputDevice $AudioDevice -Dynamics $AudioDynamics -HeSuVi:$HeSuVi }
 }
 
 # --- Benchmark posterior ---------------------------------------------------------

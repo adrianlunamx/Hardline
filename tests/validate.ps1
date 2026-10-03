@@ -799,6 +799,36 @@ Assert-True ($comSrc -match 'RemoveAccessRule' -and $comSrc -notmatch 'PurgeAcce
 # Q3: valores previos de power settings registrados y restaurados
 Assert-True ($pwSrc -match 'function Get-HLPowerSettingValue' -and $pwSrc -match 'PrevSettings = @\(\$prevSettings\)' -and $comSrc -match 'foreach \(\$ps in @\(\$Entry\.PrevSettings\)\)') 'Q3: power settings previos registrados y restaurados en el undo'
 
+
+# ---------------------------------------------------------------------------
+Write-Host "`n[19] HeSuVi (1.11.0)" -ForegroundColor Cyan
+$hsSrc = Get-Content (Join-HLPath @($root, 'src', 'audio', 'hesuvi.ps1')) -Raw
+$clSrc = Get-Content (Join-HLPath @($root, 'CHANGELOG.md')) -Raw
+$twSrc = Get-Content (Join-HLPath @($root, 'docs', 'TWEAKS_EXPLAINED.md')) -Raw
+$fqSrc = Get-Content (Join-HLPath @($root, 'docs', 'FAQ.md')) -Raw
+# Módulo con detección e instalación idempotente
+Assert-True (($hsSrc -match 'function Get-HLHeSuViStatus') -and ($hsSrc -match 'function Install-HLHeSuVi') -and ($hsSrc -match 'OK \(ya instalado\)')) 'hesuvi.ps1: detección e instalación idempotente'
+# URL versionada de SourceForge (no files/latest/download) + SHA256 fijado
+Assert-True (($hsSrc -match 'sourceforge\.net/projects/hesuvi/files/HeSuVi_') -and ($hsSrc -notmatch 'hesuvi/files/latest/download') -and ($hsSrc -match "Sha256\s*=\s*'[0-9A-F]{64}'")) 'HeSuVi 2.0.0.1: URL versionada y SHA256 fijado'
+# SHA256 verificado en la descarga y firma Authenticode antes de ejecutar
+Assert-True (($hsSrc -match '-Sha256 \$script:HLHeSuVi\.Sha256') -and ($hsSrc -match 'Get-AuthenticodeSignature') -and ($hsSrc -match 'Test-HLInstallerSignature -Path \$exe -Name ''HeSuVi''')) 'HeSuVi: SHA256 fail-closed + firma antes de ejecutar'
+# Equalizer APO como requisito (se instala primero si falta)
+Assert-True ($hsSrc -match "Install-HLComponent -Name 'EqualizerAPO'") 'HeSuVi requiere Equalizer APO'
+# config.txt: la virtualización va ANTES del EQ de Hardline
+Assert-True (($auSetupSrc -match '\[switch\]\$WithHeSuVi') -and ($auSetupSrc.IndexOf('Include: HeSuVi\hesuvi.txt') -ge 0) -and ($auSetupSrc.IndexOf('Include: HeSuVi\hesuvi.txt') -lt $auSetupSrc.IndexOf("Include: hardline\switch.txt"))) 'config.txt: HeSuVi antes del EQ'
+# install.ps1: parámetro -HeSuVi y cableado al módulo de audio
+Assert-True (($instMainSrc -match '\[switch\] \$HeSuVi,') -and ($instMainSrc -match '-HeSuVi:\$HeSuVi \}')) 'install.ps1: parámetro -HeSuVi cableado al audio'
+# Limpieza: con -HeSuVi se conserva; sin él se aparta como antes
+Assert-True (($auSetupSrc -match '-KeepHeSuVi:\$HeSuVi') -and ((Get-Content (Join-HLPath @($root, 'src', 'audio', 'cleanup.ps1')) -Raw) -match '\[switch\]\$KeepHeSuVi')) 'limpieza: -KeepHeSuVi conserva un HeSuVi previo'
+# GUI: casilla, estado y argumento
+[xml]$gx19 = Get-Content (Join-HLPath @($root, 'src', 'gui', 'main.xaml')) -Raw -Encoding UTF8
+$xns19 = 'http://schemas.microsoft.com/winfx/2006/xaml'
+$xamlNames19 = @($gx19.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]') | ForEach-Object { $_.GetAttribute('Name', $xns19) } | Where-Object { $_ })
+Assert-True (('chkHeSuVi' -in $xamlNames19) -and ($appSrc -match '\$ui\.chkHeSuVi') -and ($appSrc -match '\$a\.Add\(''-HeSuVi''\)')) 'interfaz: casilla chkHeSuVi cableada a -HeSuVi'
+# Docs y changelog
+Assert-True (($twSrc -match 'HeSuVi') -and ($fqSrc -match 'HeSuVi')) 'docs: TWEAKS_EXPLAINED y FAQ mencionan HeSuVi'
+Assert-True ($clSrc -match '\[1\.11\.0\]') 'CHANGELOG: entrada 1.11.0'
+
 # ---------------------------------------------------------------------------
 Write-Host ''
 $color = if ($script:fails -eq 0) { 'Green' } else { 'Red' }

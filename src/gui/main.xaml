@@ -1,4 +1,4 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Hardline" Width="1100" Height="760" MinWidth="900" MinHeight="620"
         WindowStartupLocation="CenterScreen" Background="#0E1116" Foreground="#E6EAF0"
@@ -145,6 +145,9 @@
               </ComboBox>
               <CheckBox x:Name="chkCleanAudio" IsChecked="True" Margin="0,10,0,0">
                 <TextBlock TextWrapping="Wrap" Text="Si hay un audio personalizado anterior (Art Tune, Peace, FxSound, Boom 3D...), desinstalarlo antes. Su configuración siempre se aparta (revertible)."/>
+              </CheckBox>
+              <CheckBox x:Name="chkHeSuVi" IsChecked="False" Margin="0,10,0,0">
+                <TextBlock TextWrapping="Wrap" Text="HeSuVi: audio espacial 7.1 virtual para audífonos (sobre Equalizer APO). Requiere configurar el headset en 7.1 en Windows y Warzone."/>
               </CheckBox>
             </StackPanel>
           </Border>
