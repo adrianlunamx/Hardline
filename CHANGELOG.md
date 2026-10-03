@@ -4,6 +4,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 
 ## [Sin publicar]
 
+## [1.11.0] - 2026-10-03
+
+### Añadido
+
+- **HeSuVi (opcional)**: virtualización de sonido envolvente 7.1 para audífonos estéreo (HRTF sobre Equalizer APO). Nuevo parámetro `-HeSuVi` en `install.ps1` (pregunta con default No; en desatendido no se instala salvo explícito) y casilla en la interfaz. Descarga `HeSuVi_2.0.0.1.exe` de SourceForge con SHA256 fijado (fail-closed) y verificación de firma Authenticode si la trae; requiere Equalizer APO (lo instala primero si falta); es idempotente. El `config.txt` queda con `Include: HeSuVi\hesuvi.txt` ANTES del EQ de pasos de Hardline (convención pre/HeSuVi/EQ), así el EQ se sigue pudiendo encender/apagar con Ctrl+Alt+F10 sin perder la virtualización. Si ya tenías HeSuVi (instalado por Hardline o a mano), la limpieza del audio anterior lo conserva en vez de apartarlo.
+- Pasos manuales post-instalación de HeSuVi: elegir perfil HRIR en su interfaz, Actions > Restart Audio Service, configurar el headset en 7.1 en el Panel de sonido de Windows y salida 7.1 / home theater en Warzone (no la mezcla "Auriculares").
+- Documentación: sección de HeSuVi en `docs/TWEAKS_EXPLAINED.md` y preguntas en `docs/FAQ.md`.
+
 ## [1.10.2] - 2026-10-03
 
 ### Añadido
