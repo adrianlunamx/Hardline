@@ -48,9 +48,11 @@ function Set-HLDynamicTick {
         return
     }
     if ($HL.DryRun) { Write-HLSub 'disabledynamictick' 'SKIP (DryRun)'; return }
+    # Se registra antes de tocar el BCD: el undo (deletevalue) no falla si el
+    # valor no llegó a crearse.
+    Add-HLManifestEntry -Type 'Bcd' -Data @{ Element = 'disabledynamictick'; Created = $true }
     & bcdedit.exe /set '{current}' disabledynamictick yes | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "bcdedit devolvió $LASTEXITCODE" }
-    Add-HLManifestEntry -Type 'Bcd' -Data @{ Element = 'disabledynamictick'; Created = $true }
     $HL.NeedsReboot = $true
     Write-HLSub 'disabledynamictick = yes' 'OK'
     Add-HLResult -Module 'Experimental' -Item 'disabledynamictick' -Status Applied -Detail 'Efectivo tras reiniciar. Compara el jitter de Sleep(1) con -BenchmarkOnly.'

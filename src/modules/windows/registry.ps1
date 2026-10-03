@@ -119,7 +119,7 @@ function Invoke-HLAppxBloat {
 
     $names = ($present | ForEach-Object { $_.Label }) -join ', '
     Write-HLInfo "Instalado: $names. Las políticas de arriba ya los neutralizan; desinstalar libera además sus procesos."
-    if (-not (Read-HLYesNo "¿Desinstalar $names? (se reinstala desde la Store)" $true)) {
+    if (-not (Read-HLYesNo "¿Desinstalar $names? (se reinstala desde la Store)" $false)) {
         foreach ($p in $present) { Add-HLResult -Module 'Bloat' -Item $p.Label -Status Skipped -Detail 'Usuario eligió conservarlo' }
         return
     }

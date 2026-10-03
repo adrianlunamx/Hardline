@@ -229,7 +229,7 @@ function Invoke-HLDisplay {
         Write-HLSub ("{0}: {1} Hz (máximo {2} Hz)" -f $label, $d.Hz, $d.BestHz)
         if (Test-HLRefreshUpgrade -CurrentHz $d.Hz -BestHz $d.BestHz) {
             Write-HLWarn "$label funciona a $($d.Hz) Hz y admite $($d.BestHz) Hz."
-            if (Read-HLYesNo "¿Subir $label a $($d.BestHz) Hz? (si la pantalla se queda en negro, espera: el rollback lo devuelve a $($d.Hz) Hz)" $true) {
+            if (Read-HLYesNo "¿Subir $label a $($d.BestHz) Hz? (si la pantalla se queda en negro, espera: el rollback lo devuelve a $($d.Hz) Hz)" $false) {
                 Invoke-HLSafely 'Pantalla' "Refresco $label" {
                     Set-HLDisplayRefresh -Display $d -Hz $d.BestHz | Out-Null
                     Write-HLSub "Refresco $($d.Hz) -> $($d.BestHz) Hz" 'OK'

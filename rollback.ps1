@@ -20,7 +20,7 @@
     .\rollback.ps1                 # última sesión
     .\rollback.ps1 -All            # todas las sesiones pendientes
     .\rollback.ps1 -List           # ver sesiones
-    .\rollback.ps1 -Stamp 2025-01-15_14-30
+    .\rollback.ps1 -Stamp 2025-01-15_14-30-00
 #>
 [CmdletBinding()]
 param(
@@ -102,7 +102,13 @@ function Invoke-HLRollbackSession {
         }
     }
     Write-Progress -Activity "Hardline rollback $($Session.Name)" -Completed
-    Rename-Item -Path $manifestPath -NewName 'manifest.rolledback.json' -Force
+    if ($r.Fail -eq 0) {
+        Rename-Item -Path $manifestPath -NewName 'manifest.rolledback.json' -Force
+    } else {
+        # Con fallos, el manifiesto se conserva para poder reintentar: no se
+        # marca la sesión como revertida.
+        Write-HLWarn "La sesión $($Session.Name) tuvo $($r.Fail) errores: se conserva manifest.json para reintentar el rollback."
+    }
     return $r
 }
 
