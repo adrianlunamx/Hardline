@@ -13,7 +13,7 @@
 
 # Sin StrictMode: WMI/CIM devuelve propiedades opcionales según fabricante y driver.
 
-$Global:HLVersion = '1.10.2'
+$Global:HLVersion = '1.11.0'
 $Global:HLRepo = 'adrianlunamx/Hardline'
 
 # --------------------------------------------------------------------------
