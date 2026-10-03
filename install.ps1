@@ -237,7 +237,12 @@ if (-not $localRoot) {
                 $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$HLRepoOwner/$HLRepoName/releases/latest" `
                     -Headers @{ 'User-Agent' = 'Hardline-installer'; 'Accept' = 'application/vnd.github+json' } -TimeoutSec 20 -UseBasicParsing
             } catch {
-                Write-Host '[!] No hay release publicada o GitHub no responde; se usa la rama main.' -ForegroundColor Yellow
+                # Fail-closed: sin release verificable no se descarga codigo sin
+                # verificar. Quien quiera la rama main debe pedirla explicita.
+                Write-Host '[x] No hay release publicada o GitHub no responde.' -ForegroundColor Red
+                Write-Host '    Instalacion cancelada: Hardline no descarga codigo sin verificar.' -ForegroundColor Red
+                Write-Host '    Si confias en el repositorio, usa -Channel main para instalar la rama sin verificacion.' -ForegroundColor Red
+                return
             }
             if ($rel) {
                 $zipAsset = @($rel.assets | Where-Object { $_.name -match '^hardline-.*\.zip$' }) | Select-Object -First 1
@@ -257,7 +262,10 @@ if (-not $localRoot) {
                     Write-Host "[+] SHA256 verificado: $actual" -ForegroundColor Green
                     $source = "release $($rel.tag_name)"
                 } else {
-                    Write-Host '[!] La release no trae ZIP + .sha256; se usa la rama main.' -ForegroundColor Yellow
+                    Write-Host '[x] La release no trae ZIP + .sha256 verificables.' -ForegroundColor Red
+                    Write-Host '    Instalacion cancelada: Hardline no descarga codigo sin verificar.' -ForegroundColor Red
+                    Write-Host '    Si confias en el repositorio, usa -Channel main para instalar la rama sin verificacion.' -ForegroundColor Red
+                    return
                 }
             }
         }
@@ -414,7 +422,11 @@ if ($NoRestorePoint -or $DryRun) {
         Write-HLWarn "No se pudo crear el restore point: $($_.Exception.Message)"
         Write-HLInfo 'El manifiesto de Hardline permite revertir igualmente con rollback.ps1.'
         Add-HLResult -Module 'Sistema' -Item 'Restore point' -Status Failed -Detail $_.Exception.Message
-        if (-not (Read-HLYesNo 'Continuar sin restore point' $true)) { return }
+        if ($HL.Unattended) {
+            Write-HLErr 'Sin restore point el modo desatendido no continua. Ejecutalo sin -Unattended para decidir, o pasa -NoRestorePoint si aceptas el riesgo.'
+            return
+        }
+        if (-not (Read-HLYesNo 'Continuar sin restore point' $false)) { return }
     } finally {
         if ($freqPrev.Exists) {
             New-ItemProperty -Path $srKey -Name 'SystemRestorePointCreationFrequency' -Value $freqPrev.Value -PropertyType DWord -Force | Out-Null
