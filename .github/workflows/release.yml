@@ -27,7 +27,7 @@ jobs:
       matrix:
         shell: [powershell, pwsh]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # "shell" no admite expresiones (${{ matrix.shell }}): un paso por shell.
       - name: Tests (Windows PowerShell 5.1)
@@ -92,7 +92,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Empaquetar
         run: |
