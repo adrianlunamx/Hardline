@@ -11,15 +11,22 @@
                    close_processes y activa el plan de energía de Hardline.
       Al cerrarse: deshace todo lo anterior.
 
-    El estado de la sesión se guarda en config\gamesession.state.json. Si el
+    Desde la 1.12.0 corre desde una carpeta protegida (Archivos de programa\
+    Hardline\gamesession) donde están también su configuración, su estado y
+    su log: un proceso elevado no debe leer ni escribir nada que el usuario
+    pueda cambiar sin UAC. Las sesiones de versiones anteriores le pasan la
+    carpeta de instalación y se respeta su estructura (config\, logs\) para
+    que el rollback restaure lo que dejaron pendiente.
+
+    El estado de la sesión se guarda en gamesession.state.json. Si el
     proceso muere a mitad de partida (o el PC se apaga), al volver a arrancar
     restaura lo pendiente antes de hacer nada más.
 
     No toca el proceso del juego: ni prioridad ni afinidad.
 
-    Uso manual:
-      gamesession_watcher.ps1 -Root <carpeta de Hardline>           (bucle)
-      gamesession_watcher.ps1 -Root <carpeta de Hardline> -RestoreOnly
+    Uso manual (como administrador):
+      gamesession_watcher.ps1 -Root <carpeta del modo partida>           (bucle)
+      gamesession_watcher.ps1 -Root <carpeta del modo partida> -RestoreOnly
 #>
 param(
     [Parameter(Mandatory)] [string] $Root,
@@ -27,10 +34,18 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-$configPath = Join-Path $Root 'config\gamesession.json'
-$defaultPath = Join-Path $Root 'src\modules\windows\configs\gamesession.default.json'
-$statePath = Join-Path $Root 'config\gamesession.state.json'
-$logPath = Join-Path $Root 'logs\gamesession.log'
+if (Test-Path (Join-Path $Root 'config') -PathType Container) {
+    # Carpeta de instalación (versiones anteriores a la 1.12.0).
+    $configPath = Join-Path $Root 'config\gamesession.json'
+    $defaultPath = Join-Path $Root 'src\modules\windows\configs\gamesession.default.json'
+    $statePath = Join-Path $Root 'config\gamesession.state.json'
+    $logPath = Join-Path $Root 'logs\gamesession.log'
+} else {
+    $configPath = Join-Path $Root 'gamesession.json'
+    $defaultPath = Join-Path $Root 'gamesession.default.json'
+    $statePath = Join-Path $Root 'gamesession.state.json'
+    $logPath = Join-Path $Root 'gamesession.log'
+}
 $planName = 'Hardline Ultimate Performance'
 $guidRx = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
 

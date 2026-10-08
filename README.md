@@ -201,7 +201,7 @@ Una tarea al iniciar sesión vigila si Warzone está abierto. Mientras lo está:
 - **Procesos de fondo** (navegadores, Spotify, OneDrive, launchers): prioridad "por debajo de lo normal".
 - **Plan de energía máximo** solo durante la partida, si lo eliges: en reposo el PC consume y se calienta menos.
 
-El juego no se toca. Todo es editable en `config\gamesession.json` y queda registrado en `logs\gamesession.log`. Si el PC se apaga a mitad de partida, al volver a iniciar sesión restaura lo pendiente.
+El juego no se toca. Todo es editable en `config\gamesession.json` (al aplicar se copia a `C:\Program Files\Hardline\gamesession`, porque la tarea corre como administrador) y queda registrado en el `gamesession.log` de esa carpeta. Si el PC se apaga a mitad de partida, al volver a iniciar sesión restaura lo pendiente.
 
 ## Revertir
 

@@ -8,11 +8,27 @@
     energía máximo. Al cerrar el juego, todo vuelve a como estaba.
 
     Detalle del comportamiento: gamesession_watcher.ps1.
-    Configuración editable: config\gamesession.json.
+    Configuración editable: config\gamesession.json (se copia a la carpeta
+    protegida cada vez que aplicas).
 #>
 
 $script:HLGameSessionTask = 'Hardline-GameSession'
 
+<#
+    Carpeta desde la que corre el modo partida. La tarea se ejecuta elevada
+    al iniciar sesión, así que el script, su configuración, su estado y su
+    log viven donde solo escriben los administradores. Archivos de programa y
+    no ProgramData: en ProgramData cualquier usuario puede crear carpetas y
+    adelantarse a Hardline con una suya.
+
+    Hasta la 1.11.0 el script corría desde %LOCALAPPDATA%\Hardline. Proteger
+    solo el archivo no bastaba: con control total sobre la carpeta, el
+    usuario podía borrarlo y poner otro con el mismo nombre, que Windows
+    ejecutaba como administrador sin preguntar (bypass de UAC).
+#>
+function Get-HLGameSessionDir { return (Join-Path $env:ProgramFiles 'Hardline\gamesession') }
+
+# Copia del usuario: la que se edita. Se crea a partir de la plantilla.
 function Get-HLGameSessionConfigPath {
     $dir = Join-Path $HL.Root 'config'
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
@@ -33,71 +49,81 @@ function Get-HLGameSessionChoice {
     return (Read-HLYesNo '¿Activar el modo partida?' $false)
 }
 
-<#
-    Endurece gamesession_watcher.ps1: la tarea Hardline-GameSession lo ejecuta
-    con -RunLevel Highest al iniciar sesión, pero el script vive en
-    %LOCALAPPDATA%\Hardline, escribible por el usuario sin elevar. Sin esto,
-    cualquier proceso como usuario estándar podría modificarlo y obtener
-    ejecución silenciosa como administrador (bypass de UAC).
-
-    Se quita la herencia y se deja: SYSTEM y Administradores con control
-    total, BUILTIN\Users con solo lectura+ejecución. La ACL previa queda en
-    el manifiesto (tipo FileAcl) para que el rollback la restaure.
-    El watcher no carga ningún otro .ps1 con dot-sourcing (verificado):
-    basta con proteger este archivo.
-#>
-function Protect-HLGameSessionWatcher {
+# ¿Pueden los usuarios sin elevar escribir, borrar o cambiar permisos en $Path?
+function Test-HLUsersCanWrite {
     param([Parameter(Mandatory)] [string] $Path)
-    if ($HL.DryRun) { return }
-    $acl = Get-Acl -LiteralPath $Path
-    $usersSid = 'S-1-5-32-545'  # BUILTIN\Users
-    $writeMask = [Security.AccessControl.FileSystemRights]'Write, Modify, FullControl, Delete, ChangePermissions, TakeOwnership'
-    $userCanWrite = $false
-    foreach ($r in $acl.Access) {
-        try { $sid = $r.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value } catch { $sid = '' }
-        if ($sid -eq $usersSid -and $r.AccessControlType -eq 'Allow' -and ($r.FileSystemRights -band $writeMask)) {
-            $userCanWrite = $true; break
-        }
+    $writeMask = [Security.AccessControl.FileSystemRights]'WriteData, AppendData, WriteExtendedAttributes, WriteAttributes, Delete, DeleteSubdirectoriesAndFiles, ChangePermissions, TakeOwnership'
+    # BUILTIN\Users, Authenticated Users, Everyone, INTERACTIVE.
+    $broad = @('S-1-5-32-545', 'S-1-5-11', 'S-1-1-0', 'S-1-5-4')
+    foreach ($r in (Get-Acl -LiteralPath $Path).Access) {
+        try { $sid = $r.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value } catch { continue }
+        if ($sid -in $broad -and $r.AccessControlType -eq 'Allow' -and ($r.FileSystemRights -band $writeMask)) { return $true }
     }
-    if (-not $userCanWrite -and $acl.AreAccessRulesProtected) {
-        Write-HLLog DEBUG "Watcher ya endurecido: $Path"
-        return
+    return $false
+}
+
+<#
+    Copia el watcher y su configuración a la carpeta protegida. La config es
+    la del usuario (config\gamesession.json) si es un JSON válido con al
+    menos un proceso; si no, la plantilla. Devuelve la carpeta.
+#>
+function Sync-HLGameSessionFiles {
+    $dir = Get-HLGameSessionDir
+    if (-not (Test-Path $dir)) {
+        $top = Split-Path $dir -Parent
+        $topCreated = -not (Test-Path $top)
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        # Se deshace después de quitar la tarea (el manifiesto se recorre al revés).
+        Add-HLManifestEntry -Type 'Directory' -Data @{ Path = $(if ($topCreated) { $top } else { $dir }); Reason = 'Carpeta protegida del modo partida' }
     }
-    $prevSddl = $acl.Sddl
-    $acl.SetAccessRuleProtection($true, $false)
-    $acl.SetAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(
-        (New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')), 'FullControl', 'Allow')))
-    $acl.SetAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(
-        (New-Object Security.Principal.SecurityIdentifier('S-1-5-18')), 'FullControl', 'Allow')))
-    $acl.SetAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(
-        (New-Object Security.Principal.SecurityIdentifier($usersSid)), 'ReadAndExecute', 'Allow')))
-    Set-Acl -LiteralPath $Path -AclObject $acl
-    Add-HLManifestEntry -Type 'FileAcl' -Data @{
-        Path = $Path; PrevSddl = $prevSddl
-        Reason = 'Solo-lectura para no-admins: el watcher corre elevado al iniciar sesión'
+    # Fail-closed: si la carpeta heredó permisos de escritura para usuarios, no se usa.
+    if (Test-HLUsersCanWrite -Path $dir) { throw "Los usuarios pueden escribir en $dir; el modo partida no se instala ahí." }
+
+    $src = Join-Path $HL.Root 'src\modules\windows'
+    Copy-Item (Join-Path $src 'gamesession_watcher.ps1') (Join-Path $dir 'gamesession_watcher.ps1') -Force
+    Copy-Item (Join-Path $src 'configs\gamesession.default.json') (Join-Path $dir 'gamesession.default.json') -Force
+
+    $userCfg = Get-HLGameSessionConfigPath
+    $cfgOk = $false
+    try { $cfgOk = @((Get-Content $userCfg -Raw -Encoding UTF8 | ConvertFrom-Json).process | Where-Object { $_ }).Count -gt 0 } catch { Write-HLLog WARN "gamesession.json ilegible: $($_.Exception.Message)" }
+    if ($cfgOk) {
+        Copy-Item $userCfg (Join-Path $dir 'gamesession.json') -Force
+    } else {
+        Write-HLWarn "config\gamesession.json no es válido: el modo partida usa la configuración por defecto."
+        Copy-Item (Join-Path $src 'configs\gamesession.default.json') (Join-Path $dir 'gamesession.json') -Force
     }
-    Write-HLLog INFO "Watcher endurecido (solo-lectura no-admins): $Path"
+    return $dir
 }
 
 function Install-HLGameSession {
     param($Hardware)
 
-    $watcher = Join-Path $HL.Root 'src\modules\windows\gamesession_watcher.ps1'
-    if (-not (Test-Path $watcher)) { throw "No se encuentra $watcher" }
+    $dir = Get-HLGameSessionDir
+    $watcher = Join-Path $dir 'gamesession_watcher.ps1'
+    $task = Get-ScheduledTask -TaskName $script:HLGameSessionTask -ErrorAction SilentlyContinue
+    $current = $task -and ("$($task.Actions[0].Arguments)" -like "*$dir*")
 
-    # Se endurece en cada instalación/actualización aunque la tarea ya exista.
-    Protect-HLGameSessionWatcher -Path $watcher
-
-    if (Get-ScheduledTask -TaskName $script:HLGameSessionTask -ErrorAction SilentlyContinue) {
-        Write-HLSub 'Modo partida' 'OK (ya instalado)'
-        Add-HLResult -Module 'Modo partida' -Item 'Tarea' -Status Skipped -Detail 'Ya estaba instalado'
+    if ($HL.DryRun) {
+        Write-HLSub 'Modo partida' $(if ($current) { 'OK (ya instalado)' } elseif ($task) { 'SKIP (DryRun: se movería a la carpeta protegida)' } else { 'SKIP (DryRun)' })
         return
     }
-    if ($HL.DryRun) { Write-HLSub 'Modo partida' 'SKIP (DryRun)'; return }
 
-    $cfg = Get-HLGameSessionConfigPath
+    # Cada vez que se aplica: script nuevo y config del usuario, aunque la tarea ya exista.
+    [void](Sync-HLGameSessionFiles)
+    if ($current) {
+        Write-HLSub 'Modo partida' 'OK (ya instalado, configuración actualizada)'
+        Add-HLResult -Module 'Modo partida' -Item 'Tarea' -Status Skipped -Detail "Ya estaba instalado. Configuración copiada a $dir"
+        return
+    }
+
+    if ($task) {
+        # Versión anterior: la tarea apunta al script de %LOCALAPPDATA%. Se sustituye.
+        Stop-ScheduledTask -TaskName $script:HLGameSessionTask -ErrorAction SilentlyContinue
+        Write-HLLog INFO 'Modo partida: tarea anterior (carpeta del usuario) sustituida por la de la carpeta protegida'
+    }
+
     $psExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-    $arg = '-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "{0}" -Root "{1}"' -f $watcher, $HL.Root
+    $arg = '-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "{0}" -Root "{1}"' -f $watcher, $dir
     $user = "$env:USERDOMAIN\$env:USERNAME"
     $action = New-ScheduledTaskAction -Execute $psExe -Argument $arg
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
@@ -108,9 +134,9 @@ function Install-HLGameSession {
 
     Register-ScheduledTask -TaskName $script:HLGameSessionTask -Action $action -Trigger $trigger -Settings $settings `
         -Principal $principal -Description 'Hardline: modo partida (pausa servicios y procesos de fondo mientras Warzone está abierto).' -Force | Out-Null
-    Add-HLManifestEntry -Type 'ScheduledTask' -Data @{ Name = $script:HLGameSessionTask; ProcessMatch = 'gamesession_watcher.ps1'; RestoreScript = $watcher; RestoreRoot = $HL.Root }
+    Add-HLManifestEntry -Type 'ScheduledTask' -Data @{ Name = $script:HLGameSessionTask; ProcessMatch = 'gamesession_watcher.ps1'; RestoreScript = $watcher; RestoreRoot = $dir }
     Start-ScheduledTask -TaskName $script:HLGameSessionTask
 
-    Write-HLSub 'Modo partida' 'OK'
-    Add-HLResult -Module 'Modo partida' -Item 'Tarea' -Status Applied -Detail "Activo al iniciar sesión. Configuración: $cfg. Registro: logs\gamesession.log"
+    Write-HLSub 'Modo partida' $(if ($task) { 'OK (movido a la carpeta protegida)' } else { 'OK' })
+    Add-HLResult -Module 'Modo partida' -Item 'Tarea' -Status Applied -Detail "Activo al iniciar sesión. Edita config\gamesession.json y vuelve a aplicar para cambiarlo. Registro: $dir\gamesession.log"
 }

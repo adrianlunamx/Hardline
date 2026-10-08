@@ -713,6 +713,11 @@ function Undo-HLManifestEntry {
             }
             return "ACL restaurada en $($Entry.Path)"
         }
+        'Directory' {
+            # Carpeta creada por Hardline (modo partida en Archivos de programa).
+            if (Test-Path -LiteralPath $Entry.Path) { Remove-Item -LiteralPath $Entry.Path -Recurse -Force -ErrorAction Stop }
+            return "Carpeta $($Entry.Path)"
+        }
         'Bcd' {
             if ($Entry.Created) { & bcdedit.exe /deletevalue '{current}' $Entry.Element | Out-Null }
             return "BCD $($Entry.Element)"

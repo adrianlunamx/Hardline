@@ -379,6 +379,23 @@ try {
     & (Join-HLPath @($root, 'src', 'modules', 'windows', 'gamesession_watcher.ps1')) -Root $gsRoot -RestoreOnly
     Assert-True (-not (Test-Path (Join-Path $gsRoot 'config\gamesession.state.json'))) 'sesión interrumpida: restaurada y estado borrado'
     Assert-True ((Get-Content (Join-Path $gsRoot 'logs\gamesession.log') -Raw) -match 'interrumpida') 'sesión interrumpida: queda en el log'
+    # Carpeta protegida (1.12.0): todo en la raíz, sin config\ ni logs\.
+    $gsSecure = Join-Path $tmp 'gs-secure'
+    New-Item -ItemType Directory -Path $gsSecure -Force | Out-Null
+    '{ "process": ["hardline-no-existe"], "poll_seconds": 2, "pause_services": [], "lower_priority": [], "close_processes": [], "power_plan": false }' |
+        Set-Content (Join-Path $gsSecure 'gamesession.json')
+    '{ "Started": "2026-01-01T00:00:00", "Game": "cod", "Services": [], "Priorities": [], "PrevScheme": null }' |
+        Set-Content (Join-Path $gsSecure 'gamesession.state.json')
+    & (Join-HLPath @($root, 'src', 'modules', 'windows', 'gamesession_watcher.ps1')) -Root $gsSecure -RestoreOnly
+    Assert-True (-not (Test-Path (Join-Path $gsSecure 'gamesession.state.json')) -and ((Get-Content (Join-Path $gsSecure 'gamesession.log') -Raw) -match 'interrumpida')) 'carpeta protegida: estado y log en la raíz'
+    . (Join-HLPath @($root, 'src', 'modules', 'windows', 'gamesession.ps1'))
+    $aclDir = Join-Path $tmp 'acl'
+    New-Item -ItemType Directory -Path $aclDir -Force | Out-Null
+    # icacls y no Set-Acl: Set-Acl reescribe también la SACL y sin admin falla.
+    & icacls.exe $aclDir /inheritance:r /grant:r '*S-1-3-4:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' | Out-Null
+    $roOk = -not (Test-HLUsersCanWrite -Path $aclDir)
+    & icacls.exe $aclDir /grant '*S-1-5-32-545:(OI)(CI)M' | Out-Null
+    Assert-True ($roOk -and (Test-HLUsersCanWrite -Path $aclDir)) 'Test-HLUsersCanWrite: solo lectura = no; Modify para Usuarios = sí'
 
     # -----------------------------------------------------------------------
     Write-Host "`n[11] GPU y reporte HTML" -ForegroundColor Cyan
@@ -776,11 +793,15 @@ Assert-True ($comSrc -match "Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'") 'stamp de 
 Assert-True ($rbSrc -match 'if \(\$r\.Fail -eq 0\)' -and $rbSrc.IndexOf('$r.Fail -eq 0') -lt $rbSrc.IndexOf("NewName 'manifest.rolledback.json'")) 'rollback: rename del manifiesto solo sin fallos'
 # S1: firma Authenticode exigida antes de ejecutar VB-CABLE / Equalizer APO
 Assert-True ($auSetupSrc -match 'function Test-HLInstallerSignature' -and $auSetupSrc -match "Status -ne 'Valid'" -and $auSetupSrc -match "Test-HLInstallerSignature -Path .* -Name 'VB-CABLE'" -and $auSetupSrc -match "Test-HLInstallerSignature -Path .* -Name 'Equalizer APO'") 'S1: firma válida exigida en VB-CABLE y Equalizer APO'
-# S2: watcher endurecido en cada instalación (antes del early-return) y con undo FileAcl
+# S2 (1.12.0): el watcher elevado corre desde Archivos de programa, no desde la carpeta del usuario,
+# se sincroniza antes del early-return de "ya instalado" y la carpeta se borra en el rollback.
 $gsInstall = $gsSrc.Substring($gsSrc.IndexOf('function Install-HLGameSession'))
-$protectAt = $gsInstall.IndexOf('Protect-HLGameSessionWatcher -Path $watcher')
-$taskCheckAt = $gsInstall.IndexOf('Get-ScheduledTask -TaskName')
-Assert-True ($gsSrc -match 'function Protect-HLGameSessionWatcher' -and $protectAt -ge 0 -and $taskCheckAt -ge 0 -and $protectAt -lt $taskCheckAt -and $comSrc -match "'FileAcl' \{") 'S2: ACL solo-lectura del watcher con rollback'
+$syncAt = $gsInstall.IndexOf('Sync-HLGameSessionFiles')
+$currentAt = $gsInstall.IndexOf("'OK (ya instalado, configuración actualizada)'")
+Assert-True ($gsSrc -match 'Join-Path \$env:ProgramFiles ''Hardline\\gamesession''' -and $gsSrc -notmatch 'LOCALAPPDATA.*-RunLevel' -and $syncAt -ge 0 -and $syncAt -lt $currentAt) 'S2: watcher en Archivos de programa, sincronizado en cada instalación'
+Assert-True ($gsSrc -match 'if \(Test-HLUsersCanWrite -Path \$dir\) \{ throw' -and $comSrc -match "'Directory' \{" -and $comSrc -match "'FileAcl' \{") 'S2: fail-closed si los usuarios pueden escribir; rollback borra la carpeta'
+$gsArgLine = [regex]::Match($gsInstall, '\$arg = .*').Value
+Assert-True ($gsArgLine -match '\$watcher, \$dir' -and $gsInstall -match '\$watcher = Join-Path \$dir') 'S2: la tarea apunta al script y a la carpeta protegidos'
 # S3: sin release verificable se aborta (no cae a main sin verificar)
 Assert-True ($instMainSrc -notmatch 'se usa la rama main' -and $instMainSrc -match 'Hardline no descarga codigo sin verificar') 'S3: fail-closed sin release verificable'
 # S5: default No al continuar sin restore point + abort en -Unattended
