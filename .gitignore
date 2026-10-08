@@ -10,3 +10,4 @@ headsets/*
 !headsets/LEEME.txt
 config/
 tools/
+.hardline-source
