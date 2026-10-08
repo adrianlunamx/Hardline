@@ -105,12 +105,34 @@ function Connect-HLVoicemeeter {
         [void][Hardline.VMR]::VBVMR_RunVoicemeeter($type)
         Start-Sleep -Seconds 3
     }
-    $t = 0
-    for ($i = 0; $i -lt 20; $i++) {
-        if ([Hardline.VMR]::VBVMR_GetVoicemeeterType([ref]$t) -eq 0) { break }
-        Start-Sleep -Milliseconds 500
+    $t = Get-HLRunningVoicemeeterType
+    # Abierta una edición peor que la instalada (p. ej. Voicemeeter básico con Potato
+    # instalado encima): se cierra y se abre la mejor. Si no, la API configura la
+    # que está abierta y el compresor completo de Potato no se usa.
+    $best = Get-HLVoicemeeterRunType -Files @(Get-ChildItem $Dir -Filter 'voicemeeter*.exe' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
+    $bestEdition = if ($best -gt 0) { (($best - 1) % 3) + 1 } else { 0 }
+    if (-not $NoLaunch -and $t -gt 0 -and $bestEdition -gt $t) {
+        Write-HLLog INFO "Voicemeeter abierto: edición $t; instalada: $bestEdition. Se cambia a la instalada."
+        [void][Hardline.VMR]::VBVMR_Logout()
+        Get-Process -Name 'voicemeeter*' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+        [void][Hardline.VMR]::VBVMR_Login()
+        [void][Hardline.VMR]::VBVMR_RunVoicemeeter($best)
+        Start-Sleep -Seconds 3
+        $t = Get-HLRunningVoicemeeterType -Expect $bestEdition
     }
     # 1 = Voicemeeter, 2 = Banana, 3 = Potato
+    return $t
+}
+
+# Edición abierta según la Remote API (espera hasta 10 s, o a la esperada).
+function Get-HLRunningVoicemeeterType {
+    param([int] $Expect = 0)
+    $t = 0
+    for ($i = 0; $i -lt 20; $i++) {
+        if ([Hardline.VMR]::VBVMR_GetVoicemeeterType([ref]$t) -eq 0 -and ($Expect -eq 0 -or $t -eq $Expect)) { break }
+        Start-Sleep -Milliseconds 500
+    }
     return $t
 }
 
@@ -130,10 +152,14 @@ function Wait-HLVoicemeeterSync {
     valores del headset. Devuelve una lista de sentencias "Param=valor;".
 #>
 # Perfiles de dinámica del canal del juego (strip 0).
+# De menos a más compresión: es el orden del deslizador del panel del EQ.
 $script:HLDynamicsProfiles = [ordered]@{
+    suave  = 'Suave: suena casi natural, solo recorta los picos más fuertes'
     normal = 'Normal: explosiones controladas, pasos claros'
-    pasos  = 'Pasos al máximo: disparos y explosiones mucho más bajos, pasos muy altos'
+    pasos  = 'Fuerte: disparos y explosiones mucho más bajos, pasos muy altos'
+    rush   = 'Rush: para tiroteos seguidos; recupera el volumen entre disparo y disparo'
 }
+$script:HLDynamicsModes = @($script:HLDynamicsProfiles.Keys)
 
 function Limit-HLRange { param([double]$Value, [double]$Min, [double]$Max) return [Math]::Min($Max, [Math]::Max($Min, $Value)) }
 
@@ -150,13 +176,32 @@ function Limit-HLRange { param([double]$Value, [double]$Min, [double]$Max) retur
     Comp.Threshold -40..-3, Comp.GainOut -24..24, Limit -40..12.
 #>
 function Get-HLDynamicsValues {
-    param([Parameter(Mandatory)] $Config, $Overrides, [ValidateSet('normal', 'pasos')] [string] $Mode = 'normal', [double] $PreampDb = 0)
+    param([Parameter(Mandatory)] $Config, $Overrides, [ValidateSet('suave', 'normal', 'pasos', 'rush')] [string] $Mode = 'normal', [double] $PreampDb = 0)
     $gate = $Config.Gate; $comp = $Config.Compressor
-    $pre = [Math]::Min(0, $PreampDb)
+    $pre = [Math]::Min([double]0, [double]$PreampDb)
     $o = @{}
     if ($Overrides) { foreach ($k in @('gate_threshold_db', 'comp_ratio', 'comp_threshold_db', 'comp_attack_ms', 'comp_release_ms', 'comp_makeup_db')) { if ($null -ne $Overrides.$k) { $o[$k] = [double]$Overrides.$k } } }
     $get = { param($k, $def) if ($o.ContainsKey($k)) { $o[$k] } else { [double]$def } }
 
+    if ($Mode -eq 'suave') {
+        # 2:1 desde arriba: solo los picos (explosiones, tu arma) bajan algo. Sin gate.
+        return [pscustomobject]@{
+            GateKnob = 0; GateThr = -60; GateDamping = -20; GateAttack = [double]$gate.attack_ms; GateHold = [double]$gate.hold_ms; GateRelease = [double]$gate.release_ms
+            CompKnob = 3; Ratio = 2; Threshold = (Limit-HLRange (-14 + $pre) -40 -3); Attack = 10; Release = 120; Knee = 0.7; AutoMakeup = 0
+            GainOut = (Limit-HLRange (2 - $pre / 2) 0 24); Limit = $(if ($pre -lt 0) { -3 } else { 12 })
+        }
+    }
+    if ($Mode -eq 'rush') {
+        # Tiroteos seguidos: un arma automática dispara cada 60-100 ms. Con el release de
+        # "Fuerte" (50 ms) el volumen no llega a recuperarse entre disparos y los pasos
+        # quedan hundidos. Release de 20 ms: vuelve antes del siguiente disparo. El
+        # umbral más alto evita que los pasos (más flojos) activen el compresor.
+        return [pscustomobject]@{
+            GateKnob = 0; GateThr = -60; GateDamping = -20; GateAttack = [double]$gate.attack_ms; GateHold = [double]$gate.hold_ms; GateRelease = [double]$gate.release_ms
+            CompKnob = 10; Ratio = 8; Threshold = (Limit-HLRange (-16 + $pre) -40 -3); Attack = 0.5; Release = 20; Knee = 0.2; AutoMakeup = 0
+            GainOut = (Limit-HLRange (6 - $pre) 0 24); Limit = -6
+        }
+    }
     if ($Mode -eq 'pasos') {
         # Todo lo que supera el umbral (disparos, explosiones, granadas) baja 8:1 casi al
         # instante; lo que queda por debajo (pasos, recargas, equipo) sube con la ganancia.
@@ -216,7 +261,7 @@ function New-HLVoicemeeterScript {
         [Parameter(Mandatory)] [string] $HeadsetDevice,
         $Overrides,
         [int]$VoicemeeterType = 3,
-        [ValidateSet('normal', 'pasos')] [string] $Dynamics = 'normal',
+        [ValidateSet('suave', 'normal', 'pasos', 'rush')] [string] $Dynamics = 'normal',
         [double] $PreampDb = 0
     )
     [xml]$x = Get-Content -Path $XmlPath -Raw -Encoding UTF8
@@ -245,7 +290,7 @@ function Set-HLVoicemeeterConfig {
         [Parameter(Mandatory)] [string] $XmlPath,
         [Parameter(Mandatory)] [string] $HeadsetDevice,
         $Overrides,
-        [ValidateSet('normal', 'pasos')] [string] $Dynamics = 'normal',
+        [ValidateSet('suave', 'normal', 'pasos', 'rush')] [string] $Dynamics = 'normal',
         [double] $PreampDb = 0
     )
     $dir = Get-HLVoicemeeterDir
@@ -279,7 +324,7 @@ function Set-HLVoicemeeterConfig {
     del EQ). No toca dispositivos ni rutas. No necesita administrador.
 #>
 function Set-HLVoicemeeterDynamics {
-    param([Parameter(Mandatory)] [string] $XmlPath, [ValidateSet('normal', 'pasos')] [string] $Mode = 'normal', [double] $PreampDb = 0, $Overrides)
+    param([Parameter(Mandatory)] [string] $XmlPath, [ValidateSet('suave', 'normal', 'pasos', 'rush')] [string] $Mode = 'normal', [double] $PreampDb = 0, $Overrides)
     $dir = Get-HLVoicemeeterDir
     if (-not $dir) { throw 'Voicemeeter no está instalado.' }
     [xml]$x = Get-Content -Path $XmlPath -Raw -Encoding UTF8
@@ -305,7 +350,7 @@ function Get-HLAudioSettings {
     $f = Join-Path $Root 'config\audio.json'
     $d = $null
     if (Test-Path $f) { try { $d = Get-Content $f -Raw | ConvertFrom-Json } catch { $d = $null } }
-    $dyn = if ($d -and "$($d.Dynamics)" -in @('normal', 'pasos')) { "$($d.Dynamics)" } else { 'normal' }
+    $dyn = if ($d -and "$($d.Dynamics)" -in @('suave', 'normal', 'pasos', 'rush')) { "$($d.Dynamics)" } else { 'normal' }
     $pre = 0.0
     if ($d -and $null -ne $d.PreampDb) { [void][double]::TryParse("$($d.PreampDb)", [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$pre) }
     return [pscustomobject]@{ Dynamics = $dyn; PreampDb = $pre; Overrides = $(if ($d) { $d.Overrides } else { $null }); HeadsetId = $(if ($d) { "$($d.HeadsetId)" } else { '' }) }

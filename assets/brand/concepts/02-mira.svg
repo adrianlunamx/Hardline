@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Hardline: Mira">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF5A1F"/><stop offset="1" stop-color="#FF9A3D"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="#0B0D12"/>
+  <rect x="17.5" y="17.5" width="477" height="477" rx="110.5" fill="none" stroke="#2E3746" stroke-width="3"/>
+  <!-- Mira: anillo partido en cuatro, con marcas hacia fuera. -->
+  <g fill="none" stroke="#EEF1F6" stroke-width="20" stroke-linecap="round">
+    <path d="M256 104 A152 152 0 0 1 408 256" stroke-dasharray="0" opacity="0.92"/>
+    <path d="M408 256 A152 152 0 0 1 256 408" opacity="0.35"/>
+    <path d="M256 408 A152 152 0 0 1 104 256" opacity="0.92"/>
+    <path d="M104 256 A152 152 0 0 1 256 104" opacity="0.35"/>
+  </g>
+  <g stroke="#EEF1F6" stroke-width="18" stroke-linecap="round">
+    <line x1="256" y1="70" x2="256" y2="118"/><line x1="256" y1="394" x2="256" y2="442"/>
+    <line x1="70" y1="256" x2="118" y2="256"/><line x1="394" y1="256" x2="442" y2="256"/>
+  </g>
+  <!-- Dentro, la onda del sonido apuntando al centro. -->
+  <polyline points="150,256 176,256 190,206 208,306 226,226 242,282 256,256 362,256"
+            fill="none" stroke="url(#g)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="256" cy="256" r="16" fill="#FF5A1F"/>
+</svg>

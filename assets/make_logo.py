@@ -32,35 +32,44 @@ def text_path(fontfile, text, size, x, baseline, tracking=0.0):
 BOLD = f'{S}/BarlowCondensed-Bold.ttf'; MED = f'{S}/BarlowCondensed-Medium.ttf'
 ACC = '#FF5A1F'
 
-# --- Marca: ruido -> línea firme. viewBox 0 0 128 128
-def mark(x0=0, y0=0, s=1.0, bg=True, noise='#5B6472'):
-    t = lambda px, py: f'{x0 + px*s:.2f},{y0 + py*s:.2f}'
-    parts = []
+# --- Marca: monograma H (desde 1.12.0). Dos astas y, en vez de travesaño, la
+# "línea dura" naranja que sale por la derecha y acaba en un punto.
+# viewBox 0 0 128 128. Mismo dibujo que assets/brand/concepts/04-monograma.svg.
+# glow: resplandor naranja (lockups y vista previa; el icono pequeño va sin él).
+def mark(x0=0, y0=0, s=1.0, bg=True, glow=False, uid='hl'):
+    X = lambda v: f'{x0 + v*s:.2f}'
+    Y = lambda v: f'{y0 + v*s:.2f}'
+    S = lambda v: f'{v*s:.2f}'
+    parts = [f'<defs><linearGradient id="{uid}g" gradientUnits="userSpaceOnUse" x1="{X(25.6)}" y1="0" x2="{X(106)}" y2="0">'
+             f'<stop offset="0" stop-color="{ACC}"/><stop offset="1" stop-color="#FF9A3D"/></linearGradient>'
+             + (f'<filter id="{uid}f" x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="{S(3.2)}" result="b"/>'
+                f'<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' if glow else '')
+             + '</defs>']
     if bg:
-        parts.append(f'<rect x="{x0}" y="{y0}" width="{128*s}" height="{128*s}" rx="{28*s}" fill="#0E1116" stroke="#2A313C" stroke-width="{2*s:.2f}"/>')
-    # tramo irregular (picos decrecientes: stutter / explosiones)
-    pts = [(18,64),(26,64),(30,38),(35,86),(40,46),(45,78),(50,54),(54,70),(58,60),(62,66),(66,64)]
-    parts.append(f'<polyline points="{" ".join(t(*p) for p in pts)}" fill="none" stroke="{noise}" stroke-width="{6*s:.2f}" stroke-linecap="round" stroke-linejoin="round"/>')
-    # línea firme
-    parts.append(f'<line x1="{x0+66*s:.2f}" y1="{y0+64*s:.2f}" x2="{x0+104*s:.2f}" y2="{y0+64*s:.2f}" stroke="{ACC}" stroke-width="{10*s:.2f}" stroke-linecap="round"/>')
-    parts.append(f'<circle cx="{x0+104*s:.2f}" cy="{y0+64*s:.2f}" r="{9*s:.2f}" fill="{ACC}"/>')
+        parts.append(f'<rect x="{x0}" y="{y0}" width="{S(128)}" height="{S(128)}" rx="{S(28)}" fill="#0E1116" stroke="#2A313C" stroke-width="{S(2)}"/>')
+    parts.append(f'<rect x="{X(25.6)}" y="{Y(27.2)}" width="{S(16.53)}" height="{S(73.6)}" rx="{S(4.8)}" fill="#EEF1F6"/>')
+    parts.append(f'<rect x="{X(73.07)}" y="{Y(27.2)}" width="{S(16.53)}" height="{S(73.6)}" rx="{S(4.8)}" fill="#EEF1F6"/>')
+    f = f' filter="url(#{uid}f)"' if glow else ''
+    parts.append(f'<g{f}><rect x="{X(25.6)}" y="{Y(56)}" width="{S(80)}" height="{S(16)}" rx="{S(8)}" fill="url(#{uid}g)"/>'
+                 f'<circle cx="{X(106.13)}" cy="{Y(64)}" r="{S(10.67)}" fill="{ACC}"/></g>')
+    parts.append(f'<circle cx="{X(106.13)}" cy="{Y(64)}" r="{S(4)}" fill="#0E1116"/>')
     return '\n  '.join(parts)
 
-def lockup(fg, sub, noise):
+def lockup(fg, sub):
     # icono 128 a la izquierda, texto a la derecha. Alto 128.
     word, ww = text_path(BOLD, 'HARDLINE', 84, 152, 84, tracking=0.04)
     tag, tw = text_path(MED, 'WARZONE  ·  WINDOWS  ·  AMD  ·  AUDIO', 21, 154, 116, tracking=0.12)
     W = int(max(152 + ww, 154 + tw) + 8)
     return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} 128" width="{W}" height="128" role="img" aria-label="Hardline">
   <title>Hardline</title>
-  {mark()}
+  {mark(glow=True)}
   <path d="{word}" fill="{fg}"/>
   <path d="{tag}" fill="{sub}"/>
 </svg>
 '''
 
-open(f'{OUT}/logo-dark.svg','w').write(lockup('#F2F4F7', '#8A93A3', '#5B6472'))   # para tema oscuro
-open(f'{OUT}/logo-light.svg','w').write(lockup('#0E1116', '#5B6472', '#5B6472'))  # para tema claro
+open(f'{OUT}/logo-dark.svg','w').write(lockup('#F2F4F7', '#8A93A3'))   # para tema oscuro
+open(f'{OUT}/logo-light.svg','w').write(lockup('#0E1116', '#5B6472'))  # para tema claro
 open(f'{OUT}/icon.svg','w').write(f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Hardline">
   <title>Hardline</title>
   {mark()}
@@ -91,7 +100,7 @@ open(f'{OUT}/social-preview.svg','w').write(f'''<svg xmlns="http://www.w3.org/20
   <rect width="1280" height="640" fill="#0E1116"/>
   <polyline points="{bgline}" fill="none" stroke="#2A313C" stroke-width="4" stroke-linejoin="round"/>
   <line x1="{pts[-1][0]}" y1="600" x2="1280" y2="600" stroke="{ACC}" stroke-opacity="0.55" stroke-width="4"/>
-  {mark(x0, 300-128*iconS/2-50, iconS, bg=False, noise='#5B6472')}
+  {mark(x0, 300-128*iconS/2-50, iconS, glow=True)}
   <path d="{word}" fill="#F2F4F7"/>
   <path d="{tag}" fill="#C4CAD4"/>
   <path d="{chp}" fill="#8A93A3"/>

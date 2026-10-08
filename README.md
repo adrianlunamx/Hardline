@@ -6,36 +6,48 @@
   </picture>
 </p>
 
+<h3 align="center">Optimizador de Warzone para PC: más FPS, menos input lag y pasos que oyes antes que nadie.</h3>
+
 <p align="center">
-  <strong>Optimizaciones reales para Warzone. Nada de placebo.</strong>
+  Windows 10/11 · AMD, NVIDIA e Intel · Battle.net, Steam y Xbox · <b>gratis, código abierto y 100 % reversible</b>
 </p>
 
 <p align="center">
+  <a href="https://github.com/adrianlunamx/Hardline/releases/latest"><img alt="Última versión" src="https://img.shields.io/github/v/release/adrianlunamx/Hardline?style=for-the-badge&color=FF5A1F&label=versi%C3%B3n"></a>
+  <a href="https://github.com/adrianlunamx/Hardline/releases"><img alt="Descargas" src="https://img.shields.io/github/downloads/adrianlunamx/Hardline/total?style=for-the-badge&color=0E1116&label=descargas"></a>
+  <a href="https://github.com/adrianlunamx/Hardline/stargazers"><img alt="Estrellas" src="https://img.shields.io/github/stars/adrianlunamx/Hardline?style=for-the-badge&color=0E1116&logo=github"></a>
+</p>
+<p align="center">
   <a href="https://github.com/adrianlunamx/Hardline/actions/workflows/release.yml"><img alt="CI" src="https://github.com/adrianlunamx/Hardline/actions/workflows/release.yml/badge.svg"></a>
-  <a href="https://github.com/adrianlunamx/Hardline/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/adrianlunamx/Hardline?style=flat-square&color=FF5A1F"></a>
-  <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E1116?style=flat-square">
-  <img alt="PowerShell 5.1+" src="https://img.shields.io/badge/PowerShell-5.1%2B-0E1116?style=flat-square">
+  <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E1116?style=flat-square&logo=windows">
+  <img alt="PowerShell 5.1+" src="https://img.shields.io/badge/PowerShell-5.1%2B-0E1116?style=flat-square&logo=powershell">
+  <a href="https://github.com/adrianlunamx/Hardline/commits/main"><img alt="Último commit" src="https://img.shields.io/github/last-commit/adrianlunamx/Hardline?style=flat-square&color=0E1116&label=actualizado"></a>
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/licencia-MIT-FF5A1F?style=flat-square"></a>
 </p>
 
 <p align="center">
   <a href="#instalación">Instalación</a> ·
+  <a href="#por-qué-hardline">Por qué Hardline</a> ·
   <a href="#qué-hace">Qué hace</a> ·
-  <a href="#audio-pasos-claros-explosiones-controladas">Audio</a> ·
+  <a href="#audio-pasos-claros-explosiones-controladas">Audio de pasos</a> ·
   <a href="#revertir">Revertir</a> ·
-  <a href="docs/TWEAKS_EXPLAINED.md">Cada tweak explicado</a> ·
   <a href="docs/FAQ.md">FAQ</a> ·
   <a href="README.en.md">English</a>
 </p>
 
+<p align="center">
+  <img alt="Interfaz de Hardline: módulos, guía de pasos, Hardline EQ y herramientas" src="assets/screenshots/interfaz.png" width="900">
+</p>
+
 ---
 
-Hardline es un script de PowerShell que ajusta Windows, tu GPU y CPU, la red, la configuración de Warzone y el audio para oír pasos antes que nadie.
+**Hardline** ajusta Windows, tu GPU y CPU, la red, la configuración de **Call of Duty: Warzone** y el audio para oír pasos antes que nadie. Todo desde una interfaz, en un clic, y con cada cambio registrado para deshacerlo.
 
-- **Aplica** lo que se puede hacer de forma segura y reversible.
-- **Te guía** en lo que no se puede tocar desde Windows (BIOS, Adrenalin), con la ruta de menús de **tu** placa.
-- **Registra** cada cambio con su valor anterior: se revierte con un comando.
-- **Mide** antes y después, y te lo deja en un reporte HTML.
+- ⚡ **Aplica** lo que se puede hacer de forma segura: servicios, energía, timer, modo MSI, red, gráficos del juego.
+- 🎧 **Audio competitivo**: EQ de pasos sobre la corrección medida de **tu** headset, compresor y panel con deslizadores.
+- 🧭 **Te guía** en lo que no se puede tocar desde Windows (BIOS, Adrenalin, NVIDIA App): un botón te abre el panel exacto.
+- ↩️ **Registra** cada cambio con su valor anterior: se revierte todo con un clic.
+- 📊 **Mide** antes y después con PresentMon (FPS, 1% lows, tirones) y te lo deja en un reporte.
 
 ## Instalación
 
@@ -90,6 +102,29 @@ cd Hardline
 | `-ControllerTestOnly` | Solo el test de mando (drift, zona muerta, Hz) |
 
 </details>
+
+## Por qué Hardline
+
+La mayoría de «FPS boosters» y packs de tweaks para Warzone aplican cientos de cambios de registro sin medir nada y sin forma de volver atrás. Hardline va al revés:
+
+| | Hardline | Optimizador típico |
+|---|:---:|:---:|
+| Cada cambio con su valor anterior y **rollback exacto** | ✅ | ❌ |
+| **Mide** FPS, 1% lows y tirones de tu partida real, antes y después | ✅ | ❌ |
+| Solo tweaks con efecto demostrado; los dudosos, apagados y marcados | ✅ | ❌ |
+| No toca el proceso del juego ni inyecta nada (anticheat Ricochet) | ✅ | ⚠️ |
+| Audio de pasos con la **corrección medida de tu headset** (AutoEq) | ✅ | ❌ |
+| Te abre el panel de Windows o del driver para lo que hay que hacer a mano | ✅ | ❌ |
+| Código abierto, release con SHA256 y tests en cada cambio | ✅ | ❌ |
+
+<table>
+  <tr>
+    <td width="50%"><img alt="Hardline EQ: intensidad del EQ de pasos y compresor con deslizadores, y novedades" src="assets/screenshots/hardline-eq.png"></td>
+    <td width="50%"><img alt="Guía de pasos: cada paso manual con un botón que abre el panel de Windows" src="assets/screenshots/guia.png"><br><br>
+      <b>Hardline EQ</b> (izquierda): enciende y apaga el EQ de pasos, ajusta su intensidad (0-150 %) y el compresor (Suave, Normal, Fuerte, Rush) al momento, sin administrador. <code>Ctrl+Alt+F10</code> en partida.<br><br>
+      <b>Guía de pasos</b> (arriba): lo que Hardline no puede hacer por ti, en orden y con un botón que abre el panel exacto. Cada paso sale una sola vez.</td>
+  </tr>
+</table>
 
 ### Actualizar
 
@@ -153,7 +188,6 @@ Referencia: Ryzen 5 7600X + RX 6650 XT, Warzone 1080p.
 | **1% lows y frametimes** | Servicios de fondo, Game DVR, plan de energía y timer atacan los picos, no la media. Es lo que más se nota al jugar. |
 | **Input lag** | Anti-Lag 2 en el juego, HAGS off, sin limitadores por software. |
 | **Audio** | Pasos a más distancia, explosiones que no lo tapan todo. |
-
 | **Fluidez visible** | Refresco del monitor al máximo: si estaba a 60 Hz en un monitor de 144, es el cambio más grande que vas a notar. |
 
 Hardline no publica cifras que no haya medido en tu equipo. Para verlo en el tuyo:
@@ -178,7 +212,7 @@ flowchart LR
 - **Compresor**: baja los picos y sube lo que no lo es. Neto: pasos más altos, explosiones más bajas.
 - **Solo el juego**: Discord y el resto del sistema no pasan por el EQ.
 - **Sin latencia añadida**: `-AudioMode EqOnly` quita Voicemeeter y deja solo el EQ.
-- **Panel del EQ**: Inicio > Hardline > *Hardline EQ*. Enciende y apaga el EQ y cambia entre intensidad Completa y Moderada al momento, sin administrador.
+- **Hardline EQ**: Inicio > Hardline > *Hardline EQ*. Enciende y apaga el EQ, ajusta su intensidad de 0 a 150 % y el compresor (Suave, Normal, Fuerte o Rush para tiroteos seguidos) con deslizadores, al momento y sin administrador.
 - **Comparar al momento**: `Ctrl+Alt+F10` enciende/apaga el EQ en partida (un pitido agudo = encendido, dos graves = apagado). Inicio > Hardline > *test de pasos* reproduce la misma escena con el EQ apagado y encendido.
 
 ### Tu headset
@@ -228,6 +262,38 @@ Restaura el valor exacto anterior de cada cambio: registro, servicios, plan de e
 
 Hardline no toca el proceso del juego, no inyecta nada y no modifica archivos del juego. Solo edita la configuración de usuario que el propio juego guarda en `Documentos\Call of Duty\players`, igual que el menú de ajustes. Más en la [FAQ](docs/FAQ.md#ricochet).
 
+## Preguntas rápidas
+
+<details>
+<summary><strong>¿Me pueden banear por usar Hardline?</strong></summary>
+
+Hardline no toca el proceso del juego, no inyecta nada, no lee su memoria y no modifica sus archivos. Cambia Windows, drivers y la configuración que el propio juego guarda en `Documentos\Call of Duty\players`, igual que su menú de ajustes. Detalles en la [FAQ](docs/FAQ.md#ricochet).
+</details>
+
+<details>
+<summary><strong>¿Sirve para Black Ops, Multijugador o solo Warzone?</strong></summary>
+
+Warzone y el multijugador de Call of Duty comparten ejecutable (`cod.exe`) y carpeta de configuración: todo lo de Windows, red, GPU, audio y modo partida aplica igual. Los ajustes gráficos se escriben en el archivo de configuración que encuentra.
+</details>
+
+<details>
+<summary><strong>¿AMD, NVIDIA o Intel? ¿Steam, Battle.net o Xbox?</strong></summary>
+
+Todos. Los ajustes de Windows, red, juego y audio valen para cualquier PC; con Ryzen te da además los ajustes de BIOS concretos (PBO, Curve Optimizer, EXPO), y con Radeon, GeForce o Arc los del panel de su driver. Detecta desde dónde juegas. Ver [hardware soportado](docs/SUPPORTED_HARDWARE.md).
+</details>
+
+<details>
+<summary><strong>¿Y si algo no me gusta?</strong></summary>
+
+**Revertir todo** en la interfaz (o `rollback.ps1 -All`) deja cada valor exactamente como estaba. Además hay un punto de restauración de Windows por cada aplicación.
+</details>
+
+<details>
+<summary><strong>¿Cuánto mejora?</strong></summary>
+
+Depende de tu PC, y Hardline no inventa cifras: mide tu partida antes y después y te dice si la diferencia es real o ruido. Lo que más se nota suele ser un monitor que estaba a 60 Hz, los 1% lows y el audio de pasos.
+</details>
+
 ## Requisitos
 
 - Windows 10 22H2 o Windows 11
@@ -245,6 +311,21 @@ Hardline no toca el proceso del juego, no inyecta nada y no modifica archivos de
 | [CHANGELOG.md](CHANGELOG.md) | Versiones |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Cómo probar, reglas y cómo publicar una versión |
 
+## Apoya el proyecto
+
+Si Hardline te dio FPS, te quitó tirones o te hizo oír a alguien antes de que te viera, **dale una ⭐ al repositorio**: es lo que hace que otros jugadores lo encuentren. ¿Un bug o una idea? Abre un [issue](https://github.com/adrianlunamx/Hardline/issues/new/choose).
+
+<a href="https://star-history.com/#adrianlunamx/Hardline&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=adrianlunamx/Hardline&type=Date&theme=dark">
+    <img alt="Historial de estrellas" src="https://api.star-history.com/svg?repos=adrianlunamx/Hardline&type=Date" width="600">
+  </picture>
+</a>
+
 ## Licencia
 
 MIT. Ver [LICENSE](LICENSE). Los perfiles de headset descargados vienen de [AutoEq](https://github.com/jaakkopasanen/AutoEq) (MIT).
+
+<sub>Hardline no está afiliado a Activision, Call of Duty, Microsoft, AMD, NVIDIA ni Intel. Las marcas pertenecen a sus dueños.</sub>
+
+<sub>Palabras clave: optimizar Warzone en PC, subir FPS en Warzone, quitar tirones y stuttering, reducir input lag, mejores ajustes de Warzone, audio de pasos Warzone, EQ para oír pasos, Equalizer APO, Voicemeeter, Call of Duty, Black Ops, Windows 11 para juegos, Ryzen, Radeon, NVIDIA, bufferbloat.</sub>

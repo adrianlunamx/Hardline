@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="linear-gradient-1" x1="16" y1="16" x2="496" y2="496" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#151a24"/>
+      <stop offset="1" stop-color="#0b0d12"/>
+    </linearGradient>
+    <filter id="filter-1" filterUnits="userSpaceOnUse" x="77" y="191" width="370" height="130" data-vc-blend="screen" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="11" result="glow"/><feFlood flood-color="#ff5a1f" flood-opacity="0.65"/><feComposite in2="glow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="linear-gradient-2" x1="112" y1="226" x2="412" y2="226" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff5a1f"/>
+      <stop offset="1" stop-color="#ff9a3d"/>
+    </linearGradient>
+    <filter id="filter-2" filterUnits="userSpaceOnUse" x="339" y="181" width="150" height="150" data-vc-blend="screen" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="11" result="glow"/><feFlood flood-color="#ff5a1f" flood-opacity="0.65"/><feComposite in2="glow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <title>04-monograma.svg</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path d="M128 16 L384 16 C445.856 16 496 66.144 496 128 L496 384 C496 445.856 445.856 496 384 496 L128 496 C66.144 496 16 445.856 16 384 L16 128 C16 66.144 66.144 16 128 16 Z" fill="url(#linear-gradient-1)"/>
+    <path d="M128 17.5 L384 17.5 C445.027 17.5 494.5 66.973 494.5 128 L494.5 384 C494.5 445.027 445.027 494.5 384 494.5 L128 494.5 C66.973 494.5 17.5 445.027 17.5 384 L17.5 128 C17.5 66.973 66.973 17.5 128 17.5 Z" fill="none" stroke="#2e3746" stroke-width="3"/>
+    <path d="M130 118 L156 118 C165.941 118 174 126.059 174 136 L174 376 C174 385.941 165.941 394 156 394 L130 394 C120.059 394 112 385.941 112 376 L112 136 C112 126.059 120.059 118 130 118 Z" fill="#eef1f6"/>
+    <path d="M308 118 L334 118 C343.941 118 352 126.059 352 136 L352 376 C352 385.941 343.941 394 334 394 L308 394 C298.059 394 290 385.941 290 376 L290 136 C290 126.059 298.059 118 308 118 Z" fill="#eef1f6"/>
+    <g filter="url(#filter-1)">
+      <path d="M142 226 L382 226 C398.569 226 412 239.431 412 256 L412 256 C412 272.569 398.569 286 382 286 L142 286 C125.431 286 112 272.569 112 256 L112 256 C112 239.431 125.431 226 142 226 Z" fill="url(#linear-gradient-2)"/>
+    </g>
+    <g filter="url(#filter-2)">
+      <path d="M454 256 C454 278.091 436.091 296 414 296 C391.909 296 374 278.091 374 256 C374 233.909 391.909 216 414 216 C436.091 216 454 233.909 454 256 Z" fill="#ff5a1f"/>
+    </g>
+    <path d="M429 256 C429 264.284 422.284 271 414 271 C405.716 271 399 264.284 399 256 C399 247.716 405.716 241 414 241 C422.284 241 429 247.716 429 256 Z" fill="#0b0d12"/>
+  </g>
+</svg>

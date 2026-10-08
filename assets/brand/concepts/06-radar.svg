@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Hardline: radar de pasos">
+  <defs>
+    <radialGradient id="sweep" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FF5A1F" stop-opacity="0.0"/><stop offset="1" stop-color="#FF5A1F" stop-opacity="0.35"/>
+    </radialGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="#0B0D12"/>
+  <rect x="17.5" y="17.5" width="477" height="477" rx="110.5" fill="none" stroke="#2E3746" stroke-width="3"/>
+  <!-- Radar de audio: oír a un enemigo antes de verlo. -->
+  <g fill="none" stroke="#2E3746" stroke-width="6">
+    <circle cx="256" cy="256" r="170"/><circle cx="256" cy="256" r="116"/><circle cx="256" cy="256" r="62"/>
+  </g>
+  <path d="M256 256 L256 86 A170 170 0 0 1 403 171 Z" fill="url(#sweep)"/>
+  <line x1="256" y1="256" x2="403" y2="171" stroke="#FF5A1F" stroke-width="10" stroke-linecap="round"/>
+  <!-- Pasos: tres puntos que se acercan. -->
+  <circle cx="340" cy="150" r="16" fill="#FF5A1F"/>
+  <circle cx="372" cy="196" r="11" fill="#FF5A1F" opacity="0.6"/>
+  <circle cx="392" cy="240" r="7" fill="#FF5A1F" opacity="0.3"/>
+  <circle cx="256" cy="256" r="14" fill="#EEF1F6"/>
+</svg>

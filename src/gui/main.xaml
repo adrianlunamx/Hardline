@@ -36,11 +36,14 @@
 
       <StackPanel Orientation="Horizontal">
         <Canvas Width="44" Height="44">
-          <Rectangle Width="44" Height="44" RadiusX="12" RadiusY="12" Fill="#12161E" Stroke="#2E3746"/>
-          <Polyline Points="6,22 9,22 10.5,13 12,30 14,16 15.5,27 17,19 18.5,24 20,21 21.5,23 23,22" Stroke="#5B6472"
-                    StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-          <Line X1="23" Y1="22" X2="36" Y2="22" Stroke="#FF5A1F" StrokeThickness="3.5" StrokeStartLineCap="Round"/>
-          <Ellipse Canvas.Left="33" Canvas.Top="19" Width="6.5" Height="6.5" Fill="#FF5A1F"/>
+          <Rectangle Width="44" Height="44" RadiusX="12" RadiusY="12" Fill="#0E1116" Stroke="#2E3746"/>
+          <Rectangle Canvas.Left="8.8" Canvas.Top="9.35" Width="5.68" Height="25.3" RadiusX="1.65" RadiusY="1.65" Fill="#EEF1F6"/>
+          <Rectangle Canvas.Left="25.12" Canvas.Top="9.35" Width="5.68" Height="25.3" RadiusX="1.65" RadiusY="1.65" Fill="#EEF1F6"/>
+          <Rectangle Canvas.Left="8.8" Canvas.Top="19.25" Width="27.5" Height="5.5" RadiusX="2.75" RadiusY="2.75">
+            <Rectangle.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#FF5A1F" Offset="0"/><GradientStop Color="#FF9A3D" Offset="1"/></LinearGradientBrush></Rectangle.Fill>
+          </Rectangle>
+          <Ellipse Canvas.Left="32.81" Canvas.Top="18.33" Width="7.34" Height="7.34" Fill="#FF5A1F"/>
+          <Ellipse Canvas.Left="35.11" Canvas.Top="20.62" Width="2.75" Height="2.75" Fill="#0E1116"/>
         </Canvas>
         <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
           <StackPanel Orientation="Horizontal">
@@ -197,8 +200,10 @@
               <TextBlock Text="Compresor (Voicemeeter)" Style="{StaticResource Label}"/>
               <ComboBox x:Name="cmbDynamics" SelectedIndex="0">
                 <ComboBoxItem Content="Mantener el actual" Tag=""/>
+                <ComboBoxItem Content="Suave: casi natural, solo recorta los picos" Tag="suave"/>
                 <ComboBoxItem Content="Normal: explosiones controladas" Tag="normal"/>
-                <ComboBoxItem Content="Pasos al máximo: disparos y explosiones muy bajos" Tag="pasos"/>
+                <ComboBoxItem Content="Fuerte: disparos y explosiones muy bajos" Tag="pasos"/>
+                <ComboBoxItem Content="Rush: para tiroteos seguidos" Tag="rush"/>
               </ComboBox>
 
               <TextBlock Text="Intensidad del EQ" Style="{StaticResource Label}"/>

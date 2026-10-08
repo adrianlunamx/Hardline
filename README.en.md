@@ -6,15 +6,21 @@
   </picture>
 </p>
 
+<h3 align="center">Warzone PC optimizer: more FPS, lower input lag, and footsteps you hear first.</h3>
+
 <p align="center">
-  <strong>Real Warzone optimizations. No placebo.</strong>
+  Windows 10/11 · AMD, NVIDIA &amp; Intel · Battle.net, Steam &amp; Xbox · <b>free, open source and 100% reversible</b>
 </p>
 
 <p align="center">
+  <a href="https://github.com/adrianlunamx/Hardline/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/adrianlunamx/Hardline?style=for-the-badge&color=FF5A1F"></a>
+  <a href="https://github.com/adrianlunamx/Hardline/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/adrianlunamx/Hardline/total?style=for-the-badge&color=0E1116"></a>
+  <a href="https://github.com/adrianlunamx/Hardline/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/adrianlunamx/Hardline?style=for-the-badge&color=0E1116&logo=github"></a>
+</p>
+<p align="center">
   <a href="https://github.com/adrianlunamx/Hardline/actions/workflows/release.yml"><img alt="CI" src="https://github.com/adrianlunamx/Hardline/actions/workflows/release.yml/badge.svg"></a>
-  <a href="https://github.com/adrianlunamx/Hardline/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/adrianlunamx/Hardline?style=flat-square&color=FF5A1F"></a>
-  <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E1116?style=flat-square">
-  <img alt="PowerShell 5.1+" src="https://img.shields.io/badge/PowerShell-5.1%2B-0E1116?style=flat-square">
+  <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E1116?style=flat-square&logo=windows">
+  <img alt="PowerShell 5.1+" src="https://img.shields.io/badge/PowerShell-5.1%2B-0E1116?style=flat-square&logo=powershell">
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-FF5A1F?style=flat-square"></a>
 </p>
 
@@ -22,14 +28,30 @@
   <a href="README.md">Español</a> · <b>English</b>
 </p>
 
+<p align="center">
+  <img alt="Hardline GUI: modules, step guide, Hardline EQ and tools" src="assets/screenshots/interfaz.png" width="900">
+</p>
+
 ---
 
-Hardline is a PowerShell script that tunes Windows, your GPU/CPU platform, the network, Warzone's config and your audio, so you hear footsteps first.
+**Hardline** tunes Windows, your GPU/CPU platform, the network, **Call of Duty: Warzone**'s config and your audio, so you hear footsteps first. One GUI, one click, and every change recorded so you can undo it.
 
-- **Applies** what can be changed safely and reversibly.
-- **Guides you** through what can't be touched from Windows (BIOS, GPU control panel), with the menu path for **your** motherboard.
-- **Records** every change with its previous value: one command reverts it.
-- **Measures** before and after, and puts it in an HTML report.
+- ⚡ **Applies** what can be changed safely: services, power, timer, MSI mode, network, in-game graphics.
+- 🎧 **Competitive audio**: a footstep EQ on top of **your** headset's measured correction, a compressor, and a slider panel.
+- 🧭 **Guides you** through what can't be touched from Windows (BIOS, Adrenalin, NVIDIA App): a button opens the exact panel.
+- ↩️ **Records** every change with its previous value: revert everything in one click.
+- 📊 **Measures** before and after with PresentMon (FPS, 1% lows, stutter) and writes a report.
+
+### Why Hardline
+
+| | Hardline | Typical "FPS booster" |
+|---|:---:|:---:|
+| Every change stored with its previous value, **exact rollback** | ✅ | ❌ |
+| **Measures** your real match before and after | ✅ | ❌ |
+| Only tweaks with demonstrated effect; dubious ones off and labeled | ✅ | ❌ |
+| Never touches the game process or injects anything (Ricochet anti-cheat) | ✅ | ⚠️ |
+| Footstep audio built on **your headset's measured correction** (AutoEq) | ✅ | ❌ |
+| Open source, SHA256-verified releases, tests on every change | ✅ | ❌ |
 
 > The tool itself (console output, report, docs) is in Spanish. This page is an English overview.
 
@@ -112,3 +134,11 @@ Windows 10 22H2 or 11 · PowerShell 5.1 (built in) · Administrator rights · In
 ## License
 
 MIT. Headset profiles come from [AutoEq](https://github.com/jaakkopasanen/AutoEq) (MIT).
+
+## Support the project
+
+If Hardline gave you FPS, removed stutter or let you hear someone before they saw you, **star the repo ⭐**: that's how other players find it. Bugs and ideas: [open an issue](https://github.com/adrianlunamx/Hardline/issues/new/choose).
+
+<sub>Hardline is not affiliated with Activision, Call of Duty, Microsoft, AMD, NVIDIA or Intel. Trademarks belong to their owners.</sub>
+
+<sub>Keywords: Warzone optimizer, Warzone FPS boost, fix Warzone stuttering, reduce input lag, best Warzone PC settings, Warzone footsteps EQ, hear footsteps better, Equalizer APO, Voicemeeter, Call of Duty, Black Ops, Windows 11 gaming tweaks, Ryzen, Radeon, NVIDIA, bufferbloat.</sub>

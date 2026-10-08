@@ -50,8 +50,16 @@ public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int va
 }
 
 # Icono de Hardline y barra de título del color del fondo (Windows 11; en 10, solo oscura).
+# Las ventanas las abre powershell.exe: sin un AppUserModelID propio, la barra de
+# tareas las agrupa con PowerShell y muestra su icono.
 function Set-HLWindowChrome {
     param([Parameter(Mandatory)] $Window, [Parameter(Mandatory)] [string] $Root)
+    try {
+        if (-not ('Hardline.Shell' -as [type])) {
+            Add-Type -Namespace Hardline -Name Shell -MemberDefinition '[DllImport("shell32.dll", CharSet = CharSet.Unicode)] public static extern int SetCurrentProcessExplicitAppUserModelID(string id);'
+        }
+        [void][Hardline.Shell]::SetCurrentProcessExplicitAppUserModelID('Hardline.Warzone')
+    } catch { Write-Verbose 'Sin AppUserModelID' }
     $ico = Join-Path $Root 'assets\hardline.ico'
     if (Test-Path $ico) {
         try { $Window.Icon = [System.Windows.Media.Imaging.BitmapFrame]::Create((New-Object Uri $ico)) } catch { Write-Verbose 'Sin icono' }

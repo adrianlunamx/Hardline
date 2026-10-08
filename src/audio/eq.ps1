@@ -171,6 +171,54 @@ function ConvertTo-HLEqApoText {
     return (ConvertTo-HLAscii $sb.ToString())
 }
 
+<#
+    Lee un preset generado por ConvertTo-HLEqApoText. Devuelve Name,
+    Intensity (0-1.5), Correction (filtros de corrección, sin escalar),
+    CorrectionSource y Steps (filtros del preset de pasos, con su comentario
+    en "why"). Sin sección de corrección, todos los filtros son del preset.
+#>
+function ConvertFrom-HLEqPresetText {
+    param([Parameter(Mandatory)] [string] $Text)
+    $inv = [Globalization.CultureInfo]::InvariantCulture
+    $lines = @($Text -split '\r?\n')
+    $hasCorr = [bool]($lines | Where-Object { $_ -match '^# --- Preset de pasos' })
+    $corr = New-Object System.Collections.Generic.List[object]
+    $steps = New-Object System.Collections.Generic.List[object]
+    $name = ''; $int = 1.0; $src = ''; $why = $null
+    $inSteps = -not $hasCorr
+    foreach ($l in $lines) {
+        if ($l -match '^# Perfil: (.+?) \| intensidad (\d+)%') { $name = $Matches[1]; $int = [int]$Matches[2] / 100.0; continue }
+        if ($l -match '^# --- Correcci.n del headset: (.+?) ---') { $src = $Matches[1]; continue }
+        if ($l -match '^# --- Preset de pasos') { $inSteps = $true; $why = $null; continue }
+        if ($l -match '^\s*Filter:\s*ON\s+(\w+)\s+Fc\s+([\d.]+)\s*Hz\s+Gain\s+(-?[\d.]+)\s*dB\s+Q\s+([\d.]+)') {
+            $f = [ordered]@{ type = $Matches[1]; fc = [double]::Parse($Matches[2], $inv); gain = [double]::Parse($Matches[3], $inv); q = [double]::Parse($Matches[4], $inv) }
+            if ($inSteps) { if ($why) { $f['why'] = $why }; $steps.Add([pscustomobject]$f) } else { $corr.Add([pscustomobject]$f) }
+            $why = $null
+            continue
+        }
+        if ($inSteps -and $l -match '^#\s+(.+)$' -and $l -notmatch '^# (Hardline|Perfil|Pico|Generado|Lleva)') { $why = $Matches[1] }
+    }
+    return [pscustomobject]@{ Name = $name; Intensity = $int; Correction = $corr.ToArray(); CorrectionSource = $src; Steps = $steps.ToArray() }
+}
+
+<#
+    Preset con otra intensidad a partir del preset completo (100%): mismas
+    frecuencias y Q, ganancias del preset de pasos escaladas, corrección del
+    headset intacta y preamp recalculado para no saturar. Devuelve Text y PreampDb.
+#>
+function New-HLEqIntensityPreset {
+    param([Parameter(Mandatory)] [string] $BaseText, [Parameter(Mandatory)] [double] $Intensity)
+    $p = ConvertFrom-HLEqPresetText -Text $BaseText
+    if ($p.Steps.Count -eq 0) { throw 'El preset base no tiene filtros de pasos.' }
+    # El base debería estar al 100%; si no, se lleva primero a 100%.
+    $k = $Intensity / [Math]::Max(0.01, $p.Intensity)
+    $text = ConvertTo-HLEqApoText -HeadsetProfile ([pscustomobject]@{ name = $p.Name; filters = $p.Steps; correction = $p.Correction; correctionSource = $p.CorrectionSource }) -Title 'Warzone footsteps' -Intensity $k
+    # La cabecera dice la intensidad del escalado ($k); se reescribe con la real.
+    $text = $text -replace '\| intensidad \d+%', ('| intensidad {0}%' -f [int][Math]::Round($Intensity * 100))
+    $pre = Get-HLAutoPreamp -Filters @(@($p.Correction) + @(Get-HLScaledFilters -Filters $p.Steps -Intensity $k))
+    return [pscustomobject]@{ Text = $text; PreampDb = $pre }
+}
+
 function Get-HLHeadsetProfiles {
     param([Parameter(Mandatory)] [string] $Root)
     $path = Join-Path $Root 'src\audio\profiles\headsets.json'

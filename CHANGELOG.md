@@ -12,12 +12,19 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 - **Cada paso manual se enseña una sola vez**: al terminar de aplicar solo aparecen los pasos que nunca has visto (marcados como NUEVO); los pendientes siguen en «Guía de pasos». Lo visto se guarda en `config\guide_state.json` junto a lo hecho. El id de cada paso ya no depende de los números del texto («el driver tiene 41/42 días» es el mismo paso); lo marcado con la 1.11 se respeta.
 - **Novedades en Hardline EQ**: una tarjeta anuncia cada versión nueva (`src\news.json`) y cada vez que se aplican ajustes (cambios, módulos, pasos nuevos, si hay que reiniciar y fallos), hasta que pulsas «Entendido». Botón «Novedades» en Hardline EQ y en la interfaz con el historial.
 - `install.ps1 -Console`: con `irm | iex` sin parámetros ahora se abre la interfaz; `-Console` mantiene el modo consola.
+- **Hardline EQ con deslizadores**: intensidad del EQ de pasos de 0 a 150 % (se escribe un preset `_live` a partir del completo: corrección del headset intacta, preamp recalculado y compresor reajustado al preamp) y compresor en cuatro niveles: **Suave**, **Normal**, **Fuerte** (antes «Pasos al máximo») y **Rush** (recuperación de 20 ms para tiroteos seguidos). Se aplican al soltar, sin administrador; botón **Restablecer** (100 % y Normal). `-AudioDynamics` acepta `suave`, `normal`, `pasos` y `rush`.
+- **Dispositivos de Voicemeeter sin uso, fuera de las listas**: Banana y Potato crean hasta 15 dispositivos virtuales. En modo Completo se ocultan como «No permitir» del panel de Sonido (lo mismo que se hace a mano), salvo «Voicemeeter Input», «Voicemeeter Out B1» (la salida virtual principal, la que se usa como micrófono) y los predeterminados de Windows. Si ya estaban ocultos no se toca nada. Revertible (tipo de manifiesto `EndpointVisibility`).
 
 ### Cambiado
 
 - **Interfaz renovada** (tema compartido `src\gui\theme.xaml`): barra de título oscura e icono de Hardline, interruptores en vez de casillas, desplegables y barras de desplazamiento oscuros, tarjetas de guía y audio, mosaicos de herramientas, la fase actual mientras se aplica (las líneas `[*]` de la salida) y, al terminar, cambios aplicados, pasos nuevos y fallos. El registro completo se oculta o muestra con un clic.
 - Pasos manuales del audio reescritos más cortos, cada uno con su panel.
-- Accesos directos de Inicio > Hardline con el icono de Hardline en lugar del de PowerShell.
+- Accesos directos de Inicio > Hardline con el icono de Hardline en lugar del de PowerShell, y las ventanas con grupo propio en la barra de tareas.
+- **Nombres de Voicemeeter**: la vuelta a los nombres de fábrica («Voicemeeter Input» / «Voicemeeter Output») solo se aplica a la edición básica. Los dispositivos de Banana y Potato («Voicemeeter In 1», «Out B2», AUX...) tienen nombre propio y nunca se renombran.
+
+### Corregido
+
+- **Potato instalado pero se usaba la edición básica**: con Voicemeeter básico (o Banana) abierto y Potato instalado, Hardline configuraba la edición abierta, sin el compresor completo. Ahora la cierra y abre Potato. El aviso de «Potato falló» se borra cuando Potato ya está instalado.
 
 ### Seguridad
 

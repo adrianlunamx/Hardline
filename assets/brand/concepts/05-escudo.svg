@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Hardline: escudo esports">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF8A3D"/><stop offset="1" stop-color="#E5400F"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFC48A"/><stop offset="0.5" stop-color="#FF5A1F"/><stop offset="1" stop-color="#8A2A0A"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="#0B0D12"/>
+  <!-- Escudo angular, estilo emblema de equipo. -->
+  <path d="M256 58 L424 120 L424 262 C424 352 352 418 256 456 C160 418 88 352 88 262 L88 120 Z"
+        fill="url(#g)" stroke="url(#edge)" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M256 92 L392 142 L392 262 C392 334 336 388 256 420 C176 388 120 334 120 262 L120 142 Z" fill="#0B0D12"/>
+  <!-- H recortada en ángulo. -->
+  <path d="M170 160 L218 160 L218 238 L294 238 L294 160 L342 160 L342 352 L294 352 L294 282 L218 282 L218 352 L170 352 Z" fill="#EEF1F6"/>
+  <path d="M218 238 L360 238 L376 260 L360 282 L218 282 Z" fill="url(#g)"/>
+</svg>

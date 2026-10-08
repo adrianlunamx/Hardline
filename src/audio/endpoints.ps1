@@ -71,6 +71,28 @@ namespace Hardline {
     [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
     class MMDeviceEnumeratorCom { }
 
+    // IPolicyConfig: la interfaz que usa el panel de Sonido de Windows para
+    // "Permitir / No permitir" un dispositivo. No está documentada, pero es
+    // estable desde Windows 7 (la usan SoundSwitch, EarTrumpet, nircmd...).
+    [ComImport, Guid("F8679F50-850A-41CF-9C72-430F290290C8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IPolicyConfig {
+        int GetMixFormat([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr fmt);
+        int GetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string id, int def, IntPtr fmt);
+        int ResetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string id);
+        int SetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr a, IntPtr b);
+        int GetProcessingPeriod([MarshalAs(UnmanagedType.LPWStr)] string id, int def, IntPtr a, IntPtr b);
+        int SetProcessingPeriod([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr a);
+        int GetShareMode([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr m);
+        int SetShareMode([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr m);
+        int GetPropertyValue([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr key, IntPtr pv);
+        int SetPropertyValue([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr key, IntPtr pv);
+        int SetDefaultEndpoint([MarshalAs(UnmanagedType.LPWStr)] string id, int role);
+        int SetEndpointVisibility([MarshalAs(UnmanagedType.LPWStr)] string id, int visible);
+    }
+
+    [ComImport, Guid("870AF99C-171D-4F9E-AF0D-E63DF40C2BC9")]
+    class PolicyConfigCom { }
+
     public static class AudioEndpoints {
         [DllImport("ole32.dll")] static extern int PropVariantClear(ref PropVariant pv);
         static readonly PropKey DeviceDesc = new PropKey("a45c254e-df1c-4efd-8020-67d146a850e0", 2);
@@ -109,6 +131,19 @@ namespace Hardline {
             IPropertyStore s; if (d.OpenPropertyStore(STGM_READ, out s) != 0) return "";
             string desc = Read(s, DeviceDesc), iface = Read(s, InterfaceName);
             return iface.Length > 0 ? desc + " (" + iface + ")" : desc;
+        }
+
+        // Id del predeterminado: flow 0/1, role 0 = general, 2 = comunicaciones. "" si no hay.
+        public static string DefaultId(int flow, int role) {
+            var e = (IMMDeviceEnumerator)new MMDeviceEnumeratorCom();
+            IMMDevice d; if (e.GetDefaultAudioEndpoint(flow, role, out d) != 0) return "";
+            string id; d.GetId(out id); return id;
+        }
+
+        // "Permitir" / "No permitir" del panel de Sonido. 0 = correcto.
+        public static int SetVisibility(string id, bool visible) {
+            var p = (IPolicyConfig)new PolicyConfigCom();
+            return p.SetEndpointVisibility(id, visible ? 1 : 0);
         }
 
         // 0 = correcto; si no, el HRESULT (acceso denegado sin administrador).
@@ -189,13 +224,87 @@ function Get-HLRenderDeviceScore {
     return $score
 }
 
-# Dispositivos de VB-CABLE / VAIO renombrados: Id, Flow, Name, Default.
+<#
+    Dispositivos de VB-CABLE / VAIO renombrados: Id, Flow, Name, Default.
+    $List: filas de [Hardline.AudioEndpoints]::List() (id, flujo, nombre, driver).
+
+    VAIO: Banana y Potato registran varios dispositivos con el mismo driver
+    ("Voicemeeter In 1", "Voicemeeter Out B2", "Voicemeeter AUX Input"...):
+    cada uno tiene su nombre y no se puede saber cuál era el principal. Solo
+    se renombra con un único dispositivo VAIO en ese sentido (edición
+    básica) y si su nombre no empieza por "Voicemeeter"; un nombre de
+    Voicemeeter nunca se cambia.
+#>
+function Select-HLRenamedEndpoints {
+    param([Parameter(Mandatory)] [AllowEmptyCollection()] [object[]] $List)
+    foreach ($d in $List) {
+        $flow = [int]$d[1]
+        $def = Get-HLCableDefaultName -InterfaceName $d[3] -Flow $flow
+        if (-not $def -or $d[2] -eq $def) { continue }
+        if ($d[3] -eq 'VB-Audio Voicemeeter VAIO') {
+            if ($d[2] -match '^Voicemeeter') { continue }
+            $same = @($List | Where-Object { $_[3] -eq $d[3] -and [int]$_[1] -eq $flow }).Count
+            if ($same -ne 1) { continue }
+        }
+        [pscustomobject]@{ Id = $d[0]; Flow = $flow; Name = $d[2]; Default = $def }
+    }
+}
+
+<#
+    Dispositivos virtuales de Voicemeeter que nadie usa. Banana y Potato crean
+    hasta 15 (In 1-5, AUX, VAIO3, Out A1-A5, B1-B3) que llenan las listas de
+    Windows, Discord y el juego. Se conservan:
+      - "Voicemeeter Input": el sonido del sistema (Discord, navegador) entra
+        por ahí a Voicemeeter;
+      - "Voicemeeter Out B1" / "Voicemeeter Output": la salida virtual
+        principal, la que se usa como micrófono si pasas tu voz por Voicemeeter;
+      - cualquiera que sea predeterminado en Windows (general o comunicaciones).
+    $List: filas de List(); $DefaultIds: ids de los predeterminados.
+#>
+function Select-HLUnusedVaioEndpoints {
+    param([Parameter(Mandatory)] [AllowEmptyCollection()] [object[]] $List, [string[]] $DefaultIds = @())
+    $keep = @('Voicemeeter Input', 'Voicemeeter Out B1', 'Voicemeeter Output')
+    foreach ($d in $List) {
+        if ($d[3] -notlike 'VB-Audio Voicemeeter*') { continue }
+        if ($d[2] -in $keep) { continue }
+        if ($DefaultIds -contains $d[0]) { continue }
+        [pscustomobject]@{ Id = $d[0]; Flow = [int]$d[1]; Name = $d[2] }
+    }
+}
+
+<#
+    Los oculta como "No permitir" en el panel de Sonido (lo mismo que harías
+    a mano). Deshabilitarlos en el Administrador de dispositivos no basta: el
+    sistema de audio los sigue dando por activos y siguen en las listas. Solo
+    se tocan los que están activos: si ya los ocultaste tú, no hace nada.
+    Revertible: el rollback los vuelve a permitir. Hace falta administrador.
+    Devuelve cuántos se ocultaron.
+#>
+function Hide-HLUnusedVaioEndpoints {
+    if ($HL.DryRun) { return 0 }
+    try {
+        Initialize-HLEndpointApi
+        $list = @([Hardline.AudioEndpoints]::List())
+        $defaults = @(foreach ($f in 0, 1) { foreach ($r in 0, 2) { [Hardline.AudioEndpoints]::DefaultId($f, $r) } }) | Where-Object { $_ }
+    } catch { Write-HLLog WARN "No se pudieron leer los dispositivos de audio: $($_.Exception.Message)"; return 0 }
+    $hidden = @()
+    foreach ($e in @(Select-HLUnusedVaioEndpoints -List $list -DefaultIds $defaults)) {
+        # Se registra antes de cambiar: si falla a medias, el undo solo vuelve a permitirlo.
+        Add-HLManifestEntry -Type 'EndpointVisibility' -Data @{ Id = $e.Id; Name = $e.Name; ModulePath = $script:HLEndpointModule }
+        $hr = [Hardline.AudioEndpoints]::SetVisibility($e.Id, $false)
+        if ($hr -ne 0) { Write-HLLog WARN ("No se pudo ocultar {0} (0x{1:X8})" -f $e.Name, $hr); continue }
+        $hidden += $e.Name
+    }
+    if ($hidden.Count) {
+        Write-HLSub "Dispositivos de Voicemeeter sin uso ocultos: $($hidden.Count)" 'OK'
+        Add-HLResult -Module 'Audio' -Item 'Voicemeeter: dispositivos sin uso' -Status Applied -Detail ("Ocultos: {0}. Quedan Voicemeeter Input, Out B1 y los predeterminados. El rollback los vuelve a permitir." -f ($hidden -join ', '))
+    }
+    return $hidden.Count
+}
+
 function Get-HLRenamedCables {
     Initialize-HLEndpointApi
-    foreach ($d in [Hardline.AudioEndpoints]::List()) {
-        $def = Get-HLCableDefaultName -InterfaceName $d[3] -Flow ([int]$d[1])
-        if ($def -and $d[2] -ne $def) { [pscustomobject]@{ Id = $d[0]; Flow = [int]$d[1]; Name = $d[2]; Default = $def } }
-    }
+    Select-HLRenamedEndpoints -List @([Hardline.AudioEndpoints]::List())
 }
 
 function Set-HLEndpointName {

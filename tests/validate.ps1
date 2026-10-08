@@ -340,9 +340,36 @@ try {
     $vars = @(Get-HLEqPresetVariants -Names @('warzone_footsteps_generic_70.txt', 'warzone_footsteps_generic.txt', 'warzone_footsteps_corsair-hs80.txt', 'switch.txt') -Current 'warzone_footsteps_generic.txt')
     Assert-True ($vars.Count -eq 2 -and $vars[0].Label -eq 'Completa' -and $vars[1].Label -eq 'Moderada (70%)') 'variantes de intensidad del preset activo (otros headsets fuera)'
     . (Join-HLPath @($root, 'src', 'gui', 'eq_panel.ps1')) -Root $root
-    $pv1 = Get-HLEqPanelView -On $true -Preset 'warzone_footsteps_generic_70.txt' -Variants $vars
-    $pv2 = Get-HLEqPanelView -On $null -Preset $null -Variants @()
-    Assert-True ($pv1.State -eq 'Encendido' -and $pv1.Button -eq 'Apagar' -and $pv1.Detail -match 'Moderada' -and $pv2.State -eq 'Sin configurar' -and -not $pv2.Enabled) 'panel del EQ: estado, botón e intensidad'
+    $pv1 = Get-HLEqPanelView -On $true -Intensity 0.7
+    $pv2 = Get-HLEqPanelView -On $null -Intensity $null
+    Assert-True ($pv1.State -eq 'Encendido' -and $pv1.Button -eq 'Apagar' -and $pv1.Detail -match '70 %' -and $pv2.State -eq 'Sin configurar' -and -not $pv2.Enabled) 'panel del EQ: estado, botón e intensidad'
+
+    # Intensidad libre (deslizador 0-150 %): a partir del preset completo, corrección intacta.
+    . (Join-HLPath @($root, 'src', 'audio', 'eq.ps1'))
+    $hpT = [pscustomobject]@{ name = 'Test HS'; correctionSource = 'archivo local'
+        correction = @([pscustomobject]@{ type = 'PK'; fc = 63; gain = -6.4; q = 0.34 })
+        filters = @([pscustomobject]@{ type = 'LSC'; fc = 100; gain = -8.0; q = 0.7; why = 'Explosiones' }, [pscustomobject]@{ type = 'PK'; fc = 2800; gain = 9.0; q = 1.6; why = 'Pasos' }) }
+    $baseTxt = ConvertTo-HLEqApoText -HeadsetProfile $hpT -Title 'Warzone footsteps' -Intensity 1.0
+    $parsed = ConvertFrom-HLEqPresetText -Text $baseTxt
+    $p50 = New-HLEqIntensityPreset -BaseText $baseTxt -Intensity 0.5
+    $p0 = New-HLEqIntensityPreset -BaseText $baseTxt -Intensity 0
+    $p150 = New-HLEqIntensityPreset -BaseText $baseTxt -Intensity 1.5
+    $r50 = ConvertFrom-HLEqPresetText -Text $p50.Text
+    Assert-True ($parsed.Steps.Count -eq 2 -and $parsed.Correction.Count -eq 1 -and $parsed.Steps[1].why -eq 'Pasos' -and $r50.Intensity -eq 0.5 -and $r50.Steps[1].gain -eq 4.5 -and $r50.Correction[0].gain -eq -6.4 -and $r50.Steps[1].why -eq 'Pasos') 'intensidad del EQ: preset de pasos escalado, corrección del headset intacta, comentarios conservados'
+    Assert-True ($p150.PreampDb -lt $p50.PreampDb -and $p0.PreampDb -le 0 -and @((ConvertFrom-HLEqPresetText -Text $p0.Text).Steps | Where-Object { $_.gain -ne 0 }).Count -eq 0) 'intensidad del EQ: preamp recalculado (más intensidad, más margen) y 0 % = solo corrección'
+    Assert-True ((Get-HLEqBasePreset 'warzone_footsteps_kz-castor_live.txt') -eq 'warzone_footsteps_kz-castor.txt' -and (Get-HLEqBasePreset 'warzone_footsteps_generic_70.txt') -eq 'warzone_footsteps_generic.txt' -and $null -eq (Get-HLEqBasePreset 'switch.txt')) 'intensidad del EQ: preset completo de cada variante (_70, _live)'
+    $swDir = Split-Path $sw -Parent
+    [IO.File]::WriteAllText((Join-Path $swDir 'warzone_footsteps_generic.txt'), $baseTxt)
+    Set-HLEqPreset -PresetName 'warzone_footsteps_generic.txt' -SwitchPath $sw
+    Set-HLEqState -On $false -SwitchPath $sw
+    [void](Set-HLEqIntensity -Intensity 0.85 -SwitchPath $sw)
+    $i85 = Get-HLEqIntensity -SwitchPath $sw
+    $live = Get-HLEqPreset -SwitchPath $sw
+    [void](Set-HLEqIntensity -Intensity 1.0 -SwitchPath $sw)
+    Assert-True ($live -eq 'warzone_footsteps_generic_live.txt' -and [Math]::Abs($i85 - 0.85) -lt 0.001 -and (Get-HLEqPreset -SwitchPath $sw) -eq 'warzone_footsteps_generic.txt' -and (Get-HLEqState -SwitchPath $sw) -eq $false) 'deslizador: 85 % escribe el preset _live, 100 % vuelve al completo, sin encender el EQ'
+    Assert-True ((Get-HLEqIntensityHint 0) -match 'neutro' -and (Get-HLEqIntensityHint 120) -match 'metálico') 'deslizador: explicación de cada intensidad'
+    $eqXamlRaw = Get-Content (Join-HLPath @($root, 'src', 'gui', 'eq_panel.xaml')) -Raw
+    Assert-True ($eqXamlRaw -match 'x:Name="eqIntSlider"[^>]*Maximum="150"' -and $eqXamlRaw -match 'x:Name="eqDynSlider"[^>]*Maximum="3"' -and $eqXamlRaw -match 'x:Name="eqReset"') 'panel del EQ: deslizadores de intensidad (0-150) y compresor (4 niveles), y Restablecer'
     [xml]$eqx = Get-Content (Join-HLPath @($root, 'src', 'gui', 'eq_panel.xaml')) -Raw -Encoding UTF8
     $eqNames = @($eqx.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]') | ForEach-Object { $_.GetAttribute('Name', 'http://schemas.microsoft.com/winfx/2006/xaml') } | Where-Object { $_ })
     $eqSrc = Get-Content (Join-HLPath @($root, 'src', 'gui', 'eq_panel.ps1')) -Raw
@@ -726,6 +753,8 @@ try {
         Set-HLPotatoInstallFailed -Failed $false; $pf3 = Test-HLPotatoInstallFailed
         Assert-True (-not $pf0 -and $pf1 -and -not $pf2 -and -not $pf3) 'Potato: no se reintenta con el mismo instalador que ya falló; con otro, sí'
     } finally { $HL.Root = $oldRoot }
+    $vmSrc = Get-Content (Join-HLPath @($root, 'src', 'audio', 'voicemeeter.ps1')) -Raw
+    Assert-True ($vmSrc -match '\$bestEdition -gt \$t' -and $vmSrc -match 'Get-HLRunningVoicemeeterType -Expect \$bestEdition' -and (((6 - 1) % 3) + 1) -eq 3 -and (((4 - 1) % 3) + 1) -eq 1) 'Voicemeeter: con Potato instalado se usa Potato aunque esté abierta la edición básica'
     $rbSrc = Get-Content (Join-HLPath @($root, 'rollback.ps1')) -Raw
     Assert-True ($rbSrc -match '\[switch\] \$All' -and $rbSrc -match "if \(\`$All\) \{ \`$a \+= '-All' \}" -and $appSrc -match "'-All', '-Unattended'") 'rollback -All: todas las sesiones (también al relanzar elevado y desde la interfaz)'
     $vmXml = Join-HLPath @($root, 'src', 'audio', 'configs', 'voicemeeter_comp.xml')
@@ -734,8 +763,25 @@ try {
     Assert-True ($vmStd -match 'Strip\[2\]\.Label="HL SISTEMA"' -and $vmStd -notmatch 'Strip\[5\]' -and $vmPot -match 'Strip\[5\]\.Label="HL SISTEMA"' -and $vmStd -match 'Strip\[0\]\.device\.wdm="CABLE Output \(VB-Audio Virtual Cable\)"') 'Voicemeeter: entrada virtual correcta en cada edición (básica 2, Potato 5)'
     . (Join-HLPath @($root, 'src', 'audio', 'endpoints.ps1'))
     Assert-True ((Get-HLCableDefaultName 'VB-Audio Virtual Cable' 0) -eq 'CABLE Input' -and (Get-HLCableDefaultName 'VB-Audio Virtual Cable' 1) -eq 'CABLE Output' -and (Get-HLCableDefaultName 'VB-Audio Voicemeeter VAIO' 0) -eq 'Voicemeeter Input' -and (Get-HLCableDefaultName 'VB-Audio Voicemeeter VAIO' 1) -eq 'Voicemeeter Output' -and (Get-HLCableDefaultName 'VB-Audio Voicemeeter AUX VAIO' 0) -eq '' -and (Get-HLCableDefaultName 'Sound BlasterX G1' 0) -eq '') 'nombres de fábrica de VB-CABLE y Voicemeeter ("Virtual Mix" -> "Voicemeeter Output"; AUX y otros dispositivos no se tocan)'
+    $vaio = 'VB-Audio Voicemeeter VAIO'; $cab = 'VB-Audio Virtual Cable'
+    # Edición básica renombrada por Art Tune: un VAIO por sentido.
+    $std = @(@('a', '0', 'Normal Audio', $vaio), @('b', '1', 'Virtual Mix', $vaio), @('c', '0', 'Art Tune +', $cab), @('d', '0', 'Speakers', 'Sound BlasterX G1'))
+    $rs = @(Select-HLRenamedEndpoints -List $std)
+    # Potato (caso real): 15 dispositivos VAIO con nombres propios; ninguno se toca.
+    $pot = @(@('p1', '0', 'Voicemeeter In 1', $vaio), @('p2', '0', 'Voicemeeter AUX Input', $vaio), @('p3', '0', 'Voicemeeter VAIO3 Input', $vaio),
+        @('p4', '1', 'Voicemeeter Out A1', $vaio), @('p5', '1', 'Voicemeeter Out B2', $vaio), @('p6', '0', 'Mi mezcla', $vaio), @('p7', '1', 'CABLE Output', $cab))
+    $rp = @(Select-HLRenamedEndpoints -List $pot)
+    Assert-True ($rs.Count -eq 3 -and (($rs | ForEach-Object { "$($_.Id)=$($_.Default)" }) -join '|') -eq 'a=Voicemeeter Input|b=Voicemeeter Output|c=CABLE Input' -and $rp.Count -eq 0) 'Voicemeeter Potato: sus dispositivos (In 1-5, AUX, Out A1-B3) nunca se renombran; la edición básica renombrada sí vuelve' "$(($rp | ForEach-Object { $_.Name }) -join '|')"
+    # Dispositivos sin uso: todo el VAIO salvo Voicemeeter Input, Out B1 y los predeterminados (micro en "Out B3").
+    $potAll = @(@('vi', '0', 'Voicemeeter Input', $vaio), @('in1', '0', 'Voicemeeter In 1', $vaio), @('aux', '0', 'Voicemeeter AUX Input', $vaio),
+        @('a1', '1', 'Voicemeeter Out A1', $vaio), @('b1', '1', 'Voicemeeter Out B1', $vaio), @('b3', '1', 'Voicemeeter Out B3', $vaio),
+        @('ci', '0', 'CABLE Input', $cab), @('sp', '0', 'Speakers', 'Sound BlasterX G1'))
+    $unused = @(Select-HLUnusedVaioEndpoints -List $potAll -DefaultIds @('b3', 'sp'))
+    $setupSrc2 = Get-Content (Join-HLPath @($root, 'src', 'audio', 'setup.ps1')) -Raw
+    Assert-True ((($unused | ForEach-Object { $_.Id }) -join '|') -eq 'in1|aux|a1' -and (Get-Content (Join-HLPath @($root, 'src', 'core', 'common.ps1')) -Raw) -match "'EndpointVisibility' \{" -and $setupSrc2 -match 'Hide-HLUnusedVaioEndpoints') 'Voicemeeter: se ocultan los dispositivos sin uso (se quedan Input, Out B1, los predeterminados y VB-CABLE); el rollback los vuelve a permitir'
+    Assert-True (@(Select-HLUnusedVaioEndpoints -List @(@('vi', '0', 'Voicemeeter Input', $vaio), @('b1', '1', 'Voicemeeter Out B1', $vaio))).Count -eq 0) 'Voicemeeter: con los sin uso ya ocultos a mano, no se toca nada'
     $epOk = $true; try { Initialize-HLEndpointApi } catch { $epOk = $false }
-    Assert-True ($epOk -and ('Hardline.AudioEndpoints' -as [type])) 'API de nombres de audio compila'
+    Assert-True ($epOk -and ('Hardline.AudioEndpoints' -as [type]) -and ('Hardline.AudioEndpoints' -as [type]).GetMethod('SetVisibility')) 'API de dispositivos de audio compila (nombres y visibilidad)'
     $devs = @('HDMI (AMD High Definition Audio Device)', 'DP (AMD High Definition Audio Device)', 'Speakers (Sound BlasterX G1)')
     $sc = @($devs | ForEach-Object { Get-HLRenderDeviceScore -Name $_ })
     Assert-True ($sc[2] -gt $sc[0] -and $sc[2] -gt $sc[1]) 'salida automática: Sound BlasterX antes que el HDMI/DP del monitor (tu caso)'
@@ -750,6 +796,11 @@ try {
     Assert-True ($dN0.Threshold -eq -25 -and $dN0.GainOut -eq 6 -and $dN0.Limit -eq 12) 'dinámica normal sin EQ: valores del XML'
     Assert-True ($dN20.GateThr -le -60 -and $dN20.Threshold -eq -40 -and $dN20.GainOut -eq 16 -and $dN20.GateDamping -eq -20) 'dinámica normal con preamp -20: umbrales desplazados (el gate ya no corta pasos lejanos) y ganancia recuperada'
     Assert-True ($dP20.GateKnob -eq 0 -and $dP20.Ratio -eq 8 -and $dP20.Attack -le 2 -and $dP20.GainOut -eq 24 -and $dP20.Limit -lt 0 -and $dP20.Threshold -ge -40) 'Pasos al máximo: sin gate, 8:1 rápido, +24 dB y limitador, dentro de los rangos de Voicemeeter'
+    $dS20 = Get-HLDynamicsValues -Config $vmCfg.HardlineVoicemeeter -Mode suave -PreampDb -20
+    $dR20 = Get-HLDynamicsValues -Config $vmCfg.HardlineVoicemeeter -Mode rush -PreampDb -20
+    # Rush: un arma automática dispara cada 60-100 ms; la recuperación tiene que ser más corta que eso y que la de "Fuerte".
+    Assert-True ($dS20.Ratio -lt $dN20.Ratio -and $dR20.Ratio -eq 8 -and $dR20.Release -lt $dP20.Release -and $dR20.Release -le 25 -and $dR20.Threshold -gt $dP20.Threshold -and $dR20.Threshold -ge -40 -and $dR20.GainOut -le 24) 'niveles del compresor: Suave < Normal < Fuerte; Rush recupera entre disparos (release <= 25 ms) y su umbral no lo activan los pasos'
+    Assert-True ((@($script:HLDynamicsModes) -join '|') -eq 'suave|normal|pasos|rush') 'niveles del compresor en orden de menos a más (el deslizador del panel)'
     $hyper = Get-HLDynamicsValues -Config $vmCfg.HardlineVoicemeeter -Mode normal -Overrides ([pscustomobject]@{ comp_makeup_db = 8 }) -PreampDb 0
     Assert-True ($hyper.GainOut -eq 8) 'ajustes del headset (headsets.json) se respetan'
     $vmPas = (New-HLVoicemeeterScript -XmlPath $vmXml -HeadsetDevice 'X' -Dynamics pasos -PreampDb -20) -join ' '

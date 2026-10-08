@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="radial-gradient-1" cx="390.4" cy="256" r="192" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff5a1f" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#ff5a1f" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="filter-1" filterUnits="userSpaceOnUse" x="205" y="203" width="240" height="106" data-vc-blend="screen" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="11" result="glow"/><feFlood flood-color="#ff5a1f" flood-opacity="0.65"/><feComposite in2="glow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="linear-gradient-1" x1="258" y1="0" x2="440" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff5a1f"/>
+      <stop offset="1" stop-color="#ff9a3d"/>
+    </linearGradient>
+    <filter id="filter-2" filterUnits="userSpaceOnUse" x="331" y="183" width="146" height="146" data-vc-blend="screen" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="11" result="glow"/><feFlood flood-color="#ff5a1f" flood-opacity="0.65"/><feComposite in2="glow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <title>01-pulso.svg</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path d="M128 16 L384 16 C445.856 16 496 66.144 496 128 L496 384 C496 445.856 445.856 496 384 496 L128 496 C66.144 496 16 445.856 16 384 L16 128 C16 66.144 66.144 16 128 16 Z" fill="#0b0d12"/>
+    <path d="M128 16 L384 16 C445.856 16 496 66.144 496 128 L496 384 C496 445.856 445.856 496 384 496 L128 496 C66.144 496 16 445.856 16 384 L16 128 C16 66.144 66.144 16 128 16 Z" fill="url(#radial-gradient-1)"/>
+    <path d="M128 17.5 L384 17.5 C445.027 17.5 494.5 66.973 494.5 128 L494.5 384 C494.5 445.027 445.027 494.5 384 494.5 L128 494.5 C66.973 494.5 17.5 445.027 17.5 384 L17.5 128 C17.5 66.973 66.973 17.5 128 17.5 Z" fill="none" stroke="#2e3746" stroke-width="3"/>
+    <path d="M72 256 L102 256 L118 150 L138 350 L158 190 L176 318 L194 214 L210 290 L226 236 L242 270 L258 256" fill="none" stroke="#5b6472" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+    <g filter="url(#filter-1)">
+      <path d="M258 256 L392 256" fill="#000000" stroke="url(#linear-gradient-1)" stroke-width="36" stroke-linecap="round"/>
+    </g>
+    <g filter="url(#filter-2)">
+      <path d="M442 256 C442 276.987 424.987 294 404 294 C383.013 294 366 276.987 366 256 C366 235.013 383.013 218 404 218 C424.987 218 442 235.013 442 256 Z" fill="#ff5a1f"/>
+    </g>
+    <path d="M418 256 C418 263.732 411.732 270 404 270 C396.268 270 390 263.732 390 256 C390 248.268 396.268 242 404 242 C411.732 242 418 248.268 418 256 Z" fill="#0b0d12"/>
+  </g>
+</svg>
