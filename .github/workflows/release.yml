@@ -44,8 +44,17 @@ jobs:
         if: matrix.shell == 'pwsh'
         shell: pwsh
         run: |
-          Set-PSRepository PSGallery -InstallationPolicy Trusted
-          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+          # Algunas imágenes del runner arrancan sin PSGallery registrado
+          # ("No repository with the name 'PSGallery' was found"): se registra
+          # si falta y, si aun así falla, se instala con PSResourceGet (PS 7.4+).
+          if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) { Register-PSRepository -Default -ErrorAction SilentlyContinue }
+          try {
+            Set-PSRepository PSGallery -InstallationPolicy Trusted -ErrorAction Stop
+            Install-Module PSScriptAnalyzer -Scope CurrentUser -Force -ErrorAction Stop
+          } catch {
+            Write-Host "Install-Module falló ($($_.Exception.Message)); se usa Install-PSResource."
+            Install-PSResource PSScriptAnalyzer -Scope CurrentUser -TrustRepository -Reinstall -ErrorAction Stop
+          }
           $issues = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error
           $issues | Format-Table -AutoSize | Out-String -Width 200 | Write-Host
           if ($issues) { exit 1 }
