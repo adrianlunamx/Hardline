@@ -593,6 +593,8 @@ function Invoke-HLAudioSetup {
         } else {
             Invoke-HLVoicemeeterPhase -HeadsetProfile $hp -HeadsetDevice $dev -Dynamics $Dynamics -PreampDb ([double]$pre)
         }
+        # Banana / Potato: fuera de las listas los dispositivos virtuales que nadie usa (revertible).
+        [void](Hide-HLUnusedVaioEndpoints)
         Add-HLManualStep 'Audio' 'En Salida elige "Voicemeeter Input". Así Discord y el resto suenan por Voicemeeter, sin el EQ del juego.' '' 'sound-settings'
         Add-HLManualStep 'Audio' 'Con Warzone abierto, en el Mezclador de volumen busca cod.exe y en Dispositivo de salida elige "CABLE Input". Windows lo recuerda.' '' 'volume-mixer'
     }

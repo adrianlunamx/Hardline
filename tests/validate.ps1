@@ -745,8 +745,16 @@ try {
         @('p4', '1', 'Voicemeeter Out A1', $vaio), @('p5', '1', 'Voicemeeter Out B2', $vaio), @('p6', '0', 'Mi mezcla', $vaio), @('p7', '1', 'CABLE Output', $cab))
     $rp = @(Select-HLRenamedEndpoints -List $pot)
     Assert-True ($rs.Count -eq 3 -and (($rs | ForEach-Object { "$($_.Id)=$($_.Default)" }) -join '|') -eq 'a=Voicemeeter Input|b=Voicemeeter Output|c=CABLE Input' -and $rp.Count -eq 0) 'Voicemeeter Potato: sus dispositivos (In 1-5, AUX, Out A1-B3) nunca se renombran; la edición básica renombrada sí vuelve' "$(($rp | ForEach-Object { $_.Name }) -join '|')"
+    # Dispositivos sin uso: todo el VAIO salvo Voicemeeter Input, Out B1 y los predeterminados (micro en "Out B3").
+    $potAll = @(@('vi', '0', 'Voicemeeter Input', $vaio), @('in1', '0', 'Voicemeeter In 1', $vaio), @('aux', '0', 'Voicemeeter AUX Input', $vaio),
+        @('a1', '1', 'Voicemeeter Out A1', $vaio), @('b1', '1', 'Voicemeeter Out B1', $vaio), @('b3', '1', 'Voicemeeter Out B3', $vaio),
+        @('ci', '0', 'CABLE Input', $cab), @('sp', '0', 'Speakers', 'Sound BlasterX G1'))
+    $unused = @(Select-HLUnusedVaioEndpoints -List $potAll -DefaultIds @('b3', 'sp'))
+    $setupSrc2 = Get-Content (Join-HLPath @($root, 'src', 'audio', 'setup.ps1')) -Raw
+    Assert-True ((($unused | ForEach-Object { $_.Id }) -join '|') -eq 'in1|aux|a1' -and (Get-Content (Join-HLPath @($root, 'src', 'core', 'common.ps1')) -Raw) -match "'EndpointVisibility' \{" -and $setupSrc2 -match 'Hide-HLUnusedVaioEndpoints') 'Voicemeeter: se ocultan los dispositivos sin uso (se quedan Input, Out B1, los predeterminados y VB-CABLE); el rollback los vuelve a permitir'
+    Assert-True (@(Select-HLUnusedVaioEndpoints -List @(@('vi', '0', 'Voicemeeter Input', $vaio), @('b1', '1', 'Voicemeeter Out B1', $vaio))).Count -eq 0) 'Voicemeeter: con los sin uso ya ocultos a mano, no se toca nada'
     $epOk = $true; try { Initialize-HLEndpointApi } catch { $epOk = $false }
-    Assert-True ($epOk -and ('Hardline.AudioEndpoints' -as [type])) 'API de nombres de audio compila'
+    Assert-True ($epOk -and ('Hardline.AudioEndpoints' -as [type]) -and ('Hardline.AudioEndpoints' -as [type]).GetMethod('SetVisibility')) 'API de dispositivos de audio compila (nombres y visibilidad)'
     $devs = @('HDMI (AMD High Definition Audio Device)', 'DP (AMD High Definition Audio Device)', 'Speakers (Sound BlasterX G1)')
     $sc = @($devs | ForEach-Object { Get-HLRenderDeviceScore -Name $_ })
     Assert-True ($sc[2] -gt $sc[0] -and $sc[2] -gt $sc[1]) 'salida automática: Sound BlasterX antes que el HDMI/DP del monitor (tu caso)'

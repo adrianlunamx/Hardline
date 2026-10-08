@@ -658,6 +658,13 @@ function Undo-HLManifestEntry {
             if ((Invoke-HLReg @('import', "`"$($Entry.BackupFile)`"")) -ne 0) { throw "reg import falló para $($Entry.Key)." }
             return "Clave $($Entry.Key)"
         }
+        'EndpointVisibility' {
+            . $Entry.ModulePath
+            Initialize-HLEndpointApi
+            $hr = [Hardline.AudioEndpoints]::SetVisibility($Entry.Id, $true)
+            if ($hr -ne 0) { throw ("Windows no dejó volver a permitir {0} (0x{1:X8})." -f $Entry.Name, $hr) }
+            return "Dispositivo $($Entry.Name) permitido de nuevo"
+        }
         'AudioEndpointIcon' {
             . $Entry.ModulePath
             Initialize-HLEndpointApi
