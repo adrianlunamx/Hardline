@@ -197,8 +197,10 @@
               <TextBlock Text="Compresor (Voicemeeter)" Style="{StaticResource Label}"/>
               <ComboBox x:Name="cmbDynamics" SelectedIndex="0">
                 <ComboBoxItem Content="Mantener el actual" Tag=""/>
+                <ComboBoxItem Content="Suave: casi natural, solo recorta los picos" Tag="suave"/>
                 <ComboBoxItem Content="Normal: explosiones controladas" Tag="normal"/>
-                <ComboBoxItem Content="Pasos al máximo: disparos y explosiones muy bajos" Tag="pasos"/>
+                <ComboBoxItem Content="Fuerte: disparos y explosiones muy bajos" Tag="pasos"/>
+                <ComboBoxItem Content="Rush: para tiroteos seguidos" Tag="rush"/>
               </ComboBox>
 
               <TextBlock Text="Intensidad del EQ" Style="{StaticResource Label}"/>

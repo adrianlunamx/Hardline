@@ -85,7 +85,7 @@ No. Antes de instalar, Hardline lo detecta y lo limpia. Tu configuración de Equ
 
 **Los pasos se oyen bajos y mis disparos muy altos.**
 
-Panel del EQ (Inicio > Hardline > Hardline EQ) > Compresor > **Pasos al máximo**, con Voicemeeter abierto. Baja todo lo fuerte casi al instante (8:1, ataque de 1 ms) y sube lo flojo hasta +24 dB, con un limitador para no saturar. Ningún procesador sabe qué disparo es tuyo, pero los tuyos son lo más fuerte que suena, así que son lo que más baja. Necesita Voicemeeter Potato para el ajuste completo.
+Panel del EQ (Inicio > Hardline > Hardline EQ) > Compresor > **Fuerte**, con Voicemeeter abierto. Si se pierden sobre todo en tiroteos seguidos (un rush con tu escuadra disparando), prueba **Rush**: recupera el volumen entre disparo y disparo. Baja todo lo fuerte casi al instante (8:1, ataque de 1 ms) y sube lo flojo hasta +24 dB, con un limitador para no saturar. Ningún procesador sabe qué disparo es tuyo, pero los tuyos son lo más fuerte que suena, así que son lo que más baja. Necesita Voicemeeter Potato para el ajuste completo.
 
 **¿Y Peace?**
 

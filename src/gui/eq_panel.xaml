@@ -52,39 +52,93 @@
       </StackPanel>
     </Border>
 
+    <!-- Estado y encendido -->
     <Border x:Name="eqBadge" Style="{StaticResource Card}" Margin="0,16,0,0" Padding="18,16">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="EQ DE PASOS" Style="{StaticResource Section}" Margin="0,0,0,2"/>
+          <StackPanel Orientation="Horizontal">
+            <Ellipse x:Name="eqDot" Width="11" Height="11" Fill="#8B94A5" VerticalAlignment="Center"/>
+            <TextBlock x:Name="eqState" FontFamily="{StaticResource DisplayFont}" FontSize="26" FontWeight="SemiBold" Text="..." Margin="10,0,0,0"/>
+          </StackPanel>
+          <TextBlock x:Name="eqDetail" Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+        </StackPanel>
+        <Button x:Name="eqToggle" Grid.Column="1" Content="Apagar" FontWeight="SemiBold" MinWidth="104" Padding="18,10" VerticalAlignment="Center"/>
+      </Grid>
+    </Border>
+
+    <!-- Intensidad del EQ: 0-150 %, se aplica al soltar. -->
+    <Border Style="{StaticResource Card}" Margin="0,12,0,0" Padding="18,14">
       <StackPanel>
-        <TextBlock Text="EQ DE PASOS" Style="{StaticResource Section}" Margin="0,0,0,2"/>
-        <TextBlock x:Name="eqState" FontFamily="{StaticResource DisplayFont}" FontSize="28" FontWeight="SemiBold" Text="..."/>
-        <TextBlock x:Name="eqDetail" Style="{StaticResource Caption}" Margin="0,2,0,0"/>
-        <Button x:Name="eqToggle" Margin="0,14,0,0" Content="Apagar" FontWeight="SemiBold" HorizontalAlignment="Stretch"/>
+        <Grid>
+          <TextBlock Text="INTENSIDAD DEL EQ" Style="{StaticResource Section}" Margin="0" VerticalAlignment="Center"/>
+          <TextBlock x:Name="eqIntValue" Style="{StaticResource BigValue}" Text="100 %"/>
+        </Grid>
+        <Slider x:Name="eqIntSlider" Style="{StaticResource HLSlider}" Minimum="0" Maximum="150" SmallChange="5" LargeChange="10"
+                TickFrequency="5" IsSnapToTickEnabled="True" IsMoveToPointEnabled="True" Value="100" Margin="0,8,0,0"/>
+        <!-- 100 % cae a 2/3 del recorrido (0-150). El tirador mide 20: 10 px de margen a cada lado. -->
+        <Grid Margin="10,2,10,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*"/>
+            <ColumnDefinition Width="1*"/>
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="0 %" Style="{StaticResource Tick}" HorizontalAlignment="Left" Margin="-8,0,0,0"/>
+          <TextBlock Grid.Column="1" Text="100 %" Style="{StaticResource Tick}" HorizontalAlignment="Left" Margin="-14,0,0,0"/>
+          <TextBlock Grid.Column="1" Text="150" Style="{StaticResource Tick}" HorizontalAlignment="Right" Margin="0,0,-8,0"/>
+        </Grid>
+        <TextBlock x:Name="eqIntHint" Style="{StaticResource Caption}" Margin="0,8,0,0"/>
       </StackPanel>
     </Border>
 
-    <Border Style="{StaticResource Card}" Margin="0,12,0,0" Padding="18,6,18,16">
+    <!-- Compresor: cuatro niveles, de menos a más. -->
+    <Border Style="{StaticResource Card}" Margin="0,12,0,0" Padding="18,14">
       <StackPanel>
-        <TextBlock Text="Intensidad" Style="{StaticResource Label}"/>
-        <ComboBox x:Name="eqIntensity"/>
-        <TextBlock Text="Compresor (Voicemeeter)" Style="{StaticResource Label}"/>
-        <ComboBox x:Name="eqDynamics">
-          <ComboBoxItem Content="Normal: explosiones controladas" Tag="normal"/>
-          <ComboBoxItem Content="Pasos al máximo: disparos y explosiones muy bajos" Tag="pasos"/>
-        </ComboBox>
-        <TextBlock x:Name="eqDynHint" Style="{StaticResource Caption}" Margin="0,6,0,0"/>
-        <Button x:Name="eqTest" Margin="0,14,0,0" HorizontalAlignment="Stretch">
-          <StackPanel Orientation="Horizontal">
-            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE767;" FontSize="13" Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
-            <TextBlock Text="Test de pasos (sin y con EQ)" Margin="9,0,0,0"/>
-          </StackPanel>
-        </Button>
+        <Grid>
+          <TextBlock Text="COMPRESOR (VOICEMEETER)" Style="{StaticResource Section}" Margin="0" VerticalAlignment="Center"/>
+          <TextBlock x:Name="eqDynValue" Style="{StaticResource BigValue}" Text="Normal"/>
+        </Grid>
+        <Slider x:Name="eqDynSlider" Style="{StaticResource HLSlider}" Minimum="0" Maximum="3" SmallChange="1" LargeChange="1"
+                TickFrequency="1" IsSnapToTickEnabled="True" IsMoveToPointEnabled="True" Value="1" Margin="0,8,0,0"/>
+        <!-- Marcas a 0, 1/3, 2/3 y 1 del recorrido. -->
+        <Grid Margin="10,2,10,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="Suave" Style="{StaticResource Tick}" HorizontalAlignment="Left" Margin="-12,0,0,0"/>
+          <TextBlock Grid.Column="1" Text="Normal" Style="{StaticResource Tick}" HorizontalAlignment="Left" Margin="-18,0,0,0"/>
+          <TextBlock Grid.Column="2" Text="Fuerte" Style="{StaticResource Tick}" HorizontalAlignment="Left" Margin="-16,0,0,0"/>
+          <TextBlock Grid.Column="2" Text="Rush" Style="{StaticResource Tick}" HorizontalAlignment="Right" Margin="0,0,-12,0"/>
+        </Grid>
+        <TextBlock x:Name="eqDynHint" Style="{StaticResource Caption}" Margin="0,8,0,0"/>
       </StackPanel>
     </Border>
+
+    <Grid Margin="0,12,0,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="8"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <Button x:Name="eqTest" HorizontalContentAlignment="Center">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE767;" FontSize="13" Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
+          <TextBlock Text="Test de pasos" Margin="9,0,0,0"/>
+        </StackPanel>
+      </Button>
+      <Button x:Name="eqReset" Grid.Column="2" Content="Restablecer" ToolTip="Intensidad 100 % y compresor Normal"/>
+    </Grid>
 
     <CheckBox x:Name="eqTopmost" Margin="2,14,2,0">
       <TextBlock Text="Siempre visible"/>
     </CheckBox>
     <TextBlock Style="{StaticResource Caption}" Foreground="{StaticResource Faint}" Margin="2,10,2,0"
-               Text="En partida: Ctrl+Alt+F10 (un pitido agudo = encendido, dos graves = apagado). Se aplica al momento, sin reiniciar el audio."/>
+               Text="En partida: Ctrl+Alt+F10 enciende o apaga el EQ (un pitido agudo = encendido, dos graves = apagado). Todo se aplica al momento, sin reiniciar el audio."/>
   </StackPanel>
   </ScrollViewer>
 </Window>

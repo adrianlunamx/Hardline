@@ -58,8 +58,9 @@
     -AudioDevice "Sound BlasterX". Sin el, se pregunta (o se elige la mas
     probable, nunca el HDMI/DP del monitor si hay otra).
 .PARAMETER AudioDynamics
-    Compresor del canal del juego: normal, o pasos (disparos y explosiones
-    mucho mas bajos, pasos muy altos). Sin el, se mantiene el ultimo elegido.
+    Compresor del canal del juego, de menos a mas: suave, normal, pasos
+    ("Fuerte": disparos y explosiones mucho mas bajos, pasos muy altos) o
+    rush (tiroteos seguidos). Sin el, se mantiene el ultimo elegido.
 .PARAMETER UpdateOnly
     Como -Update, pero solo actualiza los archivos y termina (lo usa el boton
     Actualizar de la interfaz sin cerrarla).
@@ -104,7 +105,7 @@ param(
     [switch] $CleanAudio,
     [switch] $HeSuVi,
     [string] $AudioDevice = '',
-    [ValidateSet('', 'normal', 'pasos')] [string] $AudioDynamics = '',
+    [ValidateSet('', 'suave', 'normal', 'pasos', 'rush')] [string] $AudioDynamics = '',
     [switch] $Update,
     [switch] $UpdateOnly,
     [switch] $GameplayBenchOnly,

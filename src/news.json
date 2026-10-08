@@ -1,14 +1,16 @@
 {
-  "notes": "Novedades que se anuncian en Hardline EQ y en la interfaz. La más nueva primero. Cada versión que se publique añade su entrada aquí (además del CHANGELOG): título corto y 3-6 puntos en lenguaje de usuario.",
+  "notes": "Novedades que se anuncian en Hardline EQ y en la interfaz. La más nueva primero. Cada versión que se publique añade su entrada aquí (además del CHANGELOG): título corto y 3-8 puntos (Hardline EQ enseña los 3 primeros) en lenguaje de usuario.",
   "releases": [
     {
       "version": "1.12.0",
       "date": "2026-10-07",
-      "title": "Interfaz nueva y guía de un clic",
+      "title": "EQ con deslizadores, interfaz nueva y guía de un clic",
       "items": [
+        { "title": "Deslizadores aquí mismo", "text": "Intensidad del EQ de 0 a 150 % y compresor en cuatro niveles: Suave, Normal, Fuerte y Rush (para tiroteos seguidos). Se aplica al soltar; Restablecer vuelve a 100 % y Normal." },
         { "title": "Interfaz renovada", "text": "Tema oscuro nuevo, interruptores en lugar de casillas y el progreso de cada fase mientras se aplica, con el registro completo a un clic." },
         { "title": "La guía te abre el panel", "text": "Si un paso es en Windows o en un programa (Sonido, Grabación, Mezclador de volumen, configuración 7.1, HeSuVi, Equalizer APO, Voicemeeter), un botón lo abre directamente y el paso dice qué tocar." },
         { "title": "Cada paso, una sola vez", "text": "Al volver a aplicar solo aparecen los pasos nuevos. Los pendientes siguen en Guía de pasos." },
+        { "title": "Voicemeeter más limpio", "text": "Los dispositivos virtuales que no se usan salen de las listas (quedan Voicemeeter Input y Out B1), se respetan los nombres de Potato y Hardline siempre configura Potato si está instalado." },
         { "title": "Novedades aquí", "text": "Cada actualización y cada vez que apliques ajustes se anuncia en Hardline EQ." },
         { "title": "Modo partida más seguro", "text": "Ahora corre desde Archivos de programa: antes, otro programa podía usarlo para obtener permisos de administrador sin preguntarte." },
         { "title": "Instalación más limpia", "text": "Al actualizar se borran los archivos que ya no usa Hardline, y los accesos directos llevan su icono." }
