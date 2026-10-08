@@ -1,0 +1,37 @@
+{
+  "notes": "Novedades que se anuncian en Hardline EQ y en la interfaz. La más nueva primero. Cada versión que se publique añade su entrada aquí (además del CHANGELOG): título corto y 3-6 puntos en lenguaje de usuario.",
+  "releases": [
+    {
+      "version": "1.12.0",
+      "date": "2026-10-07",
+      "title": "Interfaz nueva y guía de un clic",
+      "items": [
+        { "title": "Interfaz renovada", "text": "Tema oscuro nuevo, interruptores en lugar de casillas y el progreso de cada fase mientras se aplica, con el registro completo a un clic." },
+        { "title": "La guía te abre el panel", "text": "Si un paso es en Windows o en un programa (Sonido, Grabación, Mezclador de volumen, configuración 7.1, HeSuVi, Equalizer APO, Voicemeeter), un botón lo abre directamente y el paso dice qué tocar." },
+        { "title": "Cada paso, una sola vez", "text": "Al volver a aplicar solo aparecen los pasos nuevos. Los pendientes siguen en Guía de pasos." },
+        { "title": "Novedades aquí", "text": "Cada actualización y cada vez que apliques ajustes se anuncia en Hardline EQ." },
+        { "title": "Modo partida más seguro", "text": "Ahora corre desde Archivos de programa: antes, otro programa podía usarlo para obtener permisos de administrador sin preguntarte." },
+        { "title": "Instalación más limpia", "text": "Al actualizar se borran los archivos que ya no usa Hardline, y los accesos directos llevan su icono." }
+      ]
+    },
+    {
+      "version": "1.11.0",
+      "date": "2026-10-03",
+      "title": "HeSuVi: 7.1 virtual para audífonos",
+      "items": [
+        { "title": "HeSuVi opcional", "text": "Sonido envolvente 7.1 virtual sobre Equalizer APO, verificado antes de instalarse. Casilla en la interfaz." },
+        { "title": "Compatible con el EQ", "text": "El EQ de pasos va después de HeSuVi: Ctrl+Alt+F10 apaga el EQ y la virtualización se queda." }
+      ]
+    },
+    {
+      "version": "1.10.2",
+      "date": "2026-10-03",
+      "title": "Revisión de seguridad y rollback completo",
+      "items": [
+        { "title": "Revertir todo", "text": "Deshace todas las sesiones de Hardline, no solo la última." },
+        { "title": "Instaladores verificados", "text": "VB-CABLE y Equalizer APO solo se ejecutan con firma válida." },
+        { "title": "Audio anterior fuera", "text": "Art Tune, Peace y similares se apartan enteros antes de instalar el audio (revertible)." }
+      ]
+    }
+  ]
+}

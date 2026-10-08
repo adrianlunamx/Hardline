@@ -578,7 +578,7 @@ function Invoke-HLAudioSetup {
         if (Test-Path $cfgExe) { Start-Process -FilePath $cfgExe -Wait }
         $HL.NeedsReboot = $true
     }
-    Add-HLManualStep 'Audio' "Equalizer APO Configurator: el único dispositivo marcado debe ser $target. Reinicia después."
+    Add-HLManualStep 'Audio' "En el Configurator de Equalizer APO deja marcado solo $target, pulsa OK y reinicia." '' 'eqapo-configurator'
 
     # --- Voicemeeter ----------------------------------------------------------------
     if ($Mode -eq 'Full') {
@@ -589,22 +589,22 @@ function Invoke-HLAudioSetup {
         } else {
             Invoke-HLVoicemeeterPhase -HeadsetProfile $hp -HeadsetDevice $dev -Dynamics $Dynamics -PreampDb ([double]$pre)
         }
-        Add-HLManualStep 'Audio' 'Configuración > Sistema > Sonido > Salida: "Voicemeeter Input". Así Discord y el resto pasan por Voicemeeter sin procesar.'
-        Add-HLManualStep 'Audio' 'Con Warzone abierto: Configuración > Sistema > Sonido > Mezclador de volumen > cod.exe > Dispositivo de salida: "CABLE Input". Windows lo recuerda para siguientes sesiones.'
+        Add-HLManualStep 'Audio' 'En Salida elige "Voicemeeter Input". Así Discord y el resto suenan por Voicemeeter, sin el EQ del juego.' '' 'sound-settings'
+        Add-HLManualStep 'Audio' 'Con Warzone abierto, en el Mezclador de volumen busca cod.exe y en Dispositivo de salida elige "CABLE Input". Windows lo recuerda.' '' 'volume-mixer'
     }
 
-    Add-HLManualStep 'Audio' 'Propiedades del headset en Windows: desactiva "Mejoras de audio" y "Audio espacial" (Windows Sonic/Dolby). Warzone ya aplica su propio HRTF; apilar virtualizadores destruye la localización.'
+    Add-HLManualStep 'Audio' 'Doble clic en tu headset > pestaña Mejoras: desactívalas. Pestaña Audio espacial: Desactivado. Warzone ya hace su propio 3D; dos a la vez estropean la dirección de los pasos.' '' 'sound-playback'
     Add-HLManualStep 'Audio' 'Software del headset (G HUB, iCUE, NGENUITY, SteelSeries GG, Synapse): EQ plano y 7.1 virtual desactivado. El EQ lo hace Hardline.'
     if ($heSuViOk) {
-        Add-HLManualStep 'Audio' 'HeSuVi: en su interfaz elige un perfil HRIR (prueba "ooyh_0") y en Actions > Restart Audio Service (evita reiniciar).'
-        Add-HLManualStep 'Audio' 'Panel de sonido de Windows: tu headset > Configurar > 7.1 Surround (o 5.1). Si tu tarjeta no lo permite, en HeSuVi pestaña Additional > Matrix Upmix: Stereo y 5.1 activados.'
-        Add-HLManualStep 'Audio' 'Warzone > Audio: salida 7.1 / home theater (NO la mezcla "Auriculares"). HeSuVi necesita los 8 canales para virtualizar; con "Auriculares" no hay nada que convertir.'
+        Add-HLManualStep 'Audio' 'HeSuVi: elige un perfil HRIR (prueba "ooyh_0") y pulsa Actions > Restart Audio Service. No hace falta reiniciar.' '' 'hesuvi'
+        Add-HLManualStep 'Audio' 'Pon tu headset en 7.1: selecciónalo > Configurar > "7.1 Surround" > Siguiente hasta Finalizar. Si no aparece 7.1, en HeSuVi > Additional > Matrix Upmix activa Stereo y 5.1.' '' 'sound-playback'
+        Add-HLManualStep 'Audio' 'Warzone > Audio: salida 7.1 / Home Theater (no "Auriculares"). HeSuVi necesita los 8 canales para crear el sonido 3D.'
         Add-HLManualStep 'Audio' 'Con HeSuVi, el EQ de pasos de Hardline sigue aplicando encima (va después en config.txt). Ctrl+Alt+F10 apaga solo el EQ, la virtualización queda.'
     } else {
         Add-HLManualStep 'Audio' 'Warzone > Audio: Mezcla "Auriculares", volumen de música y diálogo a 0, efectos al 100%. Si aparece "Reducción del sonido de tinnitus", actívala: quita el pitido tras explosiones cercanas.'
     }
-    Add-HLManualStep 'Audio' 'Pasos más altos y disparos más bajos: panel del EQ (Inicio > Hardline > Hardline EQ) > Compresor > "Pasos al máximo". Se aplica al momento con Voicemeeter abierto; compáralo en partida con "Normal".'
-    Add-HLManualStep 'Audio' 'Tras reiniciar: Inicio > Hardline > "Hardline test de pasos". Suena la misma escena con el EQ apagado y encendido; en la segunda, los pasos de la izquierda deben destacar sobre la explosión. En partida, Ctrl+Alt+F10 enciende/apaga el EQ (en pantalla completa exclusiva, si el atajo no responde, usa "Sin bordes").'
+    Add-HLManualStep 'Audio' 'Pasos más altos y disparos más bajos: en Hardline EQ > Compresor elige "Pasos al máximo". Se aplica al momento; compáralo en partida con "Normal".' '' 'eq-panel'
+    Add-HLManualStep 'Audio' 'Tras reiniciar, haz el test de pasos: suena la misma escena sin y con EQ; en la segunda, los pasos de la izquierda deben destacar sobre la explosión. En partida, Ctrl+Alt+F10 enciende/apaga el EQ.' '' 'footstep-test'
 }
 
 function Invoke-HLVoicemeeterPhase {
@@ -646,7 +646,7 @@ function Invoke-HLVoicemeeterPhase {
         Set-HLRegistryValue -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'HardlineVoicemeeter' -Value ('"{0}"' -f $exe) -Type String -Reason 'Voicemeeter al iniciar sesión' | Out-Null
     } elseif ($vmDir) {
         Write-HLWarn "No se encontró el ejecutable de Voicemeeter en ${vmDir}: no arrancará con Windows."
-        Add-HLManualStep 'Audio' 'Voicemeeter no arranca solo con Windows: ábrelo y activa Menú > "Run on Windows Startup", o el juego se queda sin audio tras reiniciar.'
+        Add-HLManualStep 'Audio' 'Voicemeeter no arranca solo con Windows: en su Menú activa "Run on Windows Startup", o el juego se queda sin audio tras reiniciar.' '' 'voicemeeter'
     }
 }
 

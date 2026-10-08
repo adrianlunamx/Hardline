@@ -224,8 +224,9 @@ function Restore-HLCableNames {
             Add-HLResult -Module 'Audio' -Item "Nombre de $($c.Default)" -Status Applied -Detail "Se llamaba ""$($c.Name)"" (lo renombró otro programa). El rollback lo devuelve."
         } catch {
             Add-HLResult -Module 'Audio' -Item "Nombre de $($c.Default)" -Status Manual -Detail $_.Exception.Message
-            $panel = if ($c.Flow -eq 0) { 'Salida' } else { 'Entrada' }
-            Add-HLManualStep 'Audio' ("Configuración > Sistema > Sonido > {0}: ""{1}"" es tu {2}. Ábrelo y en Cambiar nombre pon ""{2}"" para que coincida con las instrucciones." -f $panel, $c.Name, $c.Default)
+            $tab = if ($c.Flow -eq 0) { 'Reproducción' } else { 'Grabación' }
+            $act = if ($c.Flow -eq 0) { 'sound-playback' } else { 'sound-recording' }
+            Add-HLManualStep 'Audio' ("En {0}, ""{1}"" es tu {2}: doble clic > pestaña General y cámbiale el nombre a ""{2}"" para que coincida con las instrucciones." -f $tab, $c.Name, $c.Default) '' $act
         }
     }
     return $count

@@ -238,7 +238,7 @@ function Invoke-HLDisplay {
                 }
             } else {
                 Add-HLResult -Module 'Pantalla' -Item "Refresco $label" -Status Manual -Detail "A $($d.Hz) Hz pudiendo ir a $($d.BestHz) Hz"
-                Add-HLManualStep 'Pantalla' "Configuración > Pantalla > Pantalla avanzada > Frecuencia de actualización: $($d.BestHz) Hz en $label."
+                Add-HLManualStep 'Pantalla' "En Pantalla avanzada elige $label y pon la frecuencia de actualización en $($d.BestHz) Hz." '' 'display'
             }
         } else {
             Add-HLResult -Module 'Pantalla' -Item "Refresco $label" -Status Skipped -Detail "Ya al máximo ($($d.Hz) Hz)"

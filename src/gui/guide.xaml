@@ -1,61 +1,63 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Hardline - guía de pasos" Width="640" Height="420" MinWidth="480" MinHeight="360"
-        WindowStartupLocation="CenterOwner" Background="#0E1116" Foreground="#E6EAF0"
-        FontFamily="Segoe UI" FontSize="13">
+        Title="Hardline - guía de pasos" Width="720" Height="500" MinWidth="560" MinHeight="420"
+        WindowStartupLocation="CenterOwner" Background="#0B0D12" Foreground="#EEF1F6"
+        FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display">
   <Window.Resources>
-    <Style TargetType="Button">
-      <Setter Property="Foreground" Value="#E6EAF0"/>
-      <Setter Property="Background" Value="#1F2630"/>
-      <Setter Property="BorderBrush" Value="#2A313C"/>
-      <Setter Property="Padding" Value="14,7"/>
-      <Setter Property="Margin" Value="8,0,0,0"/>
-      <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="Button">
-            <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                    BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}">
-              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-            </Border>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="b" Property="BorderBrush" Value="#FF5A1F"/>
-              </Trigger>
-              <Trigger Property="IsEnabled" Value="False">
-                <Setter TargetName="b" Property="Opacity" Value="0.4"/>
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
+    <!--HL:THEME-->
   </Window.Resources>
 
-  <DockPanel Margin="20">
+  <DockPanel Margin="24,20,24,20">
     <StackPanel DockPanel.Dock="Top">
       <DockPanel>
-        <TextBlock x:Name="gCount" DockPanel.Dock="Right" Foreground="#8A93A3" FontSize="12"/>
-        <TextBlock x:Name="gPhase" FontSize="16" FontWeight="SemiBold"/>
+        <Border DockPanel.Dock="Right" Style="{StaticResource Chip}">
+          <TextBlock x:Name="gCount" Foreground="{StaticResource Muted}" FontSize="11"/>
+        </Border>
+        <StackPanel>
+          <TextBlock x:Name="gMode" Text="GUÍA DE PASOS" Style="{StaticResource Section}" Margin="0,0,0,4"/>
+          <TextBlock x:Name="gPhase" Style="{StaticResource H1}" FontSize="20"/>
+        </StackPanel>
       </DockPanel>
-      <TextBlock x:Name="gHint" Foreground="#8A93A3" FontSize="12" Margin="0,2,0,10" TextWrapping="Wrap"/>
-      <ProgressBar x:Name="gProgress" Height="6" Minimum="0" Maximum="1" Foreground="#3FB950" Background="#2A313C" BorderThickness="0"/>
+      <TextBlock x:Name="gHint" Style="{StaticResource Caption}" Margin="0,4,0,12"/>
+      <ProgressBar x:Name="gProgress" Minimum="0" Maximum="1" Foreground="{StaticResource Ok}"/>
     </StackPanel>
 
-    <DockPanel DockPanel.Dock="Bottom" Margin="0,14,0,0" LastChildFill="False">
-      <Button x:Name="gList" DockPanel.Dock="Left" Margin="0" Content="Ver lista completa"/>
-      <Button x:Name="gDone" DockPanel.Dock="Right" Content="Hecho" Background="#FF5A1F" BorderBrush="#FF5A1F" Foreground="#0E1116" FontWeight="SemiBold"/>
-      <Button x:Name="gSkip" DockPanel.Dock="Right" Content="Saltar"/>
+    <DockPanel DockPanel.Dock="Bottom" Margin="0,16,0,0" LastChildFill="False">
+      <Button x:Name="gList" DockPanel.Dock="Left" Style="{StaticResource Ghost}" Content="Ver lista completa"/>
+      <Button x:Name="gDone" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Hecho" Margin="8,0,0,0" MinWidth="110"/>
+      <Button x:Name="gSkip" DockPanel.Dock="Right" Content="Saltar" Margin="8,0,0,0"/>
       <Button x:Name="gPrev" DockPanel.Dock="Right" Content="Anterior"/>
     </DockPanel>
 
-    <Border Background="#161B22" BorderBrush="#2A313C" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,14,0,0">
+    <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="22,20">
       <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel>
-          <TextBlock x:Name="gArea" Foreground="#FF5A1F" FontSize="12" FontWeight="SemiBold"/>
-          <TextBlock x:Name="gText" FontSize="15" TextWrapping="Wrap" Margin="0,6,0,0" LineHeight="22"/>
-          <TextBlock x:Name="gState" Foreground="#3FB950" FontSize="12" Margin="0,10,0,0"/>
-          <Button x:Name="gLink" HorizontalAlignment="Left" Margin="0,12,0,0" Content="Abrir enlace"/>
+          <StackPanel Orientation="Horizontal">
+            <Border Style="{StaticResource Chip}" Background="{StaticResource AccentSoft}">
+              <TextBlock x:Name="gArea" Foreground="{StaticResource Accent}" FontSize="11" FontWeight="Bold"/>
+            </Border>
+            <Border x:Name="gNew" Style="{StaticResource Chip}" Background="{StaticResource Accent}" Margin="8,0,0,0" Visibility="Collapsed">
+              <TextBlock Text="NUEVO" Foreground="#FFFFFF" FontSize="10" FontWeight="Bold"/>
+            </Border>
+            <TextBlock x:Name="gState" Foreground="{StaticResource Ok}" FontSize="12" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center"/>
+          </StackPanel>
+          <TextBlock x:Name="gText" FontSize="16" TextWrapping="Wrap" Margin="0,14,0,0" LineHeight="24"/>
+          <WrapPanel Margin="0,18,0,0">
+            <Button x:Name="gAction" Margin="0,0,8,8" Padding="14,9" BorderBrush="{StaticResource Accent}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8A7;" FontSize="13" Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
+                <TextBlock x:Name="gActionText" Text="Abrir" Margin="9,0,0,0" FontWeight="SemiBold"/>
+              </StackPanel>
+            </Button>
+            <Button x:Name="gLink" Margin="0,0,8,8" Padding="14,9">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE774;" FontSize="13" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                <TextBlock Text="Abrir enlace" Margin="9,0,0,0"/>
+              </StackPanel>
+            </Button>
+          </WrapPanel>
+          <TextBlock x:Name="gActionHint" Style="{StaticResource Caption}" Margin="0,2,0,0"/>
         </StackPanel>
       </ScrollViewer>
     </Border>

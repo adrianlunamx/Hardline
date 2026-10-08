@@ -52,7 +52,7 @@ Primero, si quieres ver qué haría sin tocar nada:
 ```
 
 > [!NOTE]
-> Descarga la **última release** y verifica su SHA256 antes de ejecutar nada. Crea un restore point, se instala en `%LOCALAPPDATA%\Hardline` y al empezar te deja marcar qué módulos aplicar. Si no abres PowerShell como admin, pide elevación (UAC) solo.
+> Descarga la **última release** y verifica su SHA256 antes de ejecutar nada. Se instala en `%LOCALAPPDATA%\Hardline`, crea el acceso directo **Inicio > Hardline** y abre la interfaz, donde eliges qué módulos aplicar (antes de cambiar nada crea un restore point). Si prefieres la consola, añade `-Console`. Si no abres PowerShell como admin, pide elevación (UAC) solo.
 
 <details>
 <summary><strong>Desde un clon</strong></summary>
@@ -79,7 +79,8 @@ cd Hardline
 | `-AudioMode Full\|EqOnly` | EQ + compresor, o solo EQ (sin latencia añadida) |
 | `-SkipWindows` `-SkipPlatforms` `-SkipNetwork` `-SkipGame` `-SkipAudio` `-SkipBenchmark` | Omitir módulos sin pasar por el menú |
 | `-BenchmarkOnly` | Medir otra vez y comparar con el benchmark previo (tras reiniciar) |
-| `-Gui` | Abrir la interfaz gráfica |
+| `-Gui` | Abrir la interfaz gráfica (lo que hace `irm \| iex` sin parámetros) |
+| `-Console` | Con `irm \| iex` sin otros parámetros, modo consola en vez de la interfaz |
 | `-NetDiagOnly` | Solo el diagnóstico de red |
 | `-Experimental` | Aplicar también los tweaks experimentales |
 | `-SkipLatency` `-SkipNetDiag` | Omitir latencia avanzada / diagnóstico de red |
@@ -96,11 +97,17 @@ Botón **Actualizar** en la interfaz (aparece solo cuando hay versión nueva; se
 
 ### Interfaz gráfica
 
-Tras la primera instalación aparece **Inicio > Hardline > Hardline**: una ventana con los módulos en casillas, opciones (plataforma, headset, modo de audio, intensidad) y botones para **Simular**, **Aplicar**, **Medir partida**, **Guía de pasos**, **Revertir**, **Diagnóstico de red**, **Benchmark**, **Test de pasos** y **Test de mando**, con la salida en directo. También con `install.ps1 -Gui`. Ejecuta exactamente el mismo código que la consola.
+Tras la primera instalación aparece **Inicio > Hardline > Hardline**: una ventana oscura con los módulos como interruptores, opciones (plataforma, headset, modo de audio, intensidad), **Simular** y **Aplicar**, la guía, el audio (Hardline EQ, test de pasos) y herramientas (**Medir partida**, **Benchmark**, **Diagnóstico de red**, **Test de mando**, **Último reporte**, **Revertir todo**). Mientras aplica enseña la fase en curso y, al terminar, los cambios aplicados, los pasos nuevos de la guía y los fallos; el registro completo está a un clic. También con `install.ps1 -Gui`. Ejecuta exactamente el mismo código que la consola.
 
 ### Pasos manuales: la guía
 
-Lo que no se puede hacer desde Windows (BIOS, panel de la GPU, menús del juego) queda en una **guía de pasos**, ordenada de lo que más se nota a lo avanzado. Al terminar se abre sola: en la interfaz como asistente, un paso cada vez; en la consola, como página con casillas y la opción de ir paso a paso ahí mismo. Vuelve a ella cuando quieras desde **Inicio > Hardline > Guía de pasos**. Lo que marcas como hecho se recuerda.
+Lo que Hardline no puede hacer por ti (BIOS, panel de la GPU, menús del juego, algún ajuste de Windows) queda en una **guía de pasos**, ordenada de lo que más se nota a lo avanzado. Si el paso es en un panel de Windows o en un programa, la guía trae un botón que **lo abre directamente** (Sonido, Grabación, Mezclador de volumen, la configuración 7.1 del headset, HeSuVi, Equalizer APO, Voicemeeter...) y dice qué tocar ahí.
+
+Cada paso se enseña **una sola vez**: al terminar de aplicar solo se abren los pasos nuevos; los que viste y no hiciste siguen en el botón **Guía de pasos** y en **Inicio > Hardline > Guía de pasos**. Lo que marcas como hecho se recuerda.
+
+### Novedades en Hardline EQ
+
+El panel **Hardline EQ** anuncia cada versión nueva y cada vez que aplicas ajustes (qué cambió, cuántos pasos nuevos tienes y si hay que reiniciar), hasta que pulsas **Entendido**. El historial completo está en el botón **Novedades** del panel y de la interfaz.
 
 ### Qué pasa al ejecutarlo
 
