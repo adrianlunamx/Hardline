@@ -48,7 +48,7 @@ body:
     id: log
     attributes:
       label: Log
-      description: Arrastra aquí el archivo más reciente de `%LOCALAPPDATA%\Hardline\logs` (o pega las líneas con ERROR/WARN). Si es del modo partida, `logs\gamesession.log`.
+      description: Arrastra aquí el archivo más reciente de `%LOCALAPPDATA%\Hardline\logs` (o pega las líneas con ERROR/WARN). Si es del modo partida, `C:\Program Files\Hardline\gamesession\gamesession.log`.
       render: text
     validations:
       required: true

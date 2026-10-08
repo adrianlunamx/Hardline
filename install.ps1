@@ -40,7 +40,11 @@
 .PARAMETER GameSession
     Activa el modo partida (Yes) o no (No) sin preguntar.
 .PARAMETER Gui
-    Abre la interfaz grafica en lugar del modo consola.
+    Abre la interfaz grafica en lugar del modo consola. Con "irm | iex" sin
+    parametros es lo que se abre por defecto.
+.PARAMETER Console
+    Con "irm | iex" sin otros parametros, usa el modo consola en lugar de
+    abrir la interfaz.
 .PARAMETER Experimental
     Aplica tambien los tweaks experimentales (desactivados por defecto).
 .PARAMETER NetDiagOnly
@@ -106,6 +110,7 @@ param(
     [switch] $GameplayBenchOnly,
     [switch] $ControllerTestOnly,
     [switch] $Gui,
+    [switch] $Console,
     [switch] $DisableOtherPlatforms,
     [double] $EqIntensity = 0,
     [switch] $SkipBenchmark,
@@ -138,6 +143,7 @@ if ($env:HARDLINE_UNATTENDED -eq '1') { $Unattended = $true }
 if ($env:HARDLINE_HEADSET) { $Headset = $env:HARDLINE_HEADSET }
 if ($env:HARDLINE_BRANCH) { $Branch = $env:HARDLINE_BRANCH; $Channel = 'main' }
 if ($env:HARDLINE_CHANNEL) { $Channel = $env:HARDLINE_CHANNEL }
+if ($env:HARDLINE_CONSOLE -eq '1') { $Console = $true }
 if ($PSBoundParameters.ContainsKey('Branch')) { $Channel = 'main' }
 
 # Reconstruye los parametros para relanzar el script (elevado o en PS 5.1).
@@ -316,6 +322,11 @@ if (-not $localRoot) {
     Set-Content -Path (Join-Path $InstallDir '.hardline-source') -Value ("{0} | {1:yyyy-MM-dd HH:mm}" -f $source, (Get-Date)) -Encoding ASCII
     Get-ChildItem $InstallDir -Recurse -File | Unblock-File -ErrorAction SilentlyContinue
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    # Archivos de versiones anteriores que ya no se usan (lista en src\obsolete.txt).
+    . (Join-Path $InstallDir 'src\core\common.ps1')
+    $gone = @(Remove-HLObsoleteFiles -Root $InstallDir)
+    if ($gone.Count -gt 0) { Write-Host ("[+] Limpieza: {0} archivos de versiones anteriores borrados." -f $gone.Count) -ForegroundColor Green }
+    if (Install-HLAppShortcut -Root $InstallDir) { Write-Host '[+] Acceso directo: Inicio > Hardline.' -ForegroundColor Green }
     Write-Host "[+] Instalado ($source). Para revertir mas tarde: $InstallDir\rollback.ps1" -ForegroundColor Green
 
     # Solo actualizar: los archivos nuevos ya estan; nada mas que ejecutar.
@@ -323,6 +334,12 @@ if (-not $localRoot) {
         $newVer = Select-String -Path (Join-Path $InstallDir 'src\core\common.ps1') -Pattern "HLVersion = '([^']+)'" | Select-Object -First 1
         if ($newVer) { Write-Host ("[+] Hardline actualizado a v{0}." -f $newVer.Matches[0].Groups[1].Value) -ForegroundColor Green }
         return
+    }
+    # "irm | iex" a secas: la interfaz, que guia mejor que la consola. -Console para la consola.
+    [void]$bound.Remove('Console')
+    if ($bound.Count -eq 0 -and -not $Console) {
+        Write-Host '[*] Abriendo la interfaz de Hardline... (modo consola: -Console)' -ForegroundColor Cyan
+        $bound['Gui'] = $true
     }
     & (Join-Path $InstallDir 'install.ps1') @bound
     return
@@ -335,8 +352,10 @@ $HLRoot = $localRoot
 . (Join-Path $HLRoot 'src\core\common.ps1')
 . (Join-Path $HLRoot 'src\core\detector.ps1')
 . (Join-Path $HLRoot 'src\core\optimizer.ps1')
+. (Join-Path $HLRoot 'src\core\news.ps1')
 
 $ErrorActionPreference = 'Continue'
+if (-not $DryRun) { [void](Remove-HLObsoleteFiles -Root $HLRoot) }
 
 if ($Gui) {
     Install-HLAppShortcut -Root $HLRoot | Out-Null
@@ -536,19 +555,26 @@ $reportHtml = Write-HLReportHtml -Hardware $hw
 Write-HLOk "Reporte: $reportHtml"
 Write-HLInfo "Texto plano: $report"
 $guideHtml = $null
+$newManual = 0
 if (-not $DryRun -and $HL.Manual.Count -gt 0) {
     $guideHtml = Save-HLGuide -Root $HLRoot -Manual $HL.Manual -Stamp $HL.Stamp -ReportName (Split-Path $reportHtml -Leaf)
+    $newManual = @(Get-HLGuideNewSteps -Root $HLRoot).Count
     Write-HLOk "Guia de pasos manuales: $guideHtml"
 }
 
 $applied = @($HL.Results | Where-Object { $_.Status -eq 'Applied' }).Count
 $manual = $HL.Manual.Count
 $failed = @($HL.Results | Where-Object { $_.Status -eq 'Failed' }).Count
+if (-not $DryRun) {
+    # Aviso en Hardline EQ: que se aplico, cuantos pasos nuevos y si hay que reiniciar.
+    $mods = @($HL.Results | Where-Object { $_.Status -eq 'Applied' -and $_.Module -ne 'Sistema' } | ForEach-Object { $_.Module } | Select-Object -Unique)
+    try { Save-HLApplySummary -Root $HLRoot -Stamp $HL.Stamp -Applied $applied -Manual $manual -NewManual $newManual -Failed $failed -NeedsReboot ([bool]$HL.NeedsReboot) -Modules $mods } catch { Write-HLLog WARN "Sin resumen para Hardline EQ: $($_.Exception.Message)" }
+}
 
 Write-Host ''
 Write-Host '----------------------------------------' -ForegroundColor DarkCyan
 Write-Host (" Cambios aplicados : {0}" -f $applied)
-Write-Host (" Pasos manuales    : {0} (guia: Inicio > Hardline > Guia de pasos)" -f $manual)
+Write-Host (" Pasos manuales    : {0}, {1} nuevos (guia: Inicio > Hardline > Guia de pasos)" -f $manual, $newManual)
 if ($failed -gt 0) { Write-Host (" Fallos            : {0} (ver reporte y log)" -f $failed) -ForegroundColor Red }
 Write-Host '----------------------------------------' -ForegroundColor DarkCyan
 Write-Host ''
@@ -560,11 +586,14 @@ Write-Host '    o Restaurar sistema > punto "Hardline_*"'
 Write-Host ''
 
 # La guia se abre antes del reinicio: los pasos de Windows y del juego no lo necesitan.
-if ($guideHtml -and -not $Unattended) {
+# Cada paso se ensena una sola vez: si no hay nuevos, no se vuelve a ofrecer.
+if ($guideHtml -and -not $Unattended -and $newManual -gt 0) {
     Start-Process -FilePath $guideHtml -ErrorAction SilentlyContinue
-    if (Read-HLYesNo "Te guio ahora por los $manual pasos manuales, uno a uno? (tambien estan en la pagina que se acaba de abrir)" $true) {
-        Invoke-HLGuideConsole -Root $HLRoot
+    if (Read-HLYesNo "Te guio ahora por los $newManual pasos nuevos, uno a uno? (a = te abro el panel de Windows de cada paso)" $true) {
+        Invoke-HLGuideConsole -Root $HLRoot -OnlyNew
     }
+} elseif ($guideHtml -and -not $Unattended) {
+    Write-HLInfo 'Sin pasos nuevos. Los pendientes siguen en Inicio > Hardline > Guia de pasos.'
 }
 
 if ($HL.NeedsReboot -and -not $DryRun) {

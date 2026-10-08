@@ -1,6 +1,6 @@
 {
   "notes": [
-    "Configuración del modo partida. Hardline copia este archivo a config\\gamesession.json la primera vez; edita esa copia, no esta.",
+    "Configuración del modo partida. Hardline copia este archivo a config\\gamesession.json la primera vez; edita esa copia, no esta. Al aplicar se copia a C:\\Program Files\\Hardline\\gamesession, que es la que usa el modo partida.",
     "process: nombres de proceso del juego, sin .exe. Mientras alguno esté abierto, la sesión está activa.",
     "pause_services: se detienen al empezar la partida SOLO si estaban en marcha, y se vuelven a arrancar al terminar.",
     "lower_priority: procesos que pasan a prioridad 'Por debajo de lo normal' durante la partida. El juego no se toca (el anticheat vigila su proceso).",

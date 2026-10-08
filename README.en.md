@@ -47,13 +47,13 @@ Dry run first, to see what it would do without changing anything:
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/adrianlunamx/Hardline/main/install.ps1))) -DryRun
 ```
 
-There is also a **GUI**: Start > Hardline > Hardline, or `install.ps1 -Gui`.
+The one-liner opens the **GUI** (add `-Console` for the console). Later: Start > Hardline > Hardline, or `install.ps1 -Gui`. Hardline EQ announces every new version and every time you apply settings.
 
-**Manual steps** (BIOS, GPU control panel, in-game menus) end up in a step-by-step **guide**, ordered from highest impact to advanced. It opens automatically when Hardline finishes (a one-step-at-a-time wizard in the GUI, a checklist page plus an optional walkthrough in the console) and stays under Start > Hardline > Guía de pasos. Progress is remembered.
+**Manual steps** (BIOS, GPU control panel, in-game menus) end up in a step-by-step **guide**, ordered from highest impact to advanced. When a step happens in a Windows panel or an app (Sound, Recording, Volume mixer, 7.1 speaker setup, HeSuVi, Equalizer APO, Voicemeeter), the guide has a button that opens it. Each step is shown once: after applying, only new steps pop up; pending ones stay under Start > Hardline > Guía de pasos. Progress is remembered.
 
 **See the difference on your own PC**: use **Measure match** (GUI button or `install.ps1 -GameplayBenchOnly`) before applying, apply and reboot, then measure again in the same mode and map. It records 60 s of real gameplay with Intel PresentMon and compares average FPS, 1% lows and stutter, telling a real improvement apart from match-to-match noise.
 
-It downloads the **latest release** and verifies its SHA256 before running (`-Channel main` gets the latest `main` branch instead). It creates a Windows restore point first and installs to `%LOCALAPPDATA%\Hardline`. A checklist at the start lets you pick which modules to apply.
+It downloads the **latest release** and verifies its SHA256 before running (`-Channel main` gets the latest `main` branch instead). It creates a Windows restore point first and installs to `%LOCALAPPDATA%\Hardline`. You pick which modules to apply in the GUI (or in a checklist with `-Console`).
 
 ## What it does
 

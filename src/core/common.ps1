@@ -13,7 +13,7 @@
 
 # Sin StrictMode: WMI/CIM devuelve propiedades opcionales según fabricante y driver.
 
-$Global:HLVersion = '1.11.0'
+$Global:HLVersion = '1.12.0'
 $Global:HLRepo = 'adrianlunamx/Hardline'
 
 # --------------------------------------------------------------------------
@@ -120,9 +120,11 @@ function Add-HLResult {
 }
 
 # Acciones que Hardline no puede (o no debe) hacer por ti: BIOS, Adrenalin, etc.
+# Action: panel que la guía abre con un botón (ver $HLGuideActions en guide.ps1).
+# Sin él se deduce del texto.
 function Add-HLManualStep {
-    param([string]$Area, [string]$Text, [string]$Link = '')
-    $HL.Manual.Add([pscustomobject]@{ Area = $Area; Text = $Text; Link = $Link })
+    param([string]$Area, [string]$Text, [string]$Link = '', [string]$Action = '')
+    $HL.Manual.Add([pscustomobject]@{ Area = $Area; Text = $Text; Link = $Link; Action = $Action })
 }
 
 # --------------------------------------------------------------------------
@@ -500,6 +502,7 @@ function Install-HLAppShortcut {
         $dir = Join-Path ([Environment]::GetFolderPath('Programs')) 'Hardline'
         if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
         $lnk = Join-Path $dir 'Hardline.lnk'
+        $ico = Join-Path $Root 'assets\hardline.ico'
         $sh = New-Object -ComObject WScript.Shell
         $s = $sh.CreateShortcut($lnk)
         $s.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
@@ -513,11 +516,40 @@ function Install-HLAppShortcut {
         $g.WorkingDirectory = Join-Path $Root 'reports'
         $g.Description = 'Hardline: pasos manuales pendientes'
         $g.Save()
+        # Icono de Hardline en todos sus accesos directos (también los del audio), no el de PowerShell.
+        if (Test-Path $ico) {
+            foreach ($f in (Get-ChildItem $dir -Filter '*.lnk' -File -ErrorAction SilentlyContinue)) {
+                $x = $sh.CreateShortcut($f.FullName)
+                if ($x.TargetPath -match '\\(powershell|wscript)\.exe$' -and $x.IconLocation -notlike "$ico*") { $x.IconLocation = "$ico,0"; $x.Save() }
+            }
+        }
         return $lnk
     } catch {
         Write-HLLog WARN "No se pudo crear el acceso directo: $($_.Exception.Message)"
         return $null
     }
+}
+
+<#
+    Borra de la instalación lo que ya no forma parte de Hardline (lista en
+    src\obsolete.txt). Solo rutas relativas dentro de $Root; nunca las
+    carpetas de datos del usuario. Devuelve lo borrado.
+#>
+function Remove-HLObsoleteFiles {
+    param([Parameter(Mandatory)] [string] $Root)
+    $list = Join-Path $Root 'src\obsolete.txt'
+    if (-not (Test-Path $list)) { return @() }
+    $protected = @('backups', 'reports', 'logs', 'config', 'headsets', 'tools', 'src', 'assets', 'docs')
+    $removed = foreach ($line in (Get-Content $list -Encoding UTF8)) {
+        $rel = $line.Trim()
+        if (-not $rel -or $rel.StartsWith('#') -or $rel -match '\.\.|:|^[\\/]' -or $rel -in $protected) { continue }
+        $p = Join-Path $Root $rel
+        if (Test-Path -LiteralPath $p) {
+            try { Remove-Item -LiteralPath $p -Recurse -Force -ErrorAction Stop; $rel } catch { Write-HLLog WARN "No se pudo borrar $rel`: $($_.Exception.Message)" }
+        }
+    }
+    if ($removed) { Write-HLLog INFO ("Archivos obsoletos borrados: " + (@($removed) -join ', ')) }
+    return @($removed)
 }
 
 # --------------------------------------------------------------------------
@@ -712,6 +744,11 @@ function Undo-HLManifestEntry {
                 Set-Acl -LiteralPath $Entry.Path -AclObject $acl
             }
             return "ACL restaurada en $($Entry.Path)"
+        }
+        'Directory' {
+            # Carpeta creada por Hardline (modo partida en Archivos de programa).
+            if (Test-Path -LiteralPath $Entry.Path) { Remove-Item -LiteralPath $Entry.Path -Recurse -Force -ErrorAction Stop }
+            return "Carpeta $($Entry.Path)"
         }
         'Bcd' {
             if ($Entry.Created) { & bcdedit.exe /deletevalue '{current}' $Entry.Element | Out-Null }

@@ -1,0 +1,30 @@
+# Archivos y carpetas de versiones anteriores que ya no forman parte de Hardline.
+# El instalador los borra de la carpeta de instalacion al actualizar y al aplicar.
+# Una ruta relativa por linea, sin "..". Nunca pongas aqui backups, reports, logs, config, headsets ni tools.
+auditoria_hardline_report.md
+auto_migrate.ps1
+cleanup_seguro.ps1
+git_conflict_resolver.ps1
+GIT_QUICK_GUIDE.txt
+GUIA_GIT_PARA_HARDLINE.txt
+GUIA_MIGRACION.txt
+hardline_ascii.ps1
+install_ascii.ps1
+install_backup_pre_merge.ps1
+install_combinado.ps1
+install_seguro.ps1
+install_simple.ps1
+integrated_test.ps1
+MEJORAS.md
+MEJORAS_COMPLETADAS.md
+MIGRATION_GUIDE_ASCII.txt
+RESOLUCION_CONFLICTOS.txt
+rollback_mejorado.ps1
+test_ascii.ps1
+test_final.ps1
+test_simple.ps1
+url_validator.ps1
+url_validator.psm1
+validator_ascii.ps1
+backup_2026-10-04T21-09-05
+backup_20261004-151300

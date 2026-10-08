@@ -9,7 +9,9 @@
 
     La salida del proceso va a un archivo temporal que un DispatcherTimer lee
     cada 250 ms (los manejadores de eventos .NET en otros hilos no tienen
-    runspace de PowerShell; el timer corre en el hilo de la interfaz).
+    runspace de PowerShell; el timer corre en el hilo de la interfaz). Las
+    líneas "[*] ..." de esa salida son las fases: se muestran arriba del
+    registro mientras se aplica.
 
     Se lanza con:  install.ps1 -Gui   o el acceso directo Inicio > Hardline.
 #>
@@ -17,7 +19,10 @@ param([Parameter(Mandatory)] [string] $Root)
 
 . (Join-Path $Root 'src\core\common.ps1')
 . (Join-Path $Root 'src\core\guide.ps1')
+. (Join-Path $Root 'src\core\news.ps1')
 . (Join-Path $Root 'src\core\detector.ps1')
+. (Join-Path $Root 'src\gui\theme.ps1')
+. (Join-Path $Root 'src\gui\news_ui.ps1')
 
 # --------------------------------------------------------------------------
 # Construcción de argumentos (sin dependencias de WPF: se prueba en tests)
@@ -92,25 +97,42 @@ function Get-HLNextPendingIndex {
     return -1
 }
 
+<#
+    Pasos que enseña el asistente: todos, o con -OnlyNew solo los pendientes
+    que nunca se han enseñado (lo que se abre solo al terminar de aplicar).
+#>
+function Select-HLGuideSteps {
+    param([Parameter(Mandatory)] $Steps, [Parameter(Mandatory)] [hashtable] $Done, [Parameter(Mandatory)] [hashtable] $Seen, [switch] $OnlyNew)
+    if (-not $OnlyNew) { return @($Steps) }
+    return @($Steps | Where-Object { -not $Done.ContainsKey($_.Id) -and -not $Seen.ContainsKey($_.Id) })
+}
+
 function Show-HLGuideWindow {
-    param($Owner)
+    param($Owner, [switch] $OnlyNew)
     $data = Get-HLGuideData -Root $Root
     if (-not $data -or $data.Steps.Count -eq 0) {
         [System.Windows.MessageBox]::Show('No hay pasos manuales todavía. Pulsa Aplicar y al terminar aparecerán aquí.', 'Hardline') | Out-Null
         return
     }
-    [xml]$gx = Get-Content (Join-Path $PSScriptRoot 'guide.xaml') -Raw -Encoding UTF8
-    $w = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $gx))
-    if ($Owner) { $w.Owner = $Owner }
-    $g = @{}
-    foreach ($n in @('gPhase', 'gHint', 'gCount', 'gProgress', 'gArea', 'gText', 'gState', 'gLink', 'gPrev', 'gSkip', 'gDone', 'gList')) { $g[$n] = $w.FindName($n) }
+    $done = Get-HLGuideState -Root $Root -Steps $data.Steps
+    $seen = Get-HLGuideSeen -Root $Root -Steps $data.Steps
+    $steps = @(Select-HLGuideSteps -Steps $data.Steps -Done $done -Seen $seen -OnlyNew:$OnlyNew)
+    if ($steps.Count -eq 0) { return }
+    # "NUEVO" se calcula al abrir: lo que se ve en esta ventana deja de serlo la próxima vez.
+    $isNew = @{}
+    foreach ($s in $steps) { if (-not $seen.ContainsKey($s.Id) -and -not $done.ContainsKey($s.Id)) { $isNew[$s.Id] = $true } }
 
-    $steps = @($data.Steps)
-    $done = Get-HLGuideState -Root $Root
+    $r = New-HLWindow -Path (Join-Path $PSScriptRoot 'guide.xaml') -Root $Root
+    $w = $r.Window
+    $g = $r.Ui
+    if ($Owner) { $w.Owner = $Owner } else { $w.WindowStartupLocation = 'CenterScreen' }
+    $g.gMode.Text = if ($OnlyNew) { 'PASOS NUEVOS' } else { 'GUÍA DE PASOS' }
     $pos = @{ I = [Math]::Max(0, (Get-HLNextPendingIndex -Steps $steps -Done $done)) }
+    $save = { Save-HLGuideState -Root $Root -Done $done -Seen $seen }
 
     $render = {
         $s = $steps[$pos.I]
+        $seen[$s.Id] = $true
         $isDone = $done.ContainsKey($s.Id)
         $count = @($steps | Where-Object { $done.ContainsKey($_.Id) }).Count
         $g.gPhase.Text = '{0}. {1}' -f $s.PhaseNum, $s.Phase
@@ -118,9 +140,14 @@ function Show-HLGuideWindow {
         $g.gCount.Text = 'Paso {0} de {1}  ·  {2} hechos' -f ($pos.I + 1), $steps.Count, $count
         $g.gProgress.Value = $count / $steps.Count
         $g.gArea.Text = "$($s.Area)".ToUpperInvariant()
+        $g.gNew.Visibility = if ($isNew.ContainsKey($s.Id)) { 'Visible' } else { 'Collapsed' }
         $g.gText.Text = $s.Text
         $g.gState.Text = if ($isDone) { 'Hecho' } else { '' }
         $g.gDone.Content = if ($isDone) { 'Desmarcar' } else { 'Hecho' }
+        $spec = Get-HLGuideActionSpec "$($s.Action)"
+        $g.gAction.Visibility = if ($spec) { 'Visible' } else { 'Collapsed' }
+        if ($spec) { $g.gActionText.Text = $spec.Label }
+        $g.gActionHint.Text = ''
         $g.gLink.Visibility = if ("$($s.Link)" -match '^https?://') { 'Visible' } else { 'Collapsed' }
         $g.gPrev.IsEnabled = $pos.I -gt 0
         $g.gSkip.IsEnabled = $pos.I -lt $steps.Count - 1
@@ -128,42 +155,72 @@ function Show-HLGuideWindow {
 
     $g.gDone.Add_Click({
             $s = $steps[$pos.I]
-            if ($done.ContainsKey($s.Id)) { $done.Remove($s.Id); Save-HLGuideState -Root $Root -Done $done; & $render; return }
+            if ($done.ContainsKey($s.Id)) { $done.Remove($s.Id); & $save; & $render; return }
             $done[$s.Id] = $true
-            Save-HLGuideState -Root $Root -Done $done
+            & $save
             $next = Get-HLNextPendingIndex -Steps $steps -Done $done -From $pos.I
             if ($next -lt 0) {
                 & $render
-                [System.Windows.MessageBox]::Show('Todos los pasos hechos. Ahora usa "Medir partida" para comprobar la diferencia.', 'Hardline') | Out-Null
+                $msg = if ($OnlyNew) { 'Pasos nuevos hechos. Los que saltaste siguen en «Guía de pasos».' } else { 'Todos los pasos hechos. Ahora usa «Medir partida» para comprobar la diferencia.' }
+                [System.Windows.MessageBox]::Show($msg, 'Hardline') | Out-Null
+                $w.Close()
                 return
             }
             $pos.I = $next
             & $render
         })
+    $g.gAction.Add_Click({
+            $res = Invoke-HLGuideAction -Action "$($steps[$pos.I].Action)" -Root $Root
+            $g.gActionHint.Text = if ($res -eq $true) { 'Abierto. Cuando termines, vuelve aquí y pulsa Hecho.' } else { "$res" }
+        })
     $g.gSkip.Add_Click({ if ($pos.I -lt $steps.Count - 1) { $pos.I++; & $render } })
     $g.gPrev.Add_Click({ if ($pos.I -gt 0) { $pos.I--; & $render } })
     $g.gLink.Add_Click({ $l = "$($steps[$pos.I].Link)"; if ($l -match '^https?://') { Start-Process $l } })
-    $g.gList.Add_Click({ $h = Update-HLGuideHtml -Root $Root; if ($h) { Start-Process -FilePath $h } })
-    $w.Add_Closed({ Update-HLGuideHtml -Root $Root | Out-Null })
+    $g.gList.Add_Click({ & $save; $h = Update-HLGuideHtml -Root $Root; if ($h) { Start-Process -FilePath $h } })
+    $w.Add_Closed({ & $save; Update-HLGuideHtml -Root $Root | Out-Null })
     & $render
     [void]$w.ShowDialog()
+}
+
+# Texto de la tarjeta "Guía de pasos" de la ventana principal.
+function Get-HLGuideSummaryText {
+    param([Parameter(Mandatory)] [string] $Root)
+    $data = Get-HLGuideData -Root $Root
+    if (-not $data -or $data.Steps.Count -eq 0) { return 'Aún no hay pasos: aparecen al aplicar.' }
+    $done = Get-HLGuideState -Root $Root -Steps $data.Steps
+    $seen = Get-HLGuideSeen -Root $Root -Steps $data.Steps
+    $pending = @($data.Steps | Where-Object { -not $done.ContainsKey($_.Id) })
+    if ($pending.Count -eq 0) { return "Todo hecho ($($data.Steps.Count) pasos)." }
+    $new = @($pending | Where-Object { -not $seen.ContainsKey($_.Id) }).Count
+    if ($new -gt 0) { return "$($pending.Count) pendientes · $new nuevos" }
+    return "$($pending.Count) pendientes de $($data.Steps.Count)"
 }
 
 # --------------------------------------------------------------------------
 # Ventana
 # --------------------------------------------------------------------------
 
+# Fase a partir de una línea de salida "[*] Texto..." de install.ps1; $null si no lo es.
+function Get-HLPhaseFromLine {
+    param([string] $Line)
+    if ($Line -match '^\[\*\]\s+(.+?)\.*\s*$') { return $Matches[1] }
+    return $null
+}
+
 function Show-HLGui {
-    Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
-    [xml]$xaml = Get-Content (Join-Path $PSScriptRoot 'main.xaml') -Raw -Encoding UTF8
-    $window = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
-    $ui = @{}
-    # Los nombres dentro de plantillas (ControlTemplate) viven en otro ámbito: FindName no los ve.
-    foreach ($n in ($xaml.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]'))) {
-        $name = $n.GetAttribute('Name', 'http://schemas.microsoft.com/winfx/2006/xaml')
-        if ($name) { $ui[$name] = $window.FindName($name) }
+    $r = New-HLWindow -Path (Join-Path $PSScriptRoot 'main.xaml') -Root $Root
+    $window = $r.Window
+    $ui = $r.Ui
+    $ui.txtVersion.Text = "v$HLVersion"
+    $ui.txtVersion.ToolTip = $Root
+
+    $refreshGuide = { try { $ui.txtGuideSummary.Text = Get-HLGuideSummaryText -Root $Root } catch { Write-HLLog DEBUG 'Sin resumen de la guía' } }
+    $refreshNews = {
+        $unseen = @(Get-HLAnnouncements -Root $Root | Where-Object { $_.Kind -eq 'release' })
+        $ui.dotNews.Visibility = if ($unseen.Count -gt 0) { 'Visible' } else { 'Collapsed' }
     }
-    $ui.txtVersion.Text = "v$HLVersion  ·  $Root"
+    & $refreshGuide
+    & $refreshNews
 
     # Salidas para A1: la elegida aquí manda; "Automática" nunca coge el HDMI/DP del monitor si hay otra.
     $autoItem = New-Object System.Windows.Controls.ComboBoxItem
@@ -185,12 +242,41 @@ function Show-HLGui {
         param([bool]$busy, [string]$status)
         foreach ($b in $buttons) { $ui[$b].IsEnabled = -not $busy }
         $ui.prgBusy.IsIndeterminate = $busy
+        if (-not $busy) { $ui.prgBusy.Value = 0 }
+        if ($busy) { $ui.txtPhase.Text = $status; $ui.pnlStats.Visibility = 'Collapsed' }
         if ($status) { $ui.txtStatus.Text = $status }
     }
     $appendLog = {
         param([string]$text)
         $ui.txtLog.AppendText($text)
         $ui.txtLog.ScrollToEnd()
+        # Las fases "[*] ..." pasan a la cabecera. La salida llega a trozos: la
+        # última línea, si está a medias, espera al siguiente.
+        $parts = ($script:logTail + $text) -split "`r?`n"
+        $script:logTail = $parts[-1]
+        for ($k = 0; $k -lt $parts.Count - 1; $k++) {
+            $ph = Get-HLPhaseFromLine $parts[$k]
+            if ($ph) { $ui.txtPhase.Text = $ph }
+        }
+    }
+    $script:logTail = ''
+    $ui.btnLogToggle.Add_Click({
+            $show = $ui.brdLog.Visibility -ne 'Visible'
+            $ui.brdLog.Visibility = if ($show) { 'Visible' } else { 'Collapsed' }
+            $ui.btnLogToggle.Content = if ($show) { 'Ocultar registro' } else { 'Ver registro' }
+        })
+    # Resumen de lo aplicado (lo escribe install.ps1 en config\last_apply.json).
+    $showStats = {
+        param([string] $After)
+        $sum = Get-HLApplySummary -Root $Root
+        if (-not $sum -or "$($sum.Stamp)" -lt $After) { return $null }
+        $ui.txtStatApplied.Text = "$($sum.Applied)"
+        $ui.txtStatManual.Text = "$($sum.NewManual)"
+        $ui.txtStatManualLabel.Text = if ([int]$sum.NewManual -eq 1) { 'paso nuevo en la guía' } else { 'pasos nuevos en la guía' }
+        $ui.txtStatFailed.Text = "$($sum.Failed)"
+        $ui.txtStatFailed.Foreground = $window.FindResource($(if ([int]$sum.Failed -gt 0) { 'Danger' } else { 'Muted' }))
+        $ui.pnlStats.Visibility = 'Visible'
+        return $sum
     }
     $getState = {
         @{
@@ -277,7 +363,7 @@ function Show-HLGui {
                     $script:updTag = $tag
                     $ui.btnUpdate.Content = "Actualizar a $tag"
                     $ui.btnUpdate.Visibility = 'Visible'
-                    $ui.txtVersion.Text = "v$($script:installedVersion)  ·  hay una versión nueva: $tag"
+                    $ui.txtVersion.Text = "v$($script:installedVersion)  ·  nueva: $tag"
                 }
             }
             if (-not $script:job) { return }
@@ -291,6 +377,8 @@ function Show-HLGui {
                 Remove-Item $j.LogPath, "$($j.LogPath).err" -Force -ErrorAction SilentlyContinue
                 $script:job = $null
                 & $setBusy $false ("{0}: terminado{1}." -f $j.Label, $(if ($code) { " (código $code)" } else { '' }))
+                $doneText = @{ 'Aplicando' = 'Ajustes aplicados'; 'Simulando' = 'Simulación terminada'; 'Revirtiendo' = 'Cambios revertidos'; 'Actualizando' = 'Actualización terminada' }
+                $ui.txtPhase.Text = if ($code) { "$($j.Label): terminó con errores" } elseif ($doneText.ContainsKey($j.Label)) { $doneText[$j.Label] } else { "$($j.Label): listo" }
                 if ($j.OnExit) { & $j.OnExit }
             }
         })
@@ -301,12 +389,19 @@ function Show-HLGui {
             $state = & $getState
             $msg = "Se aplicarán los módulos marcados. Se crea un restore point y todo queda en el manifiesto para revertir.`n`n¿Continuar?"
             if ([System.Windows.MessageBox]::Show($msg, 'Hardline', 'YesNo', 'Question') -ne 'Yes') { return }
+            $script:applyStart = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
             & $startJob 'Aplicando' $install (ConvertTo-HLGuiArguments -State $state) {
-                # Al terminar, la guía de pasos manuales; si no hay pasos, el reporte.
+                $sum = & $showStats $script:applyStart
+                & $refreshGuide
+                # Al terminar solo se enseñan los pasos que nunca has visto; los demás siguen en la guía.
                 $gd = Get-HLGuideData -Root $Root
-                if ($gd -and $gd.Steps.Count -gt 0 -and (Get-Date) - (Get-Item (Join-Path $Root 'reports\guia.json')).LastWriteTime -lt [TimeSpan]::FromMinutes(30)) {
-                    $ui.txtStatus.Text = 'Aplicado. Te queda la guía de pasos manuales.'
-                    Show-HLGuideWindow -Owner $window
+                $new = if ($gd) { @(Get-HLGuideNewSteps -Root $Root).Count } else { 0 }
+                if ($new -gt 0) {
+                    $ui.txtStatus.Text = "Aplicado. $new pasos nuevos en la guía: te abro el primero."
+                    Show-HLGuideWindow -Owner $window -OnlyNew
+                    & $refreshGuide
+                } elseif ($sum) {
+                    $ui.txtStatus.Text = 'Aplicado. Sin pasos nuevos en la guía.' + $(if ($sum.NeedsReboot) { ' Reinicia para completar algunos ajustes.' } else { '' })
                 } else { & $openLatestReport }
             }
         })
@@ -343,7 +438,8 @@ function Show-HLGui {
                     $script:installedVersion = $now
                     $ui.btnUpdate.Visibility = 'Collapsed'
                     # Las tareas (Aplicar, Benchmark...) arrancan procesos nuevos: ya usan la versión nueva.
-                    $ui.txtVersion.Text = "v$now  ·  instalada (esta ventana es de la v${HLVersion}: reábrela cuando quieras para ver los cambios de la interfaz)"
+                    $ui.txtVersion.Text = "v$now instalada"
+                    $ui.txtVersion.ToolTip = "Esta ventana es de la v${HLVersion}: reábrela para ver los cambios de la interfaz."
                     $ui.txtStatus.Text = "Actualizado a v$now. Los botones ya usan la versión nueva."
                 } else {
                     $ui.txtStatus.Text = 'No se pudo actualizar: revisa el panel de salida.'
@@ -355,7 +451,12 @@ function Show-HLGui {
             $ps = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
             Start-Process -FilePath $ps -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', ('"{0}"' -f (Join-Path $Root 'src\gui\eq_panel.ps1')), '-Root', ('"{0}"' -f $Root)) -WindowStyle Hidden
         })
-    $ui.btnGuide.Add_Click({ Show-HLGuideWindow -Owner $window })
+    $ui.btnGuide.Add_Click({ Show-HLGuideWindow -Owner $window; & $refreshGuide })
+    $ui.btnNews.Add_Click({
+            Show-HLNewsWindow -Root $Root -Owner $window
+            foreach ($c in @(Get-HLAnnouncements -Root $Root | Where-Object { $_.Kind -eq 'release' })) { Set-HLAnnouncementSeen -Root $Root -Card $c }
+            & $refreshNews
+        })
     $ui.btnFolder.Add_Click({ Start-Process explorer.exe -ArgumentList "`"$Root`"" })
     $ui.chkAudio.Add_Click({
             foreach ($c in @('txtHeadset', 'cmbAudioMode', 'cmbIntensity', 'chkCleanAudio', 'chkHeSuVi', 'cmbOutput', 'cmbDynamics')) { $ui[$c].IsEnabled = [bool]$ui.chkAudio.IsChecked }

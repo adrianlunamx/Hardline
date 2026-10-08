@@ -219,15 +219,15 @@ Equalizer APO y VB-CABLE tienen instalador propio con su ventana; termina cada u
 
 **¿Cómo sé si está funcionando?**
 
-Abre `logs\gamesession.log` en la carpeta de Hardline: cada partida deja una línea `INICIO` con lo que pausó y otra `FIN` al cerrar el juego. La tarea se llama `Hardline-GameSession` en el Programador de tareas.
+Abre `C:\Program Files\Hardline\gamesession\gamesession.log`: cada partida deja una línea `INICIO` con lo que pausó y otra `FIN` al cerrar el juego. La tarea se llama `Hardline-GameSession` en el Programador de tareas.
 
 **Quiero que no toque X / que cierre Y.**
 
-Edita `config\gamesession.json`: quita X de `pause_services` o `lower_priority`, o añade Y a `close_processes` (nombre del proceso sin `.exe`). Se aplica en la siguiente partida.
+Edita `config\gamesession.json`: quita X de `pause_services` o `lower_priority`, o añade Y a `close_processes` (nombre del proceso sin `.exe`). Después pulsa **Aplicar** (con el modo partida marcado): Hardline copia la configuración a la carpeta protegida del modo partida, que es la que usa la tarea.
 
 **Se fue la luz a mitad de partida y Windows Search no arranca.**
 
-Al iniciar sesión, el modo partida restaura lo que quedó pendiente. Si lo desinstalaste antes, ejecuta `src\modules\windows\gamesession_watcher.ps1 -Root <carpeta de Hardline> -RestoreOnly` como administrador.
+Al iniciar sesión, el modo partida restaura lo que quedó pendiente. Si lo desinstalaste antes, ejecuta como administrador `src\modules\windows\gamesession_watcher.ps1 -Root "C:\Program Files\Hardline\gamesession" -RestoreOnly` (o `-Root <carpeta de Hardline>` si lo instalaste con la 1.11 o anterior).
 
 ## Panel y atajo del EQ
 

@@ -346,8 +346,8 @@ try {
     [xml]$eqx = Get-Content (Join-HLPath @($root, 'src', 'gui', 'eq_panel.xaml')) -Raw -Encoding UTF8
     $eqNames = @($eqx.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]') | ForEach-Object { $_.GetAttribute('Name', 'http://schemas.microsoft.com/winfx/2006/xaml') } | Where-Object { $_ })
     $eqSrc = Get-Content (Join-HLPath @($root, 'src', 'gui', 'eq_panel.ps1')) -Raw
-    $eqUsed = @([regex]::Matches($eqSrc, "'(eq[A-Z]\w+)'") | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
-    Assert-True ($eqUsed.Count -ge 7 -and @($eqUsed | Where-Object { $_ -notin $eqNames }).Count -eq 0 -and $eqSrc -notmatch 'Test-HLAdmin') 'eq_panel.xaml tiene los controles del panel; el panel no pide admin'
+    $eqUsed = @([regex]::Matches($eqSrc, '\$c\.((?:eq|news|btn)[A-Z]\w+)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+    Assert-True ($eqUsed.Count -ge 12 -and @($eqUsed | Where-Object { $_ -notin $eqNames }).Count -eq 0 -and $eqSrc -notmatch 'Test-HLAdmin') 'eq_panel.xaml tiene los controles del panel (y la tarjeta de novedades); el panel no pide admin'
     Assert-True ($null -eq (Get-HLEqState -SwitchPath (Join-Path $tmp 'no-existe.txt'))) 'sin interruptor: $null'
     $vbs = [IO.File]::ReadAllBytes((Join-HLPath @($root, 'src', 'audio', 'eq_toggle.vbs')))
     Assert-True (-not [bool]($vbs | Where-Object { $_ -gt 127 } | Select-Object -First 1)) 'eq_toggle.vbs es ASCII (WScript no lee UTF-8)'
@@ -379,6 +379,23 @@ try {
     & (Join-HLPath @($root, 'src', 'modules', 'windows', 'gamesession_watcher.ps1')) -Root $gsRoot -RestoreOnly
     Assert-True (-not (Test-Path (Join-Path $gsRoot 'config\gamesession.state.json'))) 'sesión interrumpida: restaurada y estado borrado'
     Assert-True ((Get-Content (Join-Path $gsRoot 'logs\gamesession.log') -Raw) -match 'interrumpida') 'sesión interrumpida: queda en el log'
+    # Carpeta protegida (1.12.0): todo en la raíz, sin config\ ni logs\.
+    $gsSecure = Join-Path $tmp 'gs-secure'
+    New-Item -ItemType Directory -Path $gsSecure -Force | Out-Null
+    '{ "process": ["hardline-no-existe"], "poll_seconds": 2, "pause_services": [], "lower_priority": [], "close_processes": [], "power_plan": false }' |
+        Set-Content (Join-Path $gsSecure 'gamesession.json')
+    '{ "Started": "2026-01-01T00:00:00", "Game": "cod", "Services": [], "Priorities": [], "PrevScheme": null }' |
+        Set-Content (Join-Path $gsSecure 'gamesession.state.json')
+    & (Join-HLPath @($root, 'src', 'modules', 'windows', 'gamesession_watcher.ps1')) -Root $gsSecure -RestoreOnly
+    Assert-True (-not (Test-Path (Join-Path $gsSecure 'gamesession.state.json')) -and ((Get-Content (Join-Path $gsSecure 'gamesession.log') -Raw) -match 'interrumpida')) 'carpeta protegida: estado y log en la raíz'
+    . (Join-HLPath @($root, 'src', 'modules', 'windows', 'gamesession.ps1'))
+    $aclDir = Join-Path $tmp 'acl'
+    New-Item -ItemType Directory -Path $aclDir -Force | Out-Null
+    # icacls y no Set-Acl: Set-Acl reescribe también la SACL y sin admin falla.
+    & icacls.exe $aclDir /inheritance:r /grant:r '*S-1-3-4:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' | Out-Null
+    $roOk = -not (Test-HLUsersCanWrite -Path $aclDir)
+    & icacls.exe $aclDir /grant '*S-1-5-32-545:(OI)(CI)M' | Out-Null
+    Assert-True ($roOk -and (Test-HLUsersCanWrite -Path $aclDir)) 'Test-HLUsersCanWrite: solo lectura = no; Modify para Usuarios = sí'
 
     # -----------------------------------------------------------------------
     Write-Host "`n[11] GPU y reporte HTML" -ForegroundColor Cyan
@@ -595,7 +612,7 @@ try {
     Assert-True ((Get-HLNextPendingIndex -Steps $ns5 -Done $allDone -From 2) -eq -1) 'asistente: todo hecho'
     [xml]$gdx = Get-Content (Join-HLPath @($root, 'src', 'gui', 'guide.xaml')) -Raw -Encoding UTF8
     $gdNames = @($gdx.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]') | ForEach-Object { $_.GetAttribute('Name', $xns) } | Where-Object { $_ })
-    $gdUsed = @([regex]::Matches($appSrc, "'(g[A-Z]\w+)'") | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+    $gdUsed = @([regex]::Matches($appSrc, '\$g\.(g[A-Z]\w+)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
     Assert-True ($gdUsed.Count -ge 10 -and @($gdUsed | Where-Object { $_ -notin $gdNames }).Count -eq 0) 'guide.xaml tiene todos los controles que usa el asistente'
     $instSrc2 = Get-Content (Join-HLPath @($root, 'install.ps1')) -Raw
     Assert-True ($instSrc2 -match 'Save-HLGuide' -and $instSrc2 -match 'Invoke-HLGuideConsole' -and 'btnGuide' -in $xamlNames -and $comSrc -match 'reports\\guia\.html') 'guía integrada: instalador, consola, interfaz y acceso directo'
@@ -776,11 +793,15 @@ Assert-True ($comSrc -match "Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'") 'stamp de 
 Assert-True ($rbSrc -match 'if \(\$r\.Fail -eq 0\)' -and $rbSrc.IndexOf('$r.Fail -eq 0') -lt $rbSrc.IndexOf("NewName 'manifest.rolledback.json'")) 'rollback: rename del manifiesto solo sin fallos'
 # S1: firma Authenticode exigida antes de ejecutar VB-CABLE / Equalizer APO
 Assert-True ($auSetupSrc -match 'function Test-HLInstallerSignature' -and $auSetupSrc -match "Status -ne 'Valid'" -and $auSetupSrc -match "Test-HLInstallerSignature -Path .* -Name 'VB-CABLE'" -and $auSetupSrc -match "Test-HLInstallerSignature -Path .* -Name 'Equalizer APO'") 'S1: firma válida exigida en VB-CABLE y Equalizer APO'
-# S2: watcher endurecido en cada instalación (antes del early-return) y con undo FileAcl
+# S2 (1.12.0): el watcher elevado corre desde Archivos de programa, no desde la carpeta del usuario,
+# se sincroniza antes del early-return de "ya instalado" y la carpeta se borra en el rollback.
 $gsInstall = $gsSrc.Substring($gsSrc.IndexOf('function Install-HLGameSession'))
-$protectAt = $gsInstall.IndexOf('Protect-HLGameSessionWatcher -Path $watcher')
-$taskCheckAt = $gsInstall.IndexOf('Get-ScheduledTask -TaskName')
-Assert-True ($gsSrc -match 'function Protect-HLGameSessionWatcher' -and $protectAt -ge 0 -and $taskCheckAt -ge 0 -and $protectAt -lt $taskCheckAt -and $comSrc -match "'FileAcl' \{") 'S2: ACL solo-lectura del watcher con rollback'
+$syncAt = $gsInstall.IndexOf('Sync-HLGameSessionFiles')
+$currentAt = $gsInstall.IndexOf("'OK (ya instalado, configuración actualizada)'")
+Assert-True ($gsSrc -match 'Join-Path \$env:ProgramFiles ''Hardline\\gamesession''' -and $gsSrc -notmatch 'LOCALAPPDATA.*-RunLevel' -and $syncAt -ge 0 -and $syncAt -lt $currentAt) 'S2: watcher en Archivos de programa, sincronizado en cada instalación'
+Assert-True ($gsSrc -match 'if \(Test-HLUsersCanWrite -Path \$dir\) \{ throw' -and $comSrc -match "'Directory' \{" -and $comSrc -match "'FileAcl' \{") 'S2: fail-closed si los usuarios pueden escribir; rollback borra la carpeta'
+$gsArgLine = [regex]::Match($gsInstall, '\$arg = .*').Value
+Assert-True ($gsArgLine -match '\$watcher, \$dir' -and $gsInstall -match '\$watcher = Join-Path \$dir') 'S2: la tarea apunta al script y a la carpeta protegidos'
 # S3: sin release verificable se aborta (no cae a main sin verificar)
 Assert-True ($instMainSrc -notmatch 'se usa la rama main' -and $instMainSrc -match 'Hardline no descarga codigo sin verificar') 'S3: fail-closed sin release verificable'
 # S5: default No al continuar sin restore point + abort en -Unattended
@@ -828,6 +849,113 @@ Assert-True (('chkHeSuVi' -in $xamlNames19) -and ($appSrc -match '\$ui\.chkHeSuV
 # Docs y changelog
 Assert-True (($twSrc -match 'HeSuVi') -and ($fqSrc -match 'HeSuVi')) 'docs: TWEAKS_EXPLAINED y FAQ mencionan HeSuVi'
 Assert-True ($clSrc -match '\[1\.11\.0\]') 'CHANGELOG: entrada 1.11.0'
+
+# ---------------------------------------------------------------------------
+Write-Host "`n[20] Guía de un clic, novedades e interfaz (1.12.0)" -ForegroundColor Cyan
+$t20 = Join-Path ([IO.Path]::GetTempPath()) ("hl20_" + [guid]::NewGuid().ToString('N').Substring(0, 8))
+New-Item -ItemType Directory -Path $t20 -Force | Out-Null
+try {
+    . (Join-HLPath @($root, 'src', 'core', 'common.ps1'))
+    . (Join-HLPath @($root, 'src', 'core', 'guide.ps1'))
+    . (Join-HLPath @($root, 'src', 'core', 'news.ps1'))
+    Initialize-HLSession -Root $t20 -Unattended -NoBackup
+
+    # Panel que abre cada paso: explícito o deducido del texto.
+    Assert-True ((Resolve-HLGuideAction -Text 'Con Warzone abierto, en el Mezclador de volumen busca cod.exe') -eq 'volume-mixer' -and
+        (Resolve-HLGuideAction -Text 'Pon tu headset en 7.1: selecciónalo > Configurar > "7.1 Surround"') -eq 'sound-playback' -and
+        (Resolve-HLGuideAction -Text 'HeSuVi: elige un perfil HRIR') -eq 'hesuvi' -and
+        (Resolve-HLGuideAction -Text 'Configuración > Sistema > Sonido > Entrada: "Micrófono"') -eq 'sound-recording' -and
+        (Resolve-HLGuideAction -Text 'Desinstala FxSound desde Configuración > Aplicaciones') -eq 'apps' -and
+        (Resolve-HLGuideAction -Text 'Activa EXPO en la BIOS') -eq '' -and
+        (Resolve-HLGuideAction -Text 'texto cualquiera' -Action 'eq-panel') -eq 'eq-panel' -and
+        (Resolve-HLGuideAction -Text 'Mezclador de volumen' -Action 'no-existe') -eq 'volume-mixer') 'guía: panel de cada paso (explícito, deducido o ninguno)'
+    $cRec = Get-HLGuideActionCommand -Action 'sound-recording' -Root $root
+    $cMix = Get-HLGuideActionCommand -Action 'volume-mixer' -Root $root
+    $cEq = Get-HLGuideActionCommand -Action 'eq-panel' -Root $root
+    Assert-True ($cRec.File -eq 'control.exe' -and $cRec.Args -eq 'mmsys.cpl,,1' -and $cMix.File -eq 'ms-settings:apps-volume' -and $cEq.Args -match 'eq_panel\.ps1' -and $cEq.Hidden) 'guía: comando de cada panel (Grabación, Mezclador, Hardline EQ)'
+    Assert-True ($null -eq (Get-HLGuideActionCommand -Action 'no-existe' -Root $root)) 'guía: acción desconocida = nada que abrir'
+    $allSpecs = @($script:HLGuideActions.Keys | ForEach-Object { Get-HLGuideActionSpec $_ })
+    Assert-True (@($allSpecs | Where-Object { -not $_.Label -or -not $_.Hint }).Count -eq 0) 'guía: cada panel tiene nombre y cómo llegar a mano'
+
+    # Ids estables aunque cambien los números; distintos dentro de la misma sesión.
+    $idA = Get-HLGuideStepId -Area 'GPU' -Text 'Actualiza el driver (tiene 41 días).'
+    $idB = Get-HLGuideStepId -Area 'GPU' -Text 'Actualiza el driver (tiene 42 días).'
+    $two = @(Get-HLGuideSteps -Manual @([pscustomobject]@{ Area = 'Pantalla'; Text = 'Monitor 1 a 165 Hz'; Link = '' }, [pscustomobject]@{ Area = 'Pantalla'; Text = 'Monitor 2 a 144 Hz'; Link = '' }))
+    Assert-True ($idA -eq $idB -and $two.Count -eq 2 -and $two[0].Id -ne $two[1].Id) 'guía: el mismo paso con otro número no sale como nuevo; dos pasos distintos no se mezclan'
+
+    # Cada paso se enseña una vez: solo los no vistos son "nuevos".
+    $man20 = @(
+        [pscustomobject]@{ Area = 'Audio'; Text = 'En Salida elige "Voicemeeter Input".'; Link = ''; Action = 'sound-settings' }
+        [pscustomobject]@{ Area = 'BIOS'; Text = 'Activa EXPO'; Link = '' }
+        [pscustomobject]@{ Area = 'Warzone'; Text = 'FOV 105'; Link = '' }
+    )
+    [void](Save-HLGuide -Root $t20 -Manual $man20 -Stamp 's1')
+    $d20 = Get-HLGuideData -Root $t20
+    $new0 = @(Get-HLGuideNewSteps -Root $t20).Count
+    Add-HLGuideSeen -Root $t20 -Ids @($d20.Steps[0].Id)
+    Save-HLGuideState -Root $t20 -Done @{ ($d20.Steps[1].Id) = $true }
+    $new1 = @(Get-HLGuideNewSteps -Root $t20)
+    $seen1 = Get-HLGuideSeen -Root $t20
+    Assert-True ($new0 -eq 3 -and $new1.Count -eq 1 -and $seen1.ContainsKey($d20.Steps[0].Id)) 'guía: al reaplicar solo salen los pasos nunca vistos (Save-HLGuideState conserva lo visto)'
+    Assert-True ($d20.Steps[0].Action -eq 'sound-settings') 'guía: guia.json guarda el panel de cada paso'
+    # Estado de la 1.11 (ids con números): lo hecho se respeta.
+    $legacyMan = @([pscustomobject]@{ Area = 'GPU'; Text = 'Driver con 40 días'; Link = '' })
+    $legacySteps = @(Get-HLGuideSteps -Manual $legacyMan)
+    Save-HLGuideState -Root $t20 -Done @{ (Get-HLGuideStepId -Area 'GPU' -Text 'Driver con 40 días' -Legacy) = $true }
+    Assert-True ((Get-HLGuideState -Root $t20 -Steps $legacySteps).ContainsKey($legacySteps[0].Id)) 'guía: lo marcado como hecho con la 1.11 sigue hecho'
+    $h20 = ConvertTo-HLGuideHtml -Steps $d20.Steps -Seen @{} -Done @{}
+    Assert-True ($h20 -match 'href="ms-settings:sound"' -and $h20 -match 'class="new"') 'guía HTML: enlace al panel de Windows y marca NUEVO'
+
+    # Novedades: la primera vez, solo la versión instalada; después, la aplicación.
+    $news = @(Get-HLNews -Root $root)
+    Assert-True ($news.Count -ge 1 -and $news[0].version -eq $HLVersion -and @($news | Where-Object { -not $_.title -or @($_.items).Count -eq 0 }).Count -eq 0) 'news.json: la más nueva es la versión actual, todas con título y puntos'
+    $nroot = Join-Path $t20 'n'
+    New-Item -ItemType Directory -Path (Join-Path $nroot 'src') -Force | Out-Null
+    Copy-Item (Join-HLPath @($root, 'src', 'news.json')) (Join-Path $nroot 'src\news.json')
+    $a0 = @(Get-HLAnnouncements -Root $nroot)
+    Set-HLAnnouncementSeen -Root $nroot -Card $a0[0]
+    $a1 = @(Get-HLAnnouncements -Root $nroot)
+    Save-HLApplySummary -Root $nroot -Stamp '2026-10-07_10-00-00' -Applied 12 -Manual 5 -NewManual 2 -Failed 0 -NeedsReboot $true -Modules @('Windows', 'Red', 'Windows')
+    $a2 = @(Get-HLAnnouncements -Root $nroot)
+    Assert-True ($a0.Count -eq 1 -and $a0[0].Kind -eq 'release' -and $a0[0].Version -eq $HLVersion -and $a1.Count -eq 0) 'novedades: solo la versión instalada y desaparece con Entendido'
+    Assert-True ($a2.Count -eq 1 -and $a2[0].Kind -eq 'apply' -and ($a2[0].Items.title -join '|') -match '12 cambios.*2 pasos nuevos.*Reinicia' -and $a2[0].Items[0].text -eq 'En Windows, Red. Todo se puede revertir.') 'aviso de ajustes aplicados: cambios, pasos nuevos y reinicio'
+    Set-HLAnnouncementSeen -Root $nroot -Card $a2[0]
+    $a3 = @(Get-HLAnnouncements -Root $nroot -Version '99.0.0')
+    Assert-True (@(Get-HLAnnouncements -Root $nroot).Count -eq 0 -and $a3.Count -eq 0) 'avisos vistos no vuelven; versiones sin entrada no inventan novedades'
+
+    # Limpieza de archivos de versiones anteriores, sin salir de la carpeta.
+    $oroot = Join-Path $t20 'o'
+    New-Item -ItemType Directory -Path (Join-Path $oroot 'src'), (Join-Path $oroot 'backup_20261004-151300'), (Join-Path $oroot 'backups') -Force | Out-Null
+    "install_seguro.ps1`r`nbackup_20261004-151300`r`nbackups`r`n..\fuera.txt`r`n# comentario" | Set-Content (Join-Path $oroot 'src\obsolete.txt')
+    'x' | Set-Content (Join-Path $oroot 'install_seguro.ps1')
+    'x' | Set-Content (Join-Path $t20 'fuera.txt')
+    $gone = @(Remove-HLObsoleteFiles -Root $oroot)
+    Assert-True ($gone.Count -eq 2 -and -not (Test-Path (Join-Path $oroot 'install_seguro.ps1')) -and (Test-Path (Join-Path $oroot 'backups')) -and (Test-Path (Join-Path $t20 'fuera.txt'))) 'limpieza: borra lo obsoleto, nunca backups ni rutas fuera de Hardline'
+    $obs = @(Get-Content (Join-HLPath @($root, 'src', 'obsolete.txt')) | Where-Object { $_ -and -not $_.StartsWith('#') })
+    Assert-True (@($obs | Where-Object { Test-Path (Join-HLPath @($root, $_)) }).Count -eq 0) 'obsolete.txt no incluye nada que siga en el repo'
+
+    # Interfaz: fases, tema y ventanas.
+    . (Join-HLPath @($root, 'src', 'gui', 'app.ps1')) -Root $root
+    Assert-True ((Get-HLPhaseFromLine '[*] Audio competitivo (pasos claros)...') -eq 'Audio competitivo (pasos claros)' -and $null -eq (Get-HLPhaseFromLine '[+] OK')) 'interfaz: las líneas [*] son las fases'
+    $sel = @(Select-HLGuideSteps -Steps $d20.Steps -Done @{ ($d20.Steps[1].Id) = $true } -Seen @{ ($d20.Steps[0].Id) = $true } -OnlyNew)
+    Assert-True ($sel.Count -eq 1 -and $sel[0].Id -eq $d20.Steps[2].Id) 'asistente al terminar de aplicar: solo pasos nuevos'
+    $instSrc20 = Get-Content (Join-HLPath @($root, 'install.ps1')) -Raw
+    Assert-True ($instSrc20 -match 'Invoke-HLGuideConsole -Root \$HLRoot -OnlyNew' -and $instSrc20 -match 'Save-HLApplySummary' -and $instSrc20 -match 'Remove-HLObsoleteFiles' -and $instSrc20 -match "\`$bound\['Gui'\] = \`$true") 'instalador: guía solo con lo nuevo, aviso para Hardline EQ, limpieza e interfaz por defecto'
+    . (Join-HLPath @($root, 'src', 'gui', 'theme.ps1'))
+    foreach ($xf in @('main.xaml', 'guide.xaml', 'eq_panel.xaml', 'news.xaml')) {
+        $tx = Import-HLXaml -Path (Join-HLPath @($root, 'src', 'gui', $xf))
+        Assert-True ($tx.OuterXml -notmatch 'HL:THEME' -and $tx.OuterXml -match 'x:Key="Accent"' -and (Get-HLXamlNames -Xaml $tx).Count -gt 0) "$xf con el tema insertado"
+    }
+    if ($onWindows -and $PSVersionTable.PSEdition -eq 'Desktop') {
+        $built = @()
+        foreach ($xf in @('main.xaml', 'guide.xaml', 'eq_panel.xaml', 'news.xaml')) {
+            try { $nw = New-HLWindow -Path (Join-HLPath @($root, 'src', 'gui', $xf)); if (@($nw.Ui.Values | Where-Object { $null -eq $_ }).Count -eq 0) { $built += $xf } } catch { Write-Host "    $xf`: $($_.Exception.Message)" }
+        }
+        Assert-True ($built.Count -eq 4) 'las cuatro ventanas se construyen con el tema y encuentran todos sus controles' ($built -join ', ')
+    }
+} finally {
+    Remove-Item $t20 -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 # ---------------------------------------------------------------------------
 Write-Host ''

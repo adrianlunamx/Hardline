@@ -87,9 +87,10 @@ En vez de dejar todo apagado de forma permanente, una tarea al iniciar sesión (
 
 - **El juego no se toca**: ni prioridad ni afinidad. El anticheat vigila su proceso y no hay ganancia que justifique el riesgo.
 - **Discord** no está en la lista: el chat de voz debe seguir fluido.
-- **Configuración**: `config\gamesession.json` (se crea a partir de `src/modules/windows/configs/gamesession.default.json` y las actualizaciones no la pisan). Se relee al empezar cada partida.
-- **Registro**: `logs\gamesession.log`, una línea al empezar y otra al terminar.
-- **Robustez**: el estado de la partida se guarda en `config\gamesession.state.json`. Si el PC se apaga a mitad de partida, al siguiente inicio de sesión se restaura lo pendiente. El rollback también lo hace antes de quitar la tarea.
+- **Dónde corre**: la tarea se ejecuta elevada, así que el script, su configuración, su estado y su log viven en `C:\Program Files\Hardline\gamesession`, donde solo escriben los administradores. Hasta la 1.11.0 corría desde `%LOCALAPPDATA%\Hardline`: cualquier programa con tu usuario podía cambiar el script y Windows lo ejecutaba como administrador sin preguntar.
+- **Configuración**: editas `config\gamesession.json` (se crea a partir de `src/modules/windows/configs/gamesession.default.json` y las actualizaciones no la pisan) y cada vez que aplicas se copia a la carpeta protegida. Se relee al empezar cada partida.
+- **Registro**: `gamesession.log` en esa carpeta, una línea al empezar y otra al terminar.
+- **Robustez**: el estado de la partida se guarda en `gamesession.state.json`, en la misma carpeta. Si el PC se apaga a mitad de partida, al siguiente inicio de sesión se restaura lo pendiente. El rollback también lo hace antes de quitar la tarea.
 
 ### Timer resolution 0.5 ms [auto]
 

@@ -4,6 +4,29 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 
 ## [Sin publicar]
 
+## [1.12.0] - 2026-10-07
+
+### Añadido
+
+- **La guía abre el panel de cada paso**: si un paso manual es en Windows o en un programa, la guía trae un botón que lo abre directamente (Sonido en Reproducción o Grabación, Configuración de sonido, Mezclador de volumen, Pantalla avanzada, Aplicaciones, Configurator de Equalizer APO, HeSuVi, Voicemeeter, Hardline EQ, test de pasos) y el texto dice qué tocar ahí. En consola, `a` abre el panel; en la página HTML, los de Configuración son enlaces y el resto explica cómo llegar. `Add-HLManualStep` acepta el panel como cuarto parámetro; sin él se deduce del texto.
+- **Cada paso manual se enseña una sola vez**: al terminar de aplicar solo aparecen los pasos que nunca has visto (marcados como NUEVO); los pendientes siguen en «Guía de pasos». Lo visto se guarda en `config\guide_state.json` junto a lo hecho. El id de cada paso ya no depende de los números del texto («el driver tiene 41/42 días» es el mismo paso); lo marcado con la 1.11 se respeta.
+- **Novedades en Hardline EQ**: una tarjeta anuncia cada versión nueva (`src\news.json`) y cada vez que se aplican ajustes (cambios, módulos, pasos nuevos, si hay que reiniciar y fallos), hasta que pulsas «Entendido». Botón «Novedades» en Hardline EQ y en la interfaz con el historial.
+- `install.ps1 -Console`: con `irm | iex` sin parámetros ahora se abre la interfaz; `-Console` mantiene el modo consola.
+
+### Cambiado
+
+- **Interfaz renovada** (tema compartido `src\gui\theme.xaml`): barra de título oscura e icono de Hardline, interruptores en vez de casillas, desplegables y barras de desplazamiento oscuros, tarjetas de guía y audio, mosaicos de herramientas, la fase actual mientras se aplica (las líneas `[*]` de la salida) y, al terminar, cambios aplicados, pasos nuevos y fallos. El registro completo se oculta o muestra con un clic.
+- Pasos manuales del audio reescritos más cortos, cada uno con su panel.
+- Accesos directos de Inicio > Hardline con el icono de Hardline en lugar del de PowerShell.
+
+### Seguridad
+
+- **El modo partida corre desde `C:\Program Files\Hardline\gamesession`**. La tarea `Hardline-GameSession` se ejecuta elevada al iniciar sesión; desde la 1.10.2 el script tenía una ACL de solo lectura, pero la carpeta seguía siendo del usuario, que podía borrarlo y poner otro con el mismo nombre (bypass de UAC). Script, configuración, estado y log están ahora donde solo escriben los administradores (fail-closed si la carpeta heredara escritura para usuarios). `config\gamesession.json` sigue siendo la copia editable y se copia al aplicar. La tarea de versiones anteriores se sustituye al aplicar; el rollback borra la carpeta (tipo de manifiesto `Directory`).
+
+### Quitado
+
+- Scripts y documentos generados por DeepSeek que no formaban parte de Hardline (`install_seguro.ps1`, `install_ascii.ps1`, `url_validator.psm1`, guías sueltas, carpetas `backup_*`...). Al actualizar o aplicar se borran también de la carpeta de instalación (lista en `src\obsolete.txt`).
+
 ## [1.11.0] - 2026-10-03
 
 ### Añadido
