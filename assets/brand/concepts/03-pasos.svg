@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Hardline: Pasos">
+  <defs>
+    <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="356" x2="0" y2="150">
+      <stop offset="0" stop-color="#FF5A1F"/><stop offset="1" stop-color="#FFB15A"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="#0B0D12"/>
+  <rect x="17.5" y="17.5" width="477" height="477" rx="110.5" fill="none" stroke="#2E3746" stroke-width="3"/>
+  <!-- Ecualizador: graves bajos (explosiones), la banda de 2-4 kHz (pasos) arriba en naranja. -->
+  <g stroke-linecap="round" stroke-width="34">
+    <line x1="106" y1="356" x2="106" y2="316" stroke="#3A4352"/>
+    <line x1="166" y1="356" x2="166" y2="296" stroke="#3A4352"/>
+    <line x1="226" y1="356" x2="226" y2="250" stroke="#5B6472"/>
+    <line x1="286" y1="356" x2="286" y2="150" stroke="url(#g)"/>
+    <line x1="346" y1="356" x2="346" y2="176" stroke="url(#g)"/>
+    <line x1="406" y1="356" x2="406" y2="262" stroke="#5B6472"/>
+  </g>
+  <!-- La línea de suelo: la "hard line". -->
+  <line x1="80" y1="402" x2="432" y2="402" stroke="#EEF1F6" stroke-width="10" stroke-linecap="round" opacity="0.9"/>
+</svg>

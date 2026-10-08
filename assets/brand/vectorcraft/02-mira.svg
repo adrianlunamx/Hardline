@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <filter id="filter-1" filterUnits="userSpaceOnUse" x="106" y="162" width="300" height="188" data-vc-blend="screen" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="11" result="glow"/><feFlood flood-color="#ff5a1f" flood-opacity="0.65"/><feComposite in2="glow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="linear-gradient-1" x1="150" y1="206" x2="227.169" y2="369.599" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff5a1f"/>
+      <stop offset="1" stop-color="#ff9a3d"/>
+    </linearGradient>
+    <filter id="filter-2" filterUnits="userSpaceOnUse" x="205" y="205" width="102" height="102" data-vc-blend="screen" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="11" result="glow"/><feFlood flood-color="#ff5a1f" flood-opacity="0.65"/><feComposite in2="glow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <title>02-mira.svg</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path d="M128 16 L384 16 C445.856 16 496 66.144 496 128 L496 384 C496 445.856 445.856 496 384 496 L128 496 C66.144 496 16 445.856 16 384 L16 128 C16 66.144 66.144 16 128 16 Z" fill="#0b0d12"/>
+    <path d="M128 17.5 L384 17.5 C445.027 17.5 494.5 66.973 494.5 128 L494.5 384 C494.5 445.027 445.027 494.5 384 494.5 L128 494.5 C66.973 494.5 17.5 445.027 17.5 384 L17.5 128 C17.5 66.973 66.973 17.5 128 17.5 Z" fill="none" stroke="#2e3746" stroke-width="3"/>
+    <g>
+      <path d="M256 104 C339.947 104 408 172.053 408 256" fill="none" stroke="#eef1f6" stroke-width="20" stroke-linecap="round" opacity="0.92"/>
+      <path d="M408 256 C408 339.947 339.947 408 256 408" fill="none" stroke="#eef1f6" stroke-width="20" stroke-linecap="round" opacity="0.35"/>
+      <path d="M256 408 C172.053 408 104 339.947 104 256" fill="none" stroke="#eef1f6" stroke-width="20" stroke-linecap="round" opacity="0.92"/>
+      <path d="M104 256 C104 172.053 172.053 104 256 104" fill="none" stroke="#eef1f6" stroke-width="20" stroke-linecap="round" opacity="0.35"/>
+    </g>
+    <g>
+      <path d="M256 70 L256 118" fill="#000000" stroke="#eef1f6" stroke-width="18" stroke-linecap="round"/>
+      <path d="M256 394 L256 442" fill="#000000" stroke="#eef1f6" stroke-width="18" stroke-linecap="round"/>
+      <path d="M70 256 L118 256" fill="#000000" stroke="#eef1f6" stroke-width="18" stroke-linecap="round"/>
+      <path d="M394 256 L442 256" fill="#000000" stroke="#eef1f6" stroke-width="18" stroke-linecap="round"/>
+    </g>
+    <g filter="url(#filter-1)">
+      <path d="M150 256 L176 256 L190 206 L208 306 L226 226 L242 282 L256 256 L362 256" fill="none" stroke="url(#linear-gradient-1)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g filter="url(#filter-2)">
+      <path d="M272 256 C272 264.837 264.837 272 256 272 C247.163 272 240 264.837 240 256 C240 247.163 247.163 240 256 240 C264.837 240 272 247.163 272 256 Z" fill="#ff5a1f"/>
+    </g>
+  </g>
+</svg>

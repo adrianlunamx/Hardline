@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="radial-gradient-1" cx="0" cy="0" r="73.5" gradientTransform="matrix(1 0 0 1.156 329.5 171)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff5a1f" stop-opacity="0"/>
+      <stop offset="1" stop-color="#ff5a1f" stop-opacity="0.35"/>
+    </radialGradient>
+    <filter id="filter-1" filterUnits="userSpaceOnUse" x="216" y="131" width="227" height="165" data-vc-blend="screen" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="11" result="glow"/><feFlood flood-color="#ff5a1f" flood-opacity="0.65"/><feComposite in2="glow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="filter-2" filterUnits="userSpaceOnUse" x="289" y="99" width="102" height="102" data-vc-blend="screen" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="11" result="glow"/><feFlood flood-color="#ff5a1f" flood-opacity="0.65"/><feComposite in2="glow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="filter-3" filterUnits="userSpaceOnUse" x="326" y="150" width="92" height="92" data-vc-blend="screen" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="11" result="glow"/><feFlood flood-color="#ff5a1f" flood-opacity="0.65"/><feComposite in2="glow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="filter-4" filterUnits="userSpaceOnUse" x="350" y="198" width="84" height="84" data-vc-blend="screen" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="11" result="glow"/><feFlood flood-color="#ff5a1f" flood-opacity="0.65"/><feComposite in2="glow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <title>06-radar.svg</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path d="M128 16 L384 16 C445.856 16 496 66.144 496 128 L496 384 C496 445.856 445.856 496 384 496 L128 496 C66.144 496 16 445.856 16 384 L16 128 C16 66.144 66.144 16 128 16 Z" fill="#0b0d12"/>
+    <path d="M128 17.5 L384 17.5 C445.027 17.5 494.5 66.973 494.5 128 L494.5 384 C494.5 445.027 445.027 494.5 384 494.5 L128 494.5 C66.973 494.5 17.5 445.027 17.5 384 L17.5 128 C17.5 66.973 66.973 17.5 128 17.5 Z" fill="none" stroke="#2e3746" stroke-width="3"/>
+    <g>
+      <path d="M426 256 C426 349.888 349.888 426 256 426 C162.112 426 86 349.888 86 256 C86 162.112 162.112 86 256 86 C349.888 86 426 162.112 426 256 Z" fill="none" stroke="#2e3746" stroke-width="6"/>
+      <path d="M372 256 C372 320.065 320.065 372 256 372 C191.935 372 140 320.065 140 256 C140 191.935 191.935 140 256 140 C320.065 140 372 191.935 372 256 Z" fill="none" stroke="#2e3746" stroke-width="6"/>
+      <path d="M318 256 C318 290.242 290.242 318 256 318 C221.758 318 194 290.242 194 256 C194 221.758 221.758 194 256 194 C290.242 194 318 221.758 318 256 Z" fill="none" stroke="#2e3746" stroke-width="6"/>
+    </g>
+    <path d="M256 256 L256 86 C316.655 86.08 372.673 118.471 403 171 Z" fill="url(#radial-gradient-1)"/>
+    <g filter="url(#filter-1)">
+      <path d="M256 256 L403 171" fill="#000000" stroke="#ff5a1f" stroke-width="10" stroke-linecap="round"/>
+    </g>
+    <g filter="url(#filter-2)">
+      <path d="M356 150 C356 158.837 348.837 166 340 166 C331.163 166 324 158.837 324 150 C324 141.163 331.163 134 340 134 C348.837 134 356 141.163 356 150 Z" fill="#ff5a1f"/>
+    </g>
+    <g filter="url(#filter-3)">
+      <path d="M383 196 C383 202.075 378.075 207 372 207 C365.925 207 361 202.075 361 196 C361 189.925 365.925 185 372 185 C378.075 185 383 189.925 383 196 Z" fill="#ff5a1f" opacity="0.6"/>
+    </g>
+    <g filter="url(#filter-4)">
+      <path d="M399 240 C399 243.866 395.866 247 392 247 C388.134 247 385 243.866 385 240 C385 236.134 388.134 233 392 233 C395.866 233 399 236.134 399 240 Z" fill="#ff5a1f" opacity="0.3"/>
+    </g>
+    <path d="M270 256 C270 263.732 263.732 270 256 270 C248.268 270 242 263.732 242 256 C242 248.268 248.268 242 256 242 C263.732 242 270 248.268 270 256 Z" fill="#eef1f6"/>
+  </g>
+</svg>

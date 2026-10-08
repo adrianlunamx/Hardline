@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Hardline: monograma H">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FF5A1F"/><stop offset="1" stop-color="#FF9A3D"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#151A24"/><stop offset="1" stop-color="#0B0D12"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)"/>
+  <rect x="17.5" y="17.5" width="477" height="477" rx="110.5" fill="none" stroke="#2E3746" stroke-width="3"/>
+  <!-- H: dos astas y, en vez de travesaño, la línea firme que sale por la derecha. -->
+  <rect x="112" y="118" width="62" height="276" rx="18" fill="#EEF1F6"/>
+  <rect x="290" y="118" width="62" height="276" rx="18" fill="#EEF1F6"/>
+  <rect x="112" y="226" width="300" height="60" rx="30" fill="url(#g)"/>
+  <circle cx="414" cy="256" r="40" fill="#FF5A1F"/>
+  <circle cx="414" cy="256" r="15" fill="#0B0D12"/>
+</svg>

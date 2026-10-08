@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <filter id="filter-1" filterUnits="userSpaceOnUse" x="49" y="19" width="414" height="476" data-vc-blend="screen" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="11" result="glow"/><feFlood flood-color="#ff5a1f" flood-opacity="0.65"/><feComposite in2="glow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="linear-gradient-1" x1="88" y1="58" x2="88" y2="456" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff8a3d"/>
+      <stop offset="1" stop-color="#e5400f"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-2" x1="88" y1="58" x2="480.361" y2="389.239" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffc48a"/>
+      <stop offset="0.5" stop-color="#ff5a1f"/>
+      <stop offset="1" stop-color="#8a2a0a"/>
+    </linearGradient>
+    <filter id="filter-2" filterUnits="userSpaceOnUse" x="183" y="203" width="228" height="114" data-vc-blend="screen" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="11" result="glow"/><feFlood flood-color="#ff5a1f" flood-opacity="0.65"/><feComposite in2="glow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="linear-gradient-3" x1="218" y1="238" x2="218" y2="282" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff8a3d"/>
+      <stop offset="1" stop-color="#e5400f"/>
+    </linearGradient>
+  </defs>
+  <title>05-escudo.svg</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path d="M128 16 L384 16 C445.856 16 496 66.144 496 128 L496 384 C496 445.856 445.856 496 384 496 L128 496 C66.144 496 16 445.856 16 384 L16 128 C16 66.144 66.144 16 128 16 Z" fill="#0b0d12"/>
+    <g filter="url(#filter-1)">
+      <path d="M256 58 L424 120 L424 262 C424 352 352 418 256 456 C160 418 88 352 88 262 L88 120 Z" fill="url(#linear-gradient-1)" stroke="url(#linear-gradient-2)" stroke-width="8" stroke-linejoin="round"/>
+    </g>
+    <path d="M256 92 L392 142 L392 262 C392 334 336 388 256 420 C176 388 120 334 120 262 L120 142 Z" fill="#0b0d12"/>
+    <path d="M170 160 L218 160 L218 238 L294 238 L294 160 L342 160 L342 352 L294 352 L294 282 L218 282 L218 352 L170 352 Z" fill="#eef1f6"/>
+    <g filter="url(#filter-2)">
+      <path d="M218 238 L360 238 L376 260 L360 282 L218 282 Z" fill="url(#linear-gradient-3)"/>
+    </g>
+  </g>
+</svg>
