@@ -19,11 +19,14 @@
       </Button>
       <StackPanel Orientation="Horizontal">
         <Canvas Width="30" Height="30">
-          <Rectangle Width="30" Height="30" RadiusX="9" RadiusY="9" Fill="#12161E" Stroke="#2E3746"/>
-          <Polyline Points="4,15 6,15 7,9 8,20 9.5,11 10.5,18.5 11.5,13 12.5,16.5 13.5,14.5 14.5,15.7 15.5,15" Stroke="#5B6472"
-                    StrokeThickness="1.5" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-          <Line X1="15.5" Y1="15" X2="24.5" Y2="15" Stroke="#FF5A1F" StrokeThickness="2.5" StrokeStartLineCap="Round"/>
-          <Ellipse Canvas.Left="22.5" Canvas.Top="13" Width="4.5" Height="4.5" Fill="#FF5A1F"/>
+          <Rectangle Width="30" Height="30" RadiusX="9" RadiusY="9" Fill="#0E1116" Stroke="#2E3746"/>
+          <Rectangle Canvas.Left="6" Canvas.Top="6.38" Width="3.87" Height="17.25" RadiusX="1.12" RadiusY="1.12" Fill="#EEF1F6"/>
+          <Rectangle Canvas.Left="17.13" Canvas.Top="6.38" Width="3.87" Height="17.25" RadiusX="1.12" RadiusY="1.12" Fill="#EEF1F6"/>
+          <Rectangle Canvas.Left="6" Canvas.Top="13.12" Width="18.75" Height="3.75" RadiusX="1.88" RadiusY="1.88">
+            <Rectangle.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#FF5A1F" Offset="0"/><GradientStop Color="#FF9A3D" Offset="1"/></LinearGradientBrush></Rectangle.Fill>
+          </Rectangle>
+          <Ellipse Canvas.Left="22.37" Canvas.Top="12.5" Width="5" Height="5" Fill="#FF5A1F"/>
+          <Ellipse Canvas.Left="23.94" Canvas.Top="14.06" Width="1.88" Height="1.88" Fill="#0E1116"/>
         </Canvas>
         <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
           <TextBlock Text="HARDLINE EQ" FontFamily="{StaticResource DisplayFont}" FontWeight="Bold" FontSize="14"/>

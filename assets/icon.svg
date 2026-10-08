@@ -1,7 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Hardline">
   <title>Hardline</title>
-  <rect x="0" y="0" width="128.0" height="128.0" rx="28.0" fill="#0E1116" stroke="#2A313C" stroke-width="2.00"/>
-  <polyline points="18.00,64.00 26.00,64.00 30.00,38.00 35.00,86.00 40.00,46.00 45.00,78.00 50.00,54.00 54.00,70.00 58.00,60.00 62.00,66.00 66.00,64.00" fill="none" stroke="#5B6472" stroke-width="6.00" stroke-linecap="round" stroke-linejoin="round"/>
-  <line x1="66.00" y1="64.00" x2="104.00" y2="64.00" stroke="#FF5A1F" stroke-width="10.00" stroke-linecap="round"/>
-  <circle cx="104.00" cy="64.00" r="9.00" fill="#FF5A1F"/>
+  <defs><linearGradient id="hlg" gradientUnits="userSpaceOnUse" x1="25.60" y1="0" x2="106.00" y2="0"><stop offset="0" stop-color="#FF5A1F"/><stop offset="1" stop-color="#FF9A3D"/></linearGradient></defs>
+  <rect x="0" y="0" width="128.00" height="128.00" rx="28.00" fill="#0E1116" stroke="#2A313C" stroke-width="2.00"/>
+  <rect x="25.60" y="27.20" width="16.53" height="73.60" rx="4.80" fill="#EEF1F6"/>
+  <rect x="73.07" y="27.20" width="16.53" height="73.60" rx="4.80" fill="#EEF1F6"/>
+  <g><rect x="25.60" y="56.00" width="80.00" height="16.00" rx="8.00" fill="url(#hlg)"/><circle cx="106.13" cy="64.00" r="10.67" fill="#FF5A1F"/></g>
+  <circle cx="106.13" cy="64.00" r="4.00" fill="#0E1116"/>
 </svg>
