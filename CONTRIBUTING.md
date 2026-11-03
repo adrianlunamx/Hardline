@@ -4,7 +4,7 @@ Gracias por querer mejorar Hardline. Tres reglas por encima de todo:
 
 1. **Nada de placebo.** Cada cambio necesita una fuente (documentación oficial, medición, benchmark) o una forma de medirlo. Si un tweak circula mucho pero no tiene efecto, va a la sección "Lo que Hardline NO hace" de [TWEAKS_EXPLAINED.md](docs/TWEAKS_EXPLAINED.md), no al código.
 2. **Todo revertible.** Ningún módulo toca el sistema directamente: usa `Set-HLRegistryValue`, `Set-HLServiceStart`, `Backup-HLFile` o `Add-HLManifestEntry` (en `src/core/common.ps1`). Si añades un tipo de cambio nuevo, añade también su caso en `Undo-HLManifestEntry`.
-3. **No tocar el proceso del juego.** Ni memoria, ni prioridad, ni afinidad, ni archivos del juego. Solo la configuración de usuario que el propio juego guarda en `Documentos\Call of Duty\players`.
+3. **No tocar el proceso del juego.** Ni memoria, ni prioridad, ni afinidad, ni archivos del juego. Solo la configuración de usuario que el propio juego guarda en `AppData\Local\Activision\Call of Duty\players` (antes `Documentos\Call of Duty\players`).
 
 ## Probar
 

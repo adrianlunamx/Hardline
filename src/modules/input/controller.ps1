@@ -163,11 +163,11 @@ function Invoke-HLController {
 
     # Ajustes del juego
     $dir = $Hardware.Game.ConfigDir
-    $cst = if ($dir -and (Test-Path $dir)) { Get-ChildItem -Path $dir -Filter 'options*.cst' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1 } else { $null }
-    if ($cst -and -not (Test-HLProcess -Name 'cod')) {
-        $res = Update-HLCstFile -Path $cst.FullName -Rules (Get-HLWarzoneControllerRules)
+    $cfg = if ($dir) { @(Get-HLWarzoneConfigFiles -Dir $dir | Where-Object { $_.Kind -in @('system', 'profile', 'cst') }) } else { @() }
+    if ($cfg.Count -gt 0 -and -not (Test-HLProcess -Name 'cod')) {
+        $res = Update-HLWarzoneConfig -Files $cfg -Rules (Get-HLWarzoneControllerRules)
         foreach ($c in $res.Changes) { Add-HLResult -Module 'Mando' -Item $c.Label -Status Applied -Detail "$($c.Key): $($c.From) -> $($c.To)" }
-        Write-HLSub "Ajustes de mando en $($cst.Name): $($res.Changes.Count)" 'OK'
+        Write-HLSub "Ajustes de mando en $(@($cfg.Name)[0]): $($res.Changes.Count)" 'OK'
         if ($res.Missing.Count -gt 0) { Add-HLManualStep 'Mando' ('En Warzone > Mando, pon a mano: ' + ($res.Missing -join ', ') + ' (zona muerta de gatillos 0, efecto de gatillo y vibración desactivados).') }
     } else {
         Add-HLManualStep 'Mando' 'En Warzone > Mando: zona muerta de gatillos 0, efecto de gatillo desactivado y vibración desactivada.'

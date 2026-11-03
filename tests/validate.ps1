@@ -239,6 +239,39 @@ try {
     $nvRules = @(Get-HLWarzoneRules -PhysicalCores 6 -GpuVendor 'NVIDIA'); $amdRules = @(Get-HLWarzoneRules -PhysicalCores 6 -GpuVendor 'AMD')
     Assert-True (@($nvRules | Where-Object { $_.Label -eq 'NVIDIA Reflex' }).Count -eq 1 -and @($nvRules | Where-Object { $_.Label -match 'Anti-Lag' }).Count -eq 0 -and @($amdRules | Where-Object { $_.Label -match 'Anti-Lag' }).Count -eq 1) 'opción de baja latencia según el fabricante de la GPU'
 
+    # Formato actual: %LOCALAPPDATA%\Activision\...\players, s.1.0.cod<NN>.txt y <cuenta>\g.cod<NN>.*.txt
+    . (Join-HLPath @($root, 'src', 'core', 'detector.ps1'))
+    $pl = Join-Path $tmp 'players'; $acct = Join-Path $pl '985627187'
+    New-Item -ItemType Directory -Path $acct -Force | Out-Null
+    $sys = @(
+        '1'
+        'MusicVolume@0;14317;21371 = 1.000000 // 0.000000 to 1.000000'
+        'DisplayMode@0;22564;43096 = Fullscreen borderless window // one of Windowed, Fullscreen, Fullscreen borderless window'
+        'ParticleQuality@0;60198;58629 = high // one of very low, low, medium, high'
+        'VolumetricQuality@0;4276;43096 = QUALITY_HIGH // one of QUALITY_LOW, QUALITY_MEDIUM, QUALITY_HIGH'
+        'Tessellation@0;27349;11445 = 1_Near // one of 0_Off, 1_Near, 2_All'
+        'DeferredPhysics@0;6619;43096 = High Quality // one of Low Quality, Medium Quality, High Quality'
+        'TextureFilter@0;63279;8284 = aniso 16x // one of aniso 2x, aniso 4x, aniso 8x, aniso 16x'
+    ) -join "`r`n"
+    foreach ($n in @('s.1.0.cod26.txt0', 's.1.0.cod26.txt1', 's.1.0.cod25.txt0')) { [IO.File]::WriteAllText((Join-Path $pl $n), $sys) }
+    foreach ($n in @('g.cod26.1.0.l.txt', 'g.cod25.1.0.l.txt0')) { [IO.File]::WriteAllText((Join-Path $acct $n), "AudioMixPreset@0;5555;35888 = headphones_rex`r`nMusicVolume@0;54363;21371 = 1.000000 // 0.000000 to 1.000000") }
+    [IO.File]::WriteAllText((Join-Path $pl 's.1.0.cod26.m'), 'x')
+    $wf = @(Get-HLWarzoneConfigFiles -Dir $pl)
+    Assert-True ($wf.Count -eq 3 -and -not ($wf | Where-Object { $_.Name -match 'cod25|\.m$' }) -and @($wf | Where-Object Kind -eq 'profile').Count -eq 1) 'archivos del juego: solo el título más nuevo (cod26), sistema y cuenta'
+    $sp = ConvertFrom-HLCstLine 'DisplayMode@0;1;1 = Fullscreen borderless window // one of Windowed, Fullscreen'
+    Assert-True ($sp.Value -eq 'Fullscreen borderless window' -and $sp.Comment -match '^ // one of') 'valor con espacios sin comillas'
+    $rs = Update-HLWarzoneConfig -Files @($wf | Where-Object Kind -eq 'system') -Rules (Get-HLWarzoneRules -PhysicalCores 6)
+    $s26 = [IO.File]::ReadAllText((Join-Path $pl 's.1.0.cod26.txt1'))
+    Assert-True ($s26 -match 'DisplayMode@0;22564;43096 = Fullscreen // one of' -and $s26 -match 'ParticleQuality@0;60198;58629 = very low //' -and $s26 -match 'VolumetricQuality@0;4276;43096 = QUALITY_LOW //' -and $s26 -match 'Tessellation@0;27349;11445 = 0_Off //' -and $s26 -match 'DeferredPhysics@0;6619;43096 = Low Quality //') 'formato actual: listas sin corchetes y opciones con adornos'
+    Assert-True ([IO.File]::ReadAllText((Join-Path $pl 's.1.0.cod26.txt0')) -eq $s26 -and [IO.File]::ReadAllText((Join-Path $pl 's.1.0.cod25.txt0')) -eq $sys) 'las dos copias del título actual, el anterior intacto'
+    Assert-True (@($rs.Changes | Where-Object Key -eq 'DisplayMode').Count -eq 1 -and ($rs.Missing -contains 'Texture Filter (valor no resoluble)') -and -not ($rs.Missing -contains 'Particle Quality')) 'cambios contados una vez; faltan solo los que no están en ningún archivo'
+    $ra = Update-HLWarzoneConfig -Files $wf -Rules (Get-HLWarzoneAudioRules)
+    Assert-True ([IO.File]::ReadAllText((Join-Path $acct 'g.cod26.1.0.l.txt')) -match 'MusicVolume@0;54363;21371 = 0\.000000 //' -and $s26 -notmatch 'MusicVolume@0;14317;21371 = 0' -and [IO.File]::ReadAllText((Join-Path $pl 's.1.0.cod26.txt0')) -match 'MusicVolume@0;14317;21371 = 0\.000000 //') 'música a 0 con los mismos decimales, en sistema y cuenta'
+    $old = Join-Path $tmp 'docs_players'; New-Item -ItemType Directory -Path $old -Force | Out-Null
+    [IO.File]::WriteAllText((Join-Path $old 'options.4.cod24.cst'), 'x'); (Get-Item (Join-Path $old 'options.4.cod24.cst')).LastWriteTime = (Get-Date).AddDays(-30)
+    $vacia = Join-Path $tmp 'no_existe'
+    Assert-True ((Get-HLWarzoneConfigDir -Candidates @($old, $pl)) -eq $pl -and (Get-HLWarzoneConfigDir -Candidates @($vacia, $old)) -eq $old -and (Get-HLWarzoneConfigDir -Candidates @($vacia, (Join-Path $tmp 'tampoco'))) -eq $vacia) 'carpeta del juego: la de configuración más reciente'
+
     # ---------------------------------------------------------------------------
     if ($onWindows) {
         Write-Host "`n[7] Registro: aplicar y revertir" -ForegroundColor Cyan

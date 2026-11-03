@@ -266,11 +266,11 @@ El reporte traduce cada medición en un hallazgo con su recomendación concreta.
 
 Archivo: `src/modules/game/warzone.ps1`.
 
-El juego guarda la configuración en `Documentos\Call of Duty\players\options.<n>.cod<año>.cst` (y `adv_options.ini` en Warzone 1). Los nombres de los ajustes cambian entre temporadas, así que Hardline:
+El juego guarda la configuración en `%LOCALAPPDATA%\Activision\Call of Duty\players`: `s.1.0.cod<NN>.txt` (gráficos, dispositivos y volúmenes) y `<cuenta>\g.cod<NN>.*.txt` (mezcla de audio, mando). Las temporadas anteriores usaban `Documentos\Call of Duty\players\options.<n>.cod<año>.cst` (y `adv_options.ini` en Warzone 1). Hardline usa la carpeta con la configuración más reciente y, dentro de ella, solo el título más nuevo: al actualizarse, el juego crea un perfil nuevo (por ejemplo `cod26` junto a `cod25`) con los valores de fábrica, incluida la música al 100 %. Por eso conviene volver a aplicar Hardline después de una actualización grande. Los nombres de los ajustes cambian entre temporadas, así que Hardline:
 
 1. Busca cada ajuste por una lista de nombres candidatos.
 2. Solo toca claves que ya existen en tu archivo.
-3. Elige el valor según lo que el propio archivo declara como válido (`// one of [Low, Normal, High]` o `// 0 to 4`). Nunca escribe un valor que el juego no acepte.
+3. Elige el valor según lo que el propio archivo declara como válido (`// one of [Low, Normal, High]`, `// one of Off, Low Quality, High Quality` o `// 0 to 4`). Nunca escribe un valor que el juego no acepte.
 4. Lista los ajustes que no encontró para que los pongas a mano.
 
 | Ajuste | Valor |
