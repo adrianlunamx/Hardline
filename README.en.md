@@ -125,7 +125,7 @@ Restores the exact previous value of every change (registry, services, power pla
 
 ## Anti-cheat
 
-Hardline never touches the game process: no injection, no memory access, no priority/affinity changes, no game files. It only edits the user config the game itself stores in `Documents\Call of Duty\players`, same as the settings menu.
+Hardline never touches the game process: no injection, no memory access, no priority/affinity changes, no game files. It only edits the user config the game itself stores in `AppData\Local\Activision\Call of Duty\players` (formerly `Documents\Call of Duty\players`), same as the settings menu.
 
 ## Requirements
 

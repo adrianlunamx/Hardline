@@ -260,14 +260,14 @@ Restaura el valor exacto anterior de cada cambio: registro, servicios, plan de e
 
 ## Anticheat
 
-Hardline no toca el proceso del juego, no inyecta nada y no modifica archivos del juego. Solo edita la configuración de usuario que el propio juego guarda en `Documentos\Call of Duty\players`, igual que el menú de ajustes. Más en la [FAQ](docs/FAQ.md#ricochet).
+Hardline no toca el proceso del juego, no inyecta nada y no modifica archivos del juego. Solo edita la configuración de usuario que el propio juego guarda en `AppData\Local\Activision\Call of Duty\players` (antes `Documentos\Call of Duty\players`), igual que el menú de ajustes. Más en la [FAQ](docs/FAQ.md#ricochet).
 
 ## Preguntas rápidas
 
 <details>
 <summary><strong>¿Me pueden banear por usar Hardline?</strong></summary>
 
-Hardline no toca el proceso del juego, no inyecta nada, no lee su memoria y no modifica sus archivos. Cambia Windows, drivers y la configuración que el propio juego guarda en `Documentos\Call of Duty\players`, igual que su menú de ajustes. Detalles en la [FAQ](docs/FAQ.md#ricochet).
+Hardline no toca el proceso del juego, no inyecta nada, no lee su memoria y no modifica sus archivos. Cambia Windows, drivers y la configuración que el propio juego guarda en `AppData\Local\Activision\Call of Duty\players` (antes `Documentos\Call of Duty\players`), igual que su menú de ajustes. Detalles en la [FAQ](docs/FAQ.md#ricochet).
 </details>
 
 <details>

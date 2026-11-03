@@ -4,6 +4,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). V
 
 ## [Sin publicar]
 
+### Corregido
+
+- **Configuración del juego en la carpeta nueva**: el juego ya no guarda sus ajustes en `Documentos\Call of Duty\players`, sino en `%LOCALAPPDATA%\Activision\Call of Duty\players` (`s.1.0.cod<NN>.txt` y `<cuenta>\g.cod<NN>.*.txt`). Hardline no los encontraba y dejaba sin aplicar los ajustes gráficos y de mando. Ahora usa la carpeta con la configuración más reciente y solo el título más nuevo (`cod26` sobre `cod25`); edita todas sus copias (`.txt`, `.txt0`, `.txt1`) y lee el formato nuevo (listas sin corchetes, valores con espacios y opciones como `QUALITY_LOW`, `Very_Low`, `0_Off` o `Low Quality`). La copia de seguridad previa incluye esos archivos.
+- **Música y cinemáticas a 0 tras actualizar el juego**: al cambiar de título, el juego vuelve a poner la música y las cinemáticas al 100 %, y tapan los pasos. Hardline las baja a 0 (los diálogos y el chat de voz no se tocan). El paso manual de la mezcla de audio avisa que, con HeSuVi, va 7.1 / Home Theater y que hay que revisarla después de cada actualización.
+
 ## [1.12.0] - 2026-10-07
 
 ### Añadido

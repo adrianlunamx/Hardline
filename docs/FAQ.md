@@ -4,7 +4,7 @@
 
 **¿Me pueden banear por usar Hardline?**
 
-Hardline no interactúa con el proceso del juego: no inyecta, no lee memoria, no cambia la prioridad de `cod.exe` ni toca archivos del juego. Edita la configuración de usuario en `Documentos\Call of Duty\players`, que es lo mismo que hace el menú de ajustes. El resto son ajustes de Windows, drivers y audio del sistema.
+Hardline no interactúa con el proceso del juego: no inyecta, no lee memoria, no cambia la prioridad de `cod.exe` ni toca archivos del juego. Edita la configuración de usuario en `AppData\Local\Activision\Call of Duty\players` (antes `Documentos\Call of Duty\players`), que es lo mismo que hace el menú de ajustes. El resto son ajustes de Windows, drivers y audio del sistema.
 
 Voicemeeter y Equalizer APO procesan el audio a nivel de Windows, fuera del juego. Son de uso habitual entre jugadores y streamers.
 

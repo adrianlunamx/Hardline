@@ -212,6 +212,56 @@ function Get-HLNetworkInfo {
 }
 
 <#
+    Archivos de configuración del juego en una carpeta players. Kind:
+      system  s.1.0.cod<NN>.txt[0|1]            gráficos, dispositivos, volúmenes
+      profile <cuenta>\g.cod<NN>.*.txt[0|1]     mezcla de audio, mando, por cuenta
+      cst     options.<n>.cod<año>.cst          formato anterior (el más reciente)
+      ini     adv_options.ini                   Warzone 1 / MW2019
+    Del formato actual solo cuenta el título más nuevo (cod26 sobre cod25):
+    al actualizarse, el juego crea el perfil nuevo con los valores de fábrica
+    y deja el anterior. .txt, .txt0 y .txt1 son copias del mismo ajuste.
+#>
+function Get-HLWarzoneConfigFiles {
+    param([Parameter(Mandatory)] [string] $Dir)
+    if (-not (Test-Path -LiteralPath $Dir)) { return @() }
+    $rx = '^(?<k>[sg])\.(?:[\d.]+\.)?cod(?<t>\d+)\.(?:[\w.]+\.)?txt\d?$'
+    $txt = @(Get-ChildItem -LiteralPath $Dir -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match $rx })
+    $out = New-Object System.Collections.Generic.List[object]
+    if ($txt.Count -gt 0) {
+        $title = ($txt | ForEach-Object { [void]($_.Name -match $rx); [int]$Matches['t'] } | Measure-Object -Maximum).Maximum
+        foreach ($f in $txt) {
+            [void]($f.Name -match $rx)
+            if ([int]$Matches['t'] -ne $title) { continue }
+            $out.Add([pscustomobject]@{ Path = $f.FullName; Name = $f.Name; Kind = $(if ($Matches['k'] -eq 's') { 'system' } else { 'profile' }); LastWriteTime = $f.LastWriteTime })
+        }
+    }
+    $cst = Get-ChildItem -LiteralPath $Dir -Filter 'options*.cst' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($cst) { $out.Add([pscustomobject]@{ Path = $cst.FullName; Name = $cst.Name; Kind = 'cst'; LastWriteTime = $cst.LastWriteTime }) }
+    $ini = Get-Item -LiteralPath (Join-Path $Dir 'adv_options.ini') -ErrorAction SilentlyContinue
+    if ($ini) { $out.Add([pscustomobject]@{ Path = $ini.FullName; Name = $ini.Name; Kind = 'ini'; LastWriteTime = $ini.LastWriteTime }) }
+    return $out.ToArray()
+}
+
+<#
+    Carpeta players del juego. Ahora está en %LOCALAPPDATA%\Activision\Call of
+    Duty\players; antes, en Documentos\Call of Duty\players. Si existen las dos,
+    gana la del archivo de configuración más reciente.
+#>
+function Get-HLWarzoneConfigDir {
+    param([string[]] $Candidates = @(
+            (Join-Path $env:LOCALAPPDATA 'Activision\Call of Duty\players'),
+            (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Call of Duty\players')))
+    $best = $null; $bestTime = [datetime]::MinValue
+    foreach ($d in $Candidates) {
+        if (-not $d -or -not (Test-Path -LiteralPath $d)) { continue }
+        $t = (@(Get-HLWarzoneConfigFiles -Dir $d) | Measure-Object -Property LastWriteTime -Maximum).Maximum
+        if (-not $best -or ($t -and $t -gt $bestTime)) { $best = $d; if ($t) { $bestTime = $t } }
+    }
+    if ($best) { return $best }
+    return $Candidates[0]
+}
+
+<#
     Busca el ejecutable del juego. Warzone se lanza como cod.exe desde el
     launcher unificado de Call of Duty (Battle.net, Steam o Xbox app).
 #>
@@ -263,7 +313,7 @@ function Find-HLWarzone {
         Paths     = $found
         Primary   = $found | Select-Object -First 1
         GamePass  = [bool]($found | Where-Object { $_ -like '*XboxGames*' })
-        ConfigDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Call of Duty\players'
+        ConfigDir = Get-HLWarzoneConfigDir
     }
 }
 

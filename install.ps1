@@ -515,7 +515,12 @@ if ($DryRun) {
     if (Test-Path $hw.Game.ConfigDir) {
         $gcfg = Join-Path $snap 'warzone'
         New-Item -ItemType Directory -Path $gcfg -Force | Out-Null
-        Get-ChildItem $hw.Game.ConfigDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '\.(cst|ini)$' } | Copy-Item -Destination $gcfg -Force
+        foreach ($f in @(Get-HLWarzoneConfigFiles -Dir $hw.Game.ConfigDir)) {
+            $rel = $f.Path.Substring($hw.Game.ConfigDir.TrimEnd('\').Length + 1)
+            $dst = Join-Path $gcfg $rel
+            New-Item -ItemType Directory -Path (Split-Path $dst -Parent) -Force | Out-Null
+            Copy-Item -LiteralPath $f.Path -Destination $dst -Force
+        }
     }
     $hw | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $snap 'hardware.json') -Encoding UTF8
     Write-HLOk "Backup en: backups\$($HL.Stamp)\"
